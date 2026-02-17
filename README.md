@@ -86,7 +86,7 @@ Product_price_tier — id, id_product, min_quantity, unit_price.
 ## Próximos pasos
 
 1. Backend: modelos (Order.status y Order.active), auth, CRUD de Product, User, Order, Order-Product, Product_price_tier.
-2. Frontend: catálogo público, login, creación de pedidos (carrito y lógica de tramos), generación de PDF/ticket en el navegador.
-3. Capa IndexedDB: guardar y sincronizar usuarios, productos (con tramos) y pedidos del administrador; deduplicar por created_at.
+2. Frontend: catálogo público, login, creación de pedidos (carrito y lógica de volúmenes), generación de PDF/ticket en el navegador.
+3. Capa IndexedDB: guardar y sincronizar usuarios, productos (con volúmenes) y pedidos del administrador; deduplicar por created_at.
 4. PWA: manifest y service worker para instalar y usar offline.
 5. Probar: administrador crea/edita usuarios, productos y pedidos offline, genera ticket y luego sincroniza al conectarse.

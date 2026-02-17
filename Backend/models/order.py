@@ -1,5 +1,5 @@
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, Float, String, Boolean, ForeignKey, Date, DateTime
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
@@ -13,7 +13,7 @@ class Order(Base):
     id_user = Column(Integer, ForeignKey("users.id"), nullable=False)
     total = Column(Float, default=0.0)
     date = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     payment = Column(String, nullable=True)
     status = Column(String, default="PENDING")
     active = Column(Boolean, default=True)
@@ -45,6 +45,34 @@ class OrderProductCreate(BaseModel):
     id_product: int
     quantity: int
     unit_price: float
+
+
+class OrderLineClientInput(BaseModel):
+    """Solo id_product y quantity; unit_price se calcula en backend."""
+    id_product: int
+    quantity: int
+
+
+class OrderLineAdminInput(BaseModel):
+    """id_product, quantity y opcional unit_price (si viene, se usa; si no, se calcula)."""
+    id_product: int
+    quantity: int
+    unit_price: Optional[float] = None
+
+
+class OrderCreateClient(BaseModel):
+    """Crear pedido como cliente: id_user = usuario logueado, líneas sin precio."""
+    date: Optional[date] = None
+    payment: Optional[str] = None
+    lines: List[OrderLineClientInput]
+
+
+class OrderCreateAdmin(BaseModel):
+    """Crear pedido como admin: id_user en body, líneas con unit_price opcional."""
+    id_user: int
+    date: Optional[date] = None
+    payment: Optional[str] = None
+    lines: List[OrderLineAdminInput]
 
 
 class OrderProductResponse(BaseModel):
