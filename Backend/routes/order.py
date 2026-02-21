@@ -5,7 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import traceback
 
-from models import Order, OrderProduct, InputOrder, InputOrderUpdate, InputPaginatedRequestFilter
+from models import Order, OrderProduct, InputOrderUpdate, InputPaginatedRequestFilter
+from models.order import OrderCreateClient, OrderCreateAdmin
+from models.product import Product
 from config.db import AsyncSessionLocal
 from auth.roles import require_roles
 
@@ -14,6 +16,17 @@ order_router = APIRouter(prefix="/order", tags=["Order"])
 
 def _compute_total(lines):
     return sum(line.quantity * line.unit_price for line in lines)
+
+
+def _unit_price_from_product(product: Product, quantity: int) -> float:
+    """Precio unitario según producto: base o mejor volumen si has_tiered_pricing."""
+    if not product.has_tiered_pricing or not product.price_tiers:
+        return float(product.price)
+    best = None
+    for t in product.price_tiers:
+        if quantity >= t.min_quantity and (best is None or t.min_quantity > best.min_quantity):
+            best = t
+    return float(best.unit_price) if best else float(product.price)
 
 
 @order_router.post("/paginated")
@@ -124,15 +137,86 @@ async def get_order(req: Request, order_id: int):
         )
 
 
-@order_router.post("/create")
-async def create_order(req: Request, body: InputOrder):
-    """Crear pedido. CLIENT o ADMIN. Se calcula total desde las líneas."""
-    payload = require_roles(req.headers, ["CLIENT", "ADMIN"])
+@order_router.post("/create-client")
+async def create_order_client(req: Request, body: OrderCreateClient):
+    """Crear pedido como CLIENTE. Solo CLIENT. unit_price se calcula por producto/volúmenes."""
+    payload = require_roles(req.headers, ["CLIENT"])
+    if isinstance(payload, JSONResponse):
+        return payload
+
+    user_id = int(payload["sub"])
+
+    try:
+        async with AsyncSessionLocal() as session:
+            product_ids = [line.id_product for line in body.lines]
+            stmt = select(Product).where(Product.id.in_(product_ids)).options(
+                selectinload(Product.price_tiers)
+            )
+            result = await session.execute(stmt)
+            products = { p.id: p for p in result.scalars().unique().all() }
+
+            order_date = body.date or date.today()
+            order = Order(
+                id_user=user_id,
+                date=order_date,
+                payment=body.payment,
+                status="PENDING",
+                total=0,
+            )
+            session.add(order)
+            await session.flush()
+
+            total = 0.0
+            for line in body.lines:
+                product = products.get(line.id_product)
+                if not product:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"message": f"Producto id {line.id_product} no encontrado"},
+                    )
+                unit_price = _unit_price_from_product(product, line.quantity)
+                op = OrderProduct(
+                    id_order=order.id,
+                    id_product=line.id_product,
+                    quantity=line.quantity,
+                    unit_price=unit_price,
+                )
+                session.add(op)
+                total += line.quantity * unit_price
+
+            order.total = total
+            await session.commit()
+            await session.refresh(order)
+
+            return JSONResponse(
+                status_code=201,
+                content={
+                    "message": "Pedido creado",
+                    "id": order.id,
+                    "total": order.total,
+                },
+            )
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"message": "Error al crear pedido"})
+
+
+@order_router.post("/create-admin")
+async def create_order_admin(req: Request, body: OrderCreateAdmin):
+    """Crear pedido como ADMIN. Solo ADMIN. unit_price opcional por línea (si no viene, se calcula)."""
+    payload = require_roles(req.headers, ["ADMIN"])
     if isinstance(payload, JSONResponse):
         return payload
 
     try:
         async with AsyncSessionLocal() as session:
+            product_ids = [line.id_product for line in body.lines]
+            stmt = select(Product).where(Product.id.in_(product_ids)).options(
+                selectinload(Product.price_tiers)
+            )
+            result = await session.execute(stmt)
+            products = { p.id: p for p in result.scalars().unique().all() }
+
             order_date = body.date or date.today()
             order = Order(
                 id_user=body.id_user,
@@ -146,14 +230,25 @@ async def create_order(req: Request, body: InputOrder):
 
             total = 0.0
             for line in body.lines:
+                if line.unit_price is not None:
+                    unit_price = line.unit_price
+                else:
+                    product = products.get(line.id_product)
+                    if not product:
+                        return JSONResponse(
+                            status_code=400,
+                            content={"message": f"Producto id {line.id_product} no encontrado"},
+                        )
+                    unit_price = _unit_price_from_product(product, line.quantity)
+
                 op = OrderProduct(
                     id_order=order.id,
                     id_product=line.id_product,
                     quantity=line.quantity,
-                    unit_price=line.unit_price,
+                    unit_price=unit_price,
                 )
                 session.add(op)
-                total += line.quantity * line.unit_price
+                total += line.quantity * unit_price
 
             order.total = total
             await session.commit()

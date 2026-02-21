@@ -9,9 +9,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String, nullable=True)
-    email = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=True)
+    password = Column(String, nullable=True)
     location = Column(String, nullable=True)
     rol = Column(String, nullable=False)
     active = Column(Boolean, default=True)
@@ -20,8 +20,8 @@ class User(Base):
 
 
 class UserBase(BaseModel):
-    email: str
-    name: Optional[str] = None
+    email: Optional[str] = None
+    name: str
     location: Optional[str] = None
     rol: str
 

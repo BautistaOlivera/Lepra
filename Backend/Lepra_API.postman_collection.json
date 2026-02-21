@@ -1,0 +1,324 @@
+{
+  "info": {
+    "name": "Lepra API",
+    "description": "Colección para probar los endpoints del backend Lepra.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Signup",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nuevo@lepra.local\",\n  \"password\": \"clave123\",\n  \"name\": \"Nuevo Usuario\",\n  \"rol\": \"CLIENT\"\n}"
+            },
+            "url": "{{base_url}}/auth/signup"
+          }
+        },
+        {
+          "name": "Login (guarda token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "if (json.access_token) {",
+                  "    pm.collectionVariables.set('token', json.access_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@lepra.local\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": "{{base_url}}/auth/login"
+          }
+        },
+        {
+          "name": "Me (usuario actual)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Users paginated",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"limit\": 20,\n  \"filters\": { \"rol\": \"CLIENT\" }\n}"
+            },
+            "url": "{{base_url}}/user/paginated"
+          }
+        },
+        {
+          "name": "Get user by id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/user/1"
+          }
+        },
+        {
+          "name": "Create user",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"otro@lepra.local\",\n  \"password\": \"clave123\",\n  \"name\": \"Otro Cliente\",\n  \"rol\": \"CLIENT\"\n}"
+            },
+            "url": "{{base_url}}/user/create"
+          }
+        },
+        {
+          "name": "Update user",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 2,\n  \"name\": \"Nombre actualizado\"\n}"
+            },
+            "url": "{{base_url}}/user/update"
+          }
+        },
+        {
+          "name": "Deactivate user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/user/2/deactivate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Product",
+      "item": [
+        {
+          "name": "Products paginated (público)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"limit\": 20,\n  \"filters\": {}\n}"
+            },
+            "url": "{{base_url}}/product/paginated"
+          }
+        },
+        {
+          "name": "Get product by id",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/product/1"
+          }
+        },
+        {
+          "name": "Create product",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nuevo producto\",\n  \"price\": 5.5,\n  \"brand\": \"Marca\",\n  \"category\": \"Lácteos\",\n  \"has_tiered_pricing\": false\n}"
+            },
+            "url": "{{base_url}}/product/create"
+          }
+        },
+        {
+          "name": "Update product",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"price\": 3.0\n}"
+            },
+            "url": "{{base_url}}/product/update"
+          }
+        },
+        {
+          "name": "Deactivate product",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/product/1/deactivate"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Precio por volumen",
+      "item": [
+        {
+          "name": "Crear precio por volumen",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_product\": 2,\n  \"min_quantity\": 10,\n  \"unit_price\": 7.0\n}"
+            },
+            "url": "{{base_url}}/product-price-tier/create"
+          }
+        },
+        {
+          "name": "Actualizar precio por volumen",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"min_quantity\": 5,\n  \"unit_price\": 8.5\n}"
+            },
+            "url": "{{base_url}}/product-price-tier/update"
+          }
+        },
+        {
+          "name": "Eliminar precio por volumen",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/product-price-tier/1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Order",
+      "item": [
+        {
+          "name": "Orders paginated",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"limit\": 20,\n  \"filters\": {}\n}"
+            },
+            "url": "{{base_url}}/order/paginated"
+          }
+        },
+        {
+          "name": "Get order by id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/order/1"
+          }
+        },
+        {
+          "name": "Create order (client)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payment\": \"efectivo\",\n  \"lines\": [\n    { \"id_product\": 1, \"quantity\": 2 },\n    { \"id_product\": 2, \"quantity\": 5 }\n  ]\n}"
+            },
+            "url": "{{base_url}}/order/create-client"
+          }
+        },
+        {
+          "name": "Create order (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id_user\": 2,\n  \"payment\": \"efectivo\",\n  \"lines\": [\n    { \"id_product\": 1, \"quantity\": 2 },\n    { \"id_product\": 2, \"quantity\": 5, \"unit_price\": 7.5 }\n  ]\n}"
+            },
+            "url": "{{base_url}}/order/create-admin"
+          }
+        },
+        {
+          "name": "Update order",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": 1,\n  \"payment\": \"tarjeta\",\n  \"status\": \"PENDING\"\n}"
+            },
+            "url": "{{base_url}}/order/update"
+          }
+        },
+        {
+          "name": "Set order status",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/order/1/status?status=FULFILLED"
+          }
+        },
+        {
+          "name": "Deactivate order",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{base_url}}/order/1/deactivate"
+          }
+        }
+      ]
+    }
+  ]
+}

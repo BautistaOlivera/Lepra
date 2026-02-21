@@ -16,7 +16,7 @@ tier_router = APIRouter(prefix="/product-price-tier", tags=["ProductPriceTier"])
 
 @tier_router.post("/create")
 async def create_tier(req: Request, body: InputProductPriceTier):
-    """Crear tramo de precio. Solo ADMIN."""
+    """Crear precio por volumen. Solo ADMIN."""
     payload = require_roles(req.headers, ["ADMIN"])
     if isinstance(payload, JSONResponse):
         return payload
@@ -31,15 +31,15 @@ async def create_tier(req: Request, body: InputProductPriceTier):
             session.add(t)
             await session.commit()
             await session.refresh(t)
-            return JSONResponse(status_code=201, content={"message": "Tramo creado", "id": t.id})
+            return JSONResponse(status_code=201, content={"message": "Precio por volumen creado", "id": t.id})
     except Exception as e:
         traceback.print_exc()
-        return JSONResponse(status_code=500, content={"message": "Error al crear tramo"})
+        return JSONResponse(status_code=500, content={"message": "Error al crear precio por volumen"})
 
 
 @tier_router.put("/update")
 async def update_tier(req: Request, body: InputProductPriceTierUpdate):
-    """Actualizar tramo. Solo ADMIN."""
+    """Actualizar precio por volumen. Solo ADMIN."""
     payload = require_roles(req.headers, ["ADMIN"])
     if isinstance(payload, JSONResponse):
         return payload
@@ -50,21 +50,21 @@ async def update_tier(req: Request, body: InputProductPriceTierUpdate):
             result = await session.execute(stmt)
             t = result.scalar_one_or_none()
             if not t:
-                return JSONResponse(status_code=404, content={"message": "Tramo no encontrado"})
+                return JSONResponse(status_code=404, content={"message": "Precio por volumen no encontrado"})
             if body.min_quantity is not None:
                 t.min_quantity = body.min_quantity
             if body.unit_price is not None:
                 t.unit_price = body.unit_price
             await session.commit()
-            return JSONResponse(status_code=200, content={"message": "Tramo actualizado"})
+            return JSONResponse(status_code=200, content={"message": "Precio por volumen actualizado"})
     except Exception as e:
         traceback.print_exc()
-        return JSONResponse(status_code=500, content={"message": "Error al actualizar tramo"})
+        return JSONResponse(status_code=500, content={"message": "Error al actualizar precio por volumen"})
 
 
 @tier_router.delete("/{tier_id}")
 async def delete_tier(req: Request, tier_id: int):
-    """Eliminar tramo (borrado físico). Solo ADMIN."""
+    """Eliminar precio por volumen (borrado físico). Solo ADMIN."""
     payload = require_roles(req.headers, ["ADMIN"])
     if isinstance(payload, JSONResponse):
         return payload
@@ -74,7 +74,7 @@ async def delete_tier(req: Request, tier_id: int):
         result = await session.execute(stmt)
         t = result.scalar_one_or_none()
         if not t:
-            return JSONResponse(status_code=404, content={"message": "Tramo no encontrado"})
+            return JSONResponse(status_code=404, content={"message": "Precio por volumen no encontrado"})
         await session.delete(t)
         await session.commit()
-        return JSONResponse(status_code=200, content={"message": "Tramo eliminado"})
+        return JSONResponse(status_code=200, content={"message": "Precio por volumen eliminado"})
