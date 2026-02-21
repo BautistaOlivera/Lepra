@@ -1,0 +1,80 @@
+:root {
+  --lepra-black: #1a1a1a;
+  --lepra-white: #ffffff;
+  --lepra-yellow: #e6b800;
+  --lepra-yellow-light: #ffe566;
+  --lepra-yellow-dark: #b38f00;
+}
+
+* {
+  --bs-body-color: var(--lepra-black);
+}
+
+body {
+  background-color: var(--lepra-white);
+  color: var(--lepra-black);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.navbar-lepra {
+  background-color: var(--lepra-black) !important;
+  border-bottom: 3px solid var(--lepra-yellow);
+}
+
+.navbar-lepra .navbar-brand,
+.navbar-lepra .nav-link {
+  color: var(--lepra-white) !important;
+}
+
+.navbar-lepra .nav-link:hover,
+.navbar-lepra .navbar-brand:hover {
+  color: var(--lepra-yellow) !important;
+}
+
+.navbar-lepra .nav-link.active {
+  color: var(--lepra-yellow) !important;
+}
+
+.btn-lepra {
+  background-color: var(--lepra-yellow);
+  color: var(--lepra-black);
+  border: none;
+}
+
+.btn-lepra:hover {
+  background-color: var(--lepra-yellow-dark);
+  color: var(--lepra-black);
+  border: none;
+}
+
+.btn-lepra:focus {
+  box-shadow: 0 0 0 0.2rem rgba(230, 184, 0, 0.4);
+}
+
+.card-lepra {
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  transition: box-shadow 0.2s;
+}
+
+.card-lepra:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.bg-lepra-hero {
+  background: linear-gradient(135deg, var(--lepra-black) 0%, #2d2d2d 100%);
+  color: var(--lepra-white);
+}
+
+.table-dark {
+  --bs-table-bg: var(--lepra-black);
+  --bs-table-border-color: #333;
+}
+
+.modal-header.border-dark {
+  border-bottom-color: #dee2e6 !important;
+}
+
+.badge.bg-warning {
+  color: var(--lepra-black) !important;
+}
