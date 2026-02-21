@@ -12,6 +12,13 @@ export async function getOrder(id: number) {
   return api<Order>(`/order/${id}`)
 }
 
+export async function createOrderClient(data: { date?: string; payment?: string; lines: { id_product: number; quantity: number }[] }) {
+  return api<{ message: string; id: number; total: number }>('/order/create-client', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
 export async function createOrder(data: { id_user: number; date?: string; payment?: string; lines: OrderProduct[] }) {
   return api<{ message: string; id: number; total: number }>('/order/create-admin', {
     method: 'POST',

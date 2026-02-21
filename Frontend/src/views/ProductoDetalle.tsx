@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Container, Card, Spinner } from 'react-bootstrap'
-import { ArrowLeft } from 'lucide-react'
+import { Container, Card, Spinner, Form, Button } from 'react-bootstrap'
+import { ArrowLeft, ShoppingCart } from 'lucide-react'
 import { getProduct } from '@/api/product'
 import { Product } from '@/types'
+import { useCart } from '@/context/CartContext'
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=600&q=80'
 
 export function ProductoDetalle() {
   const { id } = useParams()
+  const { addItem } = useCart()
   const [product, setProduct] = useState<Product | undefined>(undefined)
   const [loading, setLoading] = useState(true)
+  const [quantity, setQuantity] = useState(1)
 
   useEffect(() => {
     if (!id) return
@@ -60,6 +63,25 @@ export function ProductoDetalle() {
               {product.brand && <p className="text-muted mb-2">{product.brand}</p>}
               {product.category && <p className="small text-muted">{product.category}</p>}
               <p className="fs-3 fw-bold text-dark mt-3">${product.price.toFixed(2)}</p>
+              <div className="d-flex align-items-center gap-3 mt-3">
+                <Form.Group className="d-flex align-items-center">
+                  <Form.Label className="mb-0 me-2">Cantidad:</Form.Label>
+                  <Form.Control
+                    type="number"
+                    min={1}
+                    style={{ width: 80 }}
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  />
+                </Form.Group>
+                <Button
+                  className="btn-lepra"
+                  onClick={() => addItem(product, quantity)}
+                >
+                  <ShoppingCart size={18} className="me-1" /> Agregar al carrito
+                </Button>
+                <Link to="/carrito" className="btn btn-outline-dark">Ver carrito</Link>
+              </div>
               {product.has_tiered_pricing && product.price_tiers?.length && (
                 <div className="mt-3">
                   <p className="small fw-bold mb-2">Precios por volumen</p>

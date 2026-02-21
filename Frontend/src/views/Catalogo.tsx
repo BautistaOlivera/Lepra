@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Card, Form, Spinner } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
-import { ShoppingCart } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { getProductsPaginated } from '@/api/product'
 import { Product } from '@/types'
+import { useCart } from '@/context/CartContext'
 
 const CHEESE_HERO = 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=1200&q=80'
 
 export function Catalogo() {
+  const { addItem } = useCart()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -70,11 +72,20 @@ export function Catalogo() {
                   <Card.Body>
                     <Card.Title className="text-truncate">{p.name}</Card.Title>
                     {p.brand && <Card.Text className="small text-muted">{p.brand}</Card.Text>}
-                    <div className="d-flex justify-content-between align-items-center mt-2">
+                    <div className="d-flex justify-content-between align-items-center gap-2 mt-2 flex-wrap">
                       <span className="fw-bold text-dark">${p.price.toFixed(2)}</span>
-                      <Link to={`/producto/${p.id}`} className="btn btn-sm btn-lepra">
-                        <ShoppingCart size={14} /> Ver
-                      </Link>
+                      <div className="d-flex gap-1">
+                        <Link to={`/producto/${p.id}`} className="btn btn-sm btn-outline-dark">
+                          Ver
+                        </Link>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-lepra"
+                          onClick={() => addItem(p)}
+                        >
+                          <Plus size={14} className="me-1" /> Agregar
+                        </button>
+                      </div>
                     </div>
                   </Card.Body>
                 </Card>

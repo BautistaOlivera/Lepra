@@ -4,6 +4,7 @@ import { AdminLayout } from '@/layouts/AdminLayout'
 import { AuthGuard } from '@/components/AuthGuard'
 import { AdminGuard } from '@/components/AdminGuard'
 import { Catalogo } from '@/views/Catalogo'
+import { Carrito } from '@/views/Carrito'
 import { ProductoDetalle } from '@/views/ProductoDetalle'
 import { Login } from '@/views/Login'
 import { Admin } from '@/views/Admin'
@@ -18,6 +19,7 @@ export function AppRoutes() {
         <Route path="/" element={<CatalogLayout />}>
           <Route index element={<Catalogo />} />
           <Route path="producto/:id" element={<ProductoDetalle />} />
+          <Route path="carrito" element={<Carrito />} />
           <Route path="login" element={<Login />} />
         </Route>
 
