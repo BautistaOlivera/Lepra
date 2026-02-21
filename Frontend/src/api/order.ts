@@ -13,7 +13,7 @@ export async function getOrder(id: number) {
 }
 
 export async function createOrder(data: { id_user: number; date?: string; payment?: string; lines: OrderProduct[] }) {
-  return api<{ message: string; id: number; total: number }>('/order/create', {
+  return api<{ message: string; id: number; total: number }>('/order/create-admin', {
     method: 'POST',
     body: JSON.stringify(data),
   })

@@ -13,7 +13,7 @@ class Order(Base):
     id_user = Column(Integer, ForeignKey("users.id"), nullable=False)
     total = Column(Float, default=0.0)
     date = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     payment = Column(String, nullable=True)
     status = Column(String, default="PENDING")
     active = Column(Boolean, default=True)
