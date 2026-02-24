@@ -35,6 +35,7 @@ export interface OrderProduct {
 export interface Order {
   id: number
   id_user: number
+  user_name?: string | null
   total: number
   date?: string | null
   created_at?: string | null

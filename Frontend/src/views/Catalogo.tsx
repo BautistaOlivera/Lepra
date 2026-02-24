@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 import { getProductsPaginated } from '@/api/product'
 import { Product } from '@/types'
 import { useCart } from '@/context/CartContext'
+import { getImageUrl } from '@/api/product'
 
 const CHEESE_HERO = 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=1200&q=80'
 
@@ -67,7 +68,7 @@ export function Catalogo() {
                 <Card className="card-lepra h-100 overflow-hidden">
                   <div
                     className="bg-dark"
-                    style={{ height: 160, backgroundImage: p.img ? `url(${p.img})` : `url(https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&q=80)`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                    style={{ height: 160, backgroundImage: p.img ? `url(${getImageUrl(p.img)})` : `url(https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&q=80)`, backgroundSize: 'cover', backgroundPosition: 'center' }}
                   />
                   <Card.Body>
                     <Card.Title className="text-truncate">{p.name}</Card.Title>

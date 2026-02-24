@@ -5,6 +5,7 @@ import { getUsersPaginated } from '@/api/user'
 import { getProductsPaginated } from '@/api/product'
 import { User, Product } from '@/types'
 import toast from 'react-hot-toast'
+import { Select, type SelectOption } from '@/components/Select'
 
 interface PedidoModalProps {
   show: boolean
@@ -72,6 +73,15 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
 
   const total = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0)
 
+  const userOptions: SelectOption<number>[] = users.map((u) => ({
+    value: u.id,
+    label: [u.name, u.email].filter(Boolean).join(' — ') || u.email,
+  }))
+  const productOptions: SelectOption<number>[] = products.map((p) => ({
+    value: p.id,
+    label: p.name,
+  }))
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!idUser || lines.length === 0) {
@@ -101,12 +111,12 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
         <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-4">
             <Form.Label>Cliente</Form.Label>
-            <Form.Select value={idUser} onChange={(e) => setIdUser(e.target.value ? Number(e.target.value) : '')} required>
-              <option value="">Seleccionar...</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.email} {u.name ? `(${u.name})` : ''}</option>
-              ))}
-            </Form.Select>
+            <Select<number>
+              options={userOptions}
+              value={idUser === '' ? null : idUser}
+              onChange={(id) => setIdUser(id ?? '')}
+              placeholder="Buscar por nombre o email..."
+            />
           </Form.Group>
 
           <div className="d-flex justify-content-between align-items-center mb-2">
@@ -130,15 +140,13 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
               {lines.map((l, i) => (
                 <tr key={i}>
                   <td>
-                    <Form.Select
+                    <Select<number>
                       size="sm"
+                      options={productOptions}
                       value={l.id_product}
-                      onChange={(e) => updateLine(i, 'id_product', Number(e.target.value))}
-                    >
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </Form.Select>
+                      onChange={(id) => { if (id != null) updateLine(i, 'id_product', id) }}
+                      placeholder="Buscar producto..."
+                    />
                   </td>
                   <td>
                     <Form.Control

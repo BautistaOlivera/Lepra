@@ -45,7 +45,10 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
     active_filter = filters.get("active")
 
     async with AsyncSessionLocal() as session:
-        stmt = select(Order).options(selectinload(Order.order_products))
+        stmt = select(Order).options(
+            selectinload(Order.order_products),
+            selectinload(Order.user),
+        )
         if role == "CLIENT":
             stmt = stmt.where(Order.id_user == user_id)
         if status_filter:
@@ -65,9 +68,13 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
 
         items = []
         for o in orders:
+            user_name = None
+            if o.user:
+                user_name = (o.user.name or o.user.email or "").strip() or o.user.email
             items.append({
                 "id": o.id,
                 "id_user": o.id_user,
+                "user_name": user_name,
                 "total": o.total,
                 "date": o.date.isoformat() if o.date else None,
                 "created_at": o.created_at.isoformat() if o.created_at else None,
@@ -105,7 +112,10 @@ async def get_order(req: Request, order_id: int):
     role = payload.get("role", "").upper()
 
     async with AsyncSessionLocal() as session:
-        stmt = select(Order).where(Order.id == order_id).options(selectinload(Order.order_products))
+        stmt = select(Order).where(Order.id == order_id).options(
+            selectinload(Order.order_products),
+            selectinload(Order.user),
+        )
         result = await session.execute(stmt)
         o = result.scalar_one_or_none()
         if not o:
@@ -113,11 +123,16 @@ async def get_order(req: Request, order_id: int):
         if role == "CLIENT" and o.id_user != user_id:
             return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
 
+        user_name = None
+        if o.user:
+            user_name = (o.user.name or o.user.email or "").strip() or o.user.email
+
         return JSONResponse(
             status_code=200,
             content={
                 "id": o.id,
                 "id_user": o.id_user,
+                "user_name": user_name,
                 "total": o.total,
                 "date": o.date.isoformat() if o.date else None,
                 "created_at": o.created_at.isoformat() if o.created_at else None,

@@ -1,5 +1,13 @@
-import { api } from './client'
+import { api, apiUpload, getImageUrl } from './client'
 import { Product, PaginatedRequest, PaginatedResponse } from '@/types'
+
+export { getImageUrl }
+
+export async function uploadProductImage(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return apiUpload<{ url: string }>('/product/upload', form)
+}
 
 export async function getProductsPaginated(params: PaginatedRequest) {
   return api<PaginatedResponse<Product>>('/product/paginated', {

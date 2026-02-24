@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Modal, Form, Button } from 'react-bootstrap'
-import { createProduct, updateProduct } from '@/api/product'
+import { createProduct, updateProduct, uploadProductImage, getImageUrl } from '@/api/product'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
 
@@ -18,8 +18,34 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
   const [img, setImg] = useState('')
   const [hasTieredPricing, setHasTieredPricing] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isEditing = !!editingProduct
+  const imgDisplayUrl = img ? getImageUrl(img) : 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&q=80'
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowed.includes(file.type)) {
+      toast.error('Formato no permitido. Use JPEG, PNG, GIF o WebP.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('La imagen no debe superar 5 MB')
+      return
+    }
+    setUploading(true)
+    const { data, error } = await uploadProductImage(file)
+    setUploading(false)
+    if (error) {
+      toast.error(error.message || 'Error al subir la imagen')
+      return
+    }
+    if (data?.url) setImg(data.url)
+    e.target.value = ''
+  }
 
   useEffect(() => {
     if (editingProduct) {
@@ -111,8 +137,43 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             <Form.Control value={category} onChange={(e) => setCategory(e.target.value)} />
           </Form.Group>
           <Form.Group className="mb-3">
-            <Form.Label>URL imagen</Form.Label>
-            <Form.Control value={img} onChange={(e) => setImg(e.target.value)} placeholder="https://..." />
+            <Form.Label>Imagen del producto</Form.Label>
+            <div className="d-flex align-items-start gap-3">
+              <div
+                className="border rounded overflow-hidden bg-light"
+                style={{ width: 80, height: 80, flexShrink: 0 }}
+              >
+                <img
+                  src={imgDisplayUrl}
+                  alt="Vista previa"
+                  className="w-100 h-100 object-fit-cover"
+                  style={{ objectFit: 'cover' }}
+                />
+              </div>
+              <div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="d-none"
+                  onChange={handleFileChange}
+                />
+                <Button
+                  type="button"
+                  variant="outline-dark"
+                  size="sm"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploading ? 'Subiendo...' : img ? 'Cambiar imagen' : 'Subir imagen'}
+                </Button>
+                {img && (
+                  <Button type="button" variant="link" size="sm" className="text-muted ms-1" onClick={() => setImg('')}>
+                    Quitar
+                  </Button>
+                )}
+              </div>
+            </div>
           </Form.Group>
           <Form.Group className="mb-4">
             <Form.Check

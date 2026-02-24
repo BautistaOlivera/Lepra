@@ -5,6 +5,7 @@ import { ArrowLeft, ShoppingCart } from 'lucide-react'
 import { getProduct } from '@/api/product'
 import { Product } from '@/types'
 import { useCart } from '@/context/CartContext'
+import { getImageUrl } from '@/api/product'
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=600&q=80'
 
@@ -51,7 +52,7 @@ export function ProductoDetalle() {
             <div
               style={{
                 height: 300,
-                backgroundImage: `url(${product.img || DEFAULT_IMG})`,
+                backgroundImage: `url(${getImageUrl(product.img) || DEFAULT_IMG})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }}

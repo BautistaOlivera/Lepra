@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, File, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import traceback
+import os
+import uuid
 
 from models import Product, InputProduct, InputProductUpdate, InputPaginatedRequestFilter
 from models.product_price_tier import ProductPriceTier
@@ -10,6 +12,47 @@ from config.db import AsyncSessionLocal
 from auth.roles import require_roles
 
 product_router = APIRouter(prefix="/product", tags=["Product"])
+
+# Carpeta donde se guardan las imágenes subidas (relativa al directorio del backend)
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+ALLOWED_EXTENSIONS = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+
+
+@product_router.post("/upload")
+async def upload_image(req: Request, file: UploadFile = File(...)):
+    """Subir imagen de producto. Solo ADMIN. Devuelve la URL relativa para guardar en img."""
+    payload = require_roles(req.headers, ["ADMIN"])
+    if isinstance(payload, JSONResponse):
+        return payload
+
+    if file.content_type not in ALLOWED_EXTENSIONS:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "Tipo de archivo no permitido. Use JPEG, PNG, GIF o WebP."},
+        )
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    ext = ".jpg"
+    if file.content_type == "image/png":
+        ext = ".png"
+    elif file.content_type == "image/gif":
+        ext = ".gif"
+    elif file.content_type == "image/webp":
+        ext = ".webp"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    try:
+        content = await file.read()
+        if len(content) > 5 * 1024 * 1024:  # 5 MB max
+            return JSONResponse(status_code=400, content={"message": "La imagen no debe superar 5 MB"})
+        with open(filepath, "wb") as f:
+            f.write(content)
+        url = f"/uploads/{filename}"
+        return JSONResponse(status_code=200, content={"url": url})
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"message": "Error al guardar la imagen"})
 
 
 @product_router.post("/paginated")

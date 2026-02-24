@@ -79,8 +79,7 @@ export function Pedidos() {
         <Table responsive hover>
           <thead className="table-dark">
             <tr>
-              <th>#</th>
-              <th>Usuario</th>
+              <th>Cliente</th>
               <th>Total</th>
               <th>Fecha</th>
               <th>Estado</th>
@@ -90,8 +89,7 @@ export function Pedidos() {
           <tbody>
             {orders.map((o) => (
               <tr key={o.id}>
-                <td>{o.id}</td>
-                <td>{o.id_user}</td>
+                <td>{o.user_name || o.id_user}</td>
                 <td>${o.total.toFixed(2)}</td>
                 <td>{o.created_at ? new Date(o.created_at).toLocaleDateString() : '-'}</td>
                 <td>

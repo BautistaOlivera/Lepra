@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Table, Button, Badge, Spinner } from 'react-bootstrap'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
-import { getProductsPaginated, deactivateProduct } from '@/api/product'
+import { getProductsPaginated, deactivateProduct, getImageUrl } from '@/api/product'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
 import { ProductoModal } from '@/components/modals/ProductoModal'
@@ -91,7 +91,7 @@ export function Productos() {
               <tr key={p.id}>
                 <td>
                   <img
-                    src={p.img || DEFAULT_IMG}
+                    src={getImageUrl(p.img) || DEFAULT_IMG}
                     alt={p.name}
                     style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }}
                   />

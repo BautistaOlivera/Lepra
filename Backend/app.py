@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 
 from config.db import Base, engine
 from models import User, Product
@@ -29,3 +31,8 @@ lepra.include_router(user_router)
 lepra.include_router(product_router)
 lepra.include_router(tier_router)
 lepra.include_router(order_router)
+
+# Servir imágenes subidas (uploads)
+uploads_path = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(uploads_path, exist_ok=True)
+lepra.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")

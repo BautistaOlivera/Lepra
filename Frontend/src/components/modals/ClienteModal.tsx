@@ -3,6 +3,7 @@ import { Modal, Form, Button } from 'react-bootstrap'
 import { createUser, updateUser } from '@/api/user'
 import { User } from '@/types'
 import toast from 'react-hot-toast'
+import { Select, type SelectOption } from '@/components/Select'
 
 interface ClienteModalProps {
   show: boolean
@@ -100,10 +101,16 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Rol</Form.Label>
-            <Form.Select value={rol} onChange={(e) => setRol(e.target.value as 'CLIENT' | 'ADMIN')}>
-              <option value="CLIENT">Cliente</option>
-              <option value="ADMIN">Administrador</option>
-            </Form.Select>
+            <Select<string>
+              options={[
+                { value: 'CLIENT', label: 'Cliente' },
+                { value: 'ADMIN', label: 'Administrador' },
+              ]}
+              value={rol}
+              onChange={(v) => v != null && setRol(v as 'CLIENT' | 'ADMIN')}
+              placeholder="Seleccionar rol..."
+              isSearchable={false}
+            />
           </Form.Group>
           <div className="d-flex justify-content-end gap-2">
             <Button variant="outline-dark" onClick={() => onClose()}>Cancelar</Button>

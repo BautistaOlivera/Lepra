@@ -78,3 +78,12 @@ body {
 .badge.bg-warning {
   color: var(--lepra-black) !important;
 }
+
+/* react-select unificado (Select.tsx) */
+.lepra-select__control {
+  width: 100%;
+  font-size: inherit;
+}
+.lepra-select__menu {
+  z-index: 1060;
+}
