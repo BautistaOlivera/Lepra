@@ -3,6 +3,7 @@ import { Modal, Form, Button } from 'react-bootstrap'
 import { createProduct, updateProduct, uploadProductImage, getImageUrl } from '@/api/product'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
+import { Select } from '@/components/Select'
 
 interface ProductoModalProps {
   show: boolean
@@ -20,6 +21,11 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+const CATEGORIAS = [
+    { value: 'Lacteos', label: 'Lácteos' },
+    { value: 'Embutidos', label: 'Embutidos' },
+  ]
 
   const isEditing = !!editingProduct
   const imgDisplayUrl = img ? getImageUrl(img) : 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&q=80'
@@ -134,7 +140,13 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Categoría</Form.Label>
-            <Form.Control value={category} onChange={(e) => setCategory(e.target.value)} />
+            <Select<string>
+              options={CATEGORIAS}
+              value={category || null}
+              onChange={(v) => setCategory(v ?? '')}
+              placeholder="Seleccionar categoría..."
+              isSearchable={false}
+            />
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Imagen del producto</Form.Label>

@@ -4,8 +4,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { createOrderClient, createOrder } from '@/api/order'
+import { getImageUrl } from '@/api/product'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
+
+const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=80&q=80'
 
 function getUnitPrice(product: Product, quantity: number): number {
   if (!product.has_tiered_pricing || !product.price_tiers?.length) return product.price
@@ -80,9 +83,10 @@ export function Carrito() {
     <Container className="py-4">
       <h2 className="mb-4">Carrito</h2>
       <form onSubmit={handleSubmit}>
-        <Table responsive>
+        <Table responsive className="align-middle">
           <thead className="table-dark">
             <tr>
+              <th style={{ width: 70 }}></th>
               <th>Producto</th>
               <th>Cantidad</th>
               <th>Precio u.</th>
@@ -93,6 +97,16 @@ export function Carrito() {
           <tbody>
             {totals.map((t) => (
               <tr key={t.id_product}>
+                <td>
+                  <Link to={`/producto/${t.id_product}`} className="d-inline-block" style={{ cursor: 'pointer' }}>
+                    <img
+                      src={getImageUrl(t.product.img) || DEFAULT_IMG}
+                      alt={t.product.name}
+                      className="rounded"
+                      style={{ width: 56, height: 56, objectFit: 'cover' }}
+                    />
+                  </Link>
+                </td>
                 <td>{t.product.name}</td>
                 <td>
                   <Form.Control
