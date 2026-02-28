@@ -33,10 +33,10 @@ async def get_users_paginated(req: Request, body: InputPaginatedRequestFilter):
             )
         if role_filter:
             stmt = stmt.where(User.rol == str(role_filter).upper())
-        if active_filter is not None:
-            stmt = stmt.where(User.active.is_(bool(active_filter)))
-        else:
+        if active_filter is True:
             stmt = stmt.where(User.active.is_(True))
+        elif active_filter is False:
+            stmt = stmt.where(User.active.is_(False))
 
         stmt = stmt.order_by(User.id.desc())
         if last_seen_id is not None:

@@ -3,7 +3,7 @@ import { Modal, Form, Button } from 'react-bootstrap'
 import { createUser, updateUser } from '@/api/user'
 import { User } from '@/types'
 import toast from 'react-hot-toast'
-import { Select, type SelectOption } from '@/components/Select'
+import { Select } from '@/components/Select'
 
 interface ClienteModalProps {
   show: boolean

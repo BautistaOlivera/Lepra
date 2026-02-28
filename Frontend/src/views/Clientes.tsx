@@ -1,10 +1,15 @@
-import { useState, useEffect } from 'react'
-import { Table, Button, Badge, Spinner } from 'react-bootstrap'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Button, Badge, Spinner, Form, InputGroup } from 'react-bootstrap'
+import { Plus, Pencil, Trash2, Search, RotateCcw } from 'lucide-react'
+import { createColumnHelper } from '@tanstack/react-table'
 import { getUsersPaginated, deactivateUser } from '@/api/user'
 import { User } from '@/types'
 import toast from 'react-hot-toast'
 import { ClienteModal } from '@/components/modals/ClienteModal'
+import { DataTable } from '@/components/DataTable'
+import { Select } from '@/components/Select'
+
+const columnHelper = createColumnHelper<User>()
 
 export function Clientes() {
   const [users, setUsers] = useState<User[]>([])
@@ -12,24 +17,37 @@ export function Clientes() {
   const [nextCursor, setNextCursor] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [search, setSearch] = useState('')
+  const [searchDebounced, setSearchDebounced] = useState('')
+  const [rolFilter, setRolFilter] = useState<string | null>(null)
+  const [activeFilter, setActiveFilter] = useState<boolean | null>(true)
 
-  async function loadUsers(lastId?: number) {
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const loadUsers = useCallback(async (lastId?: number) => {
     setLoading(true)
+    const filters: Record<string, unknown> = {}
+    if (searchDebounced.trim()) filters.search = searchDebounced.trim()
+    if (rolFilter) filters.rol = rolFilter
+    if (activeFilter !== null) filters.active = activeFilter
     const { data } = await getUsersPaginated({
       limit: 20,
       last_seen_id: lastId ?? null,
-      filters: {},
+      filters,
     })
     if (data) {
       setUsers((prev) => (lastId ? [...prev, ...data.items] : data.items))
       setNextCursor(data.next_cursor)
     }
     setLoading(false)
-  }
+  }, [searchDebounced, rolFilter, activeFilter])
 
   useEffect(() => {
     loadUsers()
-  }, [])
+  }, [loadUsers])
 
   function handleAdd() {
     setEditingUser(null)
@@ -57,11 +75,98 @@ export function Clientes() {
     if (refresh) loadUsers()
   }
 
+  function clearFilters() {
+    setSearch('')
+    setRolFilter(null)
+    setActiveFilter(true)
+  }
+
+  const columns = [
+    columnHelper.accessor('email', { header: 'Email' }),
+    columnHelper.accessor('name', {
+      header: 'Nombre',
+      cell: (info) => info.getValue() || '-',
+    }),
+    columnHelper.accessor('location', {
+      header: 'Ubicación',
+      cell: (info) => info.getValue() || '-',
+    }),
+    columnHelper.accessor('rol', {
+      header: 'Rol',
+      cell: (info) => (
+        <Badge bg={info.getValue() === 'ADMIN' ? 'dark' : 'secondary'}>{info.getValue()}</Badge>
+      ),
+    }),
+    columnHelper.accessor('active', {
+      header: 'Estado',
+      cell: (info) =>
+        info.getValue() ? <Badge bg="success">Activo</Badge> : <Badge bg="danger">Inactivo</Badge>,
+    }),
+    columnHelper.display({
+      id: 'actions',
+      header: '',
+      cell: ({ row }) =>
+        row.original.active ? (
+          <>
+            <Button variant="link" size="sm" className="text-dark p-0 me-2" onClick={() => handleEdit(row.original)}>
+              <Pencil size={16} />
+            </Button>
+            <Button variant="link" size="sm" className="text-danger p-0" onClick={() => handleDeactivate(row.original)}>
+              <Trash2 size={16} />
+            </Button>
+          </>
+        ) : null,
+    }),
+  ]
+
   return (
     <>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="text-dark mb-0">Clientes</h2>
-        <Button className="btn-lepra" onClick={handleAdd}>
+      <h2 className="text-dark mb-3">Clientes</h2>
+      <div className="d-flex align-items-center gap-3 mb-4 flex-wrap" style={{ width: '100%' }}>
+        <InputGroup className="flex-grow-1" style={{ minWidth: 200, maxWidth: 340 }}>
+          <InputGroup.Text><Search size={18} /></InputGroup.Text>
+          <Form.Control
+            placeholder="Buscar clientes por nombre o email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </InputGroup>
+        <div style={{ minWidth: 150, width: 150 }}>
+          <Select<string>
+            options={[
+              { value: '', label: 'Todos los roles' },
+              { value: 'CLIENT', label: 'Cliente' },
+              { value: 'ADMIN', label: 'Administrador' },
+            ]}
+            value={rolFilter ?? ''}
+            onChange={(v) => setRolFilter(v || null)}
+            placeholder="Rol"
+            isSearchable={false}
+          />
+        </div>
+        <div style={{ minWidth: 150, width: 150 }}>
+          <Select<string>
+            options={[
+              { value: 'true', label: 'Activos' },
+              { value: 'false', label: 'Inactivos' },
+              { value: 'all', label: 'Todos' },
+            ]}
+            value={activeFilter === null ? 'all' : String(activeFilter)}
+            onChange={(v) => setActiveFilter(v === 'all' || v === '' ? null : v === 'true')}
+            placeholder="Estado"
+            isSearchable={false}
+          />
+        </div>
+        <Button
+          variant="outline-secondary"
+          onClick={clearFilters}
+          title="Limpiar filtros"
+          className="d-flex align-items-center justify-content-center p-0 flex-shrink-0"
+          style={{ height: 38, width: 38 }}
+        >
+          <RotateCcw size={18} />
+        </Button>
+        <Button className="btn-lepra flex-shrink-0 ms-auto" onClick={handleAdd}>
           <Plus size={18} className="me-1" /> Agregar cliente
         </Button>
       </div>
@@ -71,41 +176,7 @@ export function Clientes() {
           <Spinner animation="border" />
         </div>
       ) : (
-        <Table responsive hover>
-          <thead className="table-dark">
-            <tr>
-              <th>Email</th>
-              <th>Nombre</th>
-              <th>Ubicación</th>
-              <th>Rol</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td>{u.email}</td>
-                <td>{u.name || '-'}</td>
-                <td>{u.location || '-'}</td>
-                <td><Badge bg={u.rol === 'ADMIN' ? 'dark' : 'secondary'}>{u.rol}</Badge></td>
-                <td>{u.active ? <Badge bg="success">Activo</Badge> : <Badge bg="danger">Inactivo</Badge>}</td>
-                <td>
-                  {u.active && (
-                    <>
-                      <Button variant="link" size="sm" className="text-dark p-0 me-2" onClick={() => handleEdit(u)}>
-                        <Pencil size={16} />
-                      </Button>
-                      <Button variant="link" size="sm" className="text-danger p-0" onClick={() => handleDeactivate(u)}>
-                        <Trash2 size={16} />
-                      </Button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable columns={columns} data={users} getRowId={(row) => String(row.id)} />
       )}
 
       {nextCursor && (

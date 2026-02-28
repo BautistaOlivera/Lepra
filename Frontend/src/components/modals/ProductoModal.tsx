@@ -30,6 +30,10 @@ const CATEGORIAS = [
   const isEditing = !!editingProduct
   const imgDisplayUrl = img ? getImageUrl(img) : 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&q=80'
 
+  const priceNum = parseFloat(price)
+  const isPriceValid = !isNaN(priceNum) && priceNum >= 0
+  const isFormValid = name.trim() !== '' && isPriceValid
+
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -197,7 +201,7 @@ const CATEGORIAS = [
           </Form.Group>
           <div className="d-flex justify-content-end gap-2">
             <Button variant="outline-dark" onClick={() => onClose()}>Cancelar</Button>
-            <Button type="submit" className="btn-lepra" disabled={loading}>
+            <Button type="submit" className="btn-lepra" disabled={loading || !isFormValid}>
               {loading ? 'Guardando...' : isEditing ? 'Guardar' : 'Crear'}
             </Button>
           </div>

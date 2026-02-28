@@ -1,9 +1,11 @@
-import ReactSelect, { StylesConfig } from 'react-select'
+import ReactSelect, { StylesConfig, type CSSObjectWithLabel } from 'react-select'
 
 export interface SelectOption<T = number | string> {
   value: T
   label: string
 }
+
+type FilterOptionFn<T> = (option: SelectOption<T>, inputValue: string) => boolean
 
 interface SelectProps<T = number | string> {
   options: SelectOption<T>[]
@@ -12,6 +14,7 @@ interface SelectProps<T = number | string> {
   placeholder?: string
   isSearchable?: boolean
   isClearable?: boolean
+  filterOption?: FilterOptionFn<T> | null
   size?: 'sm' | 'lg'
   disabled?: boolean
   required?: boolean
@@ -40,6 +43,16 @@ const lepraStyles: StylesConfig<SelectOption, false> = {
   }),
 }
 
+function defaultFilterOption<T>(option: SelectOption<T>, inputValue: string): boolean {
+  const label = String(option.label).toLowerCase()
+  const search = inputValue
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+  const labelNorm = label.normalize('NFD').replace(/\p{Diacritic}/gu, '')
+  return labelNorm.includes(search)
+}
+
 export function Select<T extends number | string = number | string>({
   options,
   value,
@@ -47,6 +60,7 @@ export function Select<T extends number | string = number | string>({
   placeholder = 'Seleccionar...',
   isSearchable = true,
   isClearable = false,
+  filterOption,
   size,
   disabled,
 }: SelectProps<T>) {
@@ -56,14 +70,14 @@ export function Select<T extends number | string = number | string>({
 
   const computedStyles =
     size === 'sm'
-      ? {
+      ? ({
           ...lepraStyles,
-          control: (base: object, state: object) => ({
+          control: (base: CSSObjectWithLabel, state: Parameters<NonNullable<typeof lepraStyles.control>>[1]) => ({
             ...lepraStyles.control!(base, state),
             minHeight: 31,
           }),
-        }
-      : lepraStyles
+        } as unknown as StylesConfig<SelectOption<T>, false>)
+      : (lepraStyles as unknown as StylesConfig<SelectOption<T>, false>)
 
   return (
     <ReactSelect<SelectOption<T>, false>
@@ -73,6 +87,7 @@ export function Select<T extends number | string = number | string>({
       placeholder={placeholder}
       isSearchable={isSearchable}
       isClearable={isClearable}
+      filterOption={filterOption !== undefined ? filterOption : defaultFilterOption}
       isDisabled={disabled}
       styles={computedStyles}
       noOptionsMessage={() => 'Sin resultados'}

@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react'
-import { Table, Button, Badge, Spinner } from 'react-bootstrap'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Button, Badge, Spinner, Form, InputGroup } from 'react-bootstrap'
+import { Plus, Pencil, Trash2, Search, RotateCcw } from 'lucide-react'
+import { createColumnHelper } from '@tanstack/react-table'
 import { getProductsPaginated, deactivateProduct, getImageUrl } from '@/api/product'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
 import { ProductoModal } from '@/components/modals/ProductoModal'
+import { DataTable } from '@/components/DataTable'
+import { Select } from '@/components/Select'
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=80&q=80'
+const columnHelper = createColumnHelper<Product>()
 
 export function Productos() {
   const [products, setProducts] = useState<Product[]>([])
@@ -14,24 +18,37 @@ export function Productos() {
   const [nextCursor, setNextCursor] = useState<number | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [search, setSearch] = useState('')
+  const [searchDebounced, setSearchDebounced] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+  const [activeFilter, setActiveFilter] = useState<boolean | null>(true)
 
-  async function loadProducts(lastId?: number) {
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  const loadProducts = useCallback(async (lastId?: number) => {
     setLoading(true)
+    const filters: Record<string, unknown> = {}
+    if (searchDebounced.trim()) filters.search = searchDebounced.trim()
+    if (categoryFilter) filters.category = categoryFilter
+    if (activeFilter !== null) filters.active = activeFilter
     const { data } = await getProductsPaginated({
       limit: 20,
       last_seen_id: lastId ?? null,
-      filters: { active: undefined },
+      filters,
     })
     if (data) {
       setProducts((prev) => (lastId ? [...prev, ...data.items] : data.items))
       setNextCursor(data.next_cursor)
     }
     setLoading(false)
-  }
+  }, [searchDebounced, categoryFilter, activeFilter])
 
   useEffect(() => {
     loadProducts()
-  }, [])
+  }, [loadProducts])
 
   function handleAdd() {
     setEditingProduct(null)
@@ -59,11 +76,107 @@ export function Productos() {
     if (refresh) loadProducts()
   }
 
+  function clearFilters() {
+    setSearch('')
+    setCategoryFilter(null)
+    setActiveFilter(true)
+  }
+
+  const columns = [
+    columnHelper.display({
+      id: 'img',
+      header: '',
+      size: 60,
+      cell: ({ row }) => (
+        <img
+          src={getImageUrl(row.original.img) || DEFAULT_IMG}
+          alt={row.original.name}
+          style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }}
+        />
+      ),
+    }),
+    columnHelper.accessor('name', { header: 'Nombre' }),
+    columnHelper.accessor('brand', { header: 'Marca', cell: (info) => info.getValue() || '-' }),
+    columnHelper.accessor('category', { header: 'Categoría', cell: (info) => info.getValue() || '-' }),
+    columnHelper.accessor('price', {
+      header: 'Precio',
+      cell: (info) => `$${info.getValue().toFixed(2)}`,
+    }),
+    columnHelper.accessor('has_tiered_pricing', {
+      header: 'Tramos',
+      cell: (info) =>
+        info.getValue() ? <Badge bg="warning" className="text-dark">Sí</Badge> : '-',
+    }),
+    columnHelper.accessor('active', {
+      header: 'Estado',
+      cell: (info) =>
+        info.getValue() ? <Badge bg="success">Activo</Badge> : <Badge bg="danger">Inactivo</Badge>,
+    }),
+    columnHelper.display({
+      id: 'actions',
+      header: '',
+      cell: ({ row }) =>
+        row.original.active ? (
+          <>
+            <Button variant="link" size="sm" className="text-dark p-0 me-2" onClick={() => handleEdit(row.original)}>
+              <Pencil size={16} />
+            </Button>
+            <Button variant="link" size="sm" className="text-danger p-0" onClick={() => handleDeactivate(row.original)}>
+              <Trash2 size={16} />
+            </Button>
+          </>
+        ) : null,
+    }),
+  ]
+
   return (
     <>
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="text-dark mb-0">Productos</h2>
-        <Button className="btn-lepra" onClick={handleAdd}>
+      <h2 className="text-dark mb-3">Productos</h2>
+      <div className="d-flex align-items-center gap-3 mb-4 flex-wrap" style={{ width: '100%' }}>
+        <InputGroup className="flex-grow-1" style={{ minWidth: 200, maxWidth: 340 }}>
+          <InputGroup.Text><Search size={18} /></InputGroup.Text>
+          <Form.Control
+            placeholder="Buscar por nombre o marca..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </InputGroup>
+        <div style={{ minWidth: 150, width: 150 }}>
+          <Select<string>
+            options={[
+              { value: '', label: 'Todas las categorías' },
+              { value: 'Lacteos', label: 'Lácteos' },
+              { value: 'Embutidos', label: 'Embutidos' },
+            ]}
+            value={categoryFilter ?? ''}
+            onChange={(v) => setCategoryFilter(v || null)}
+            placeholder="Categoría"
+            isSearchable={false}
+          />
+        </div>
+        <div style={{ minWidth: 150, width: 150 }}>
+          <Select<string>
+            options={[
+              { value: 'true', label: 'Activos' },
+              { value: 'false', label: 'Inactivos' },
+              { value: 'all', label: 'Todos' },
+            ]}
+            value={activeFilter === null ? 'all' : String(activeFilter)}
+            onChange={(v) => setActiveFilter(v === 'all' || v === '' ? null : v === 'true')}
+            placeholder="Estado"
+            isSearchable={false}
+          />
+        </div>
+        <Button
+          variant="outline-secondary"
+          onClick={clearFilters}
+          title="Limpiar filtros"
+          className="d-flex align-items-center justify-content-center p-0 flex-shrink-0"
+          style={{ height: 38, width: 38 }}
+        >
+          <RotateCcw size={18} />
+        </Button>
+        <Button className="btn-lepra flex-shrink-0 ms-auto" onClick={handleAdd}>
           <Plus size={18} className="me-1" /> Agregar producto
         </Button>
       </div>
@@ -73,51 +186,7 @@ export function Productos() {
           <Spinner animation="border" />
         </div>
       ) : (
-        <Table responsive hover>
-          <thead className="table-dark">
-            <tr>
-              <th style={{ width: 60 }}></th>
-              <th>Nombre</th>
-              <th>Marca</th>
-              <th>Categoría</th>
-              <th>Precio</th>
-              <th>Tramos</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <img
-                    src={getImageUrl(p.img) || DEFAULT_IMG}
-                    alt={p.name}
-                    style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }}
-                  />
-                </td>
-                <td>{p.name}</td>
-                <td>{p.brand || '-'}</td>
-                <td>{p.category || '-'}</td>
-                <td>${p.price.toFixed(2)}</td>
-                <td>{p.has_tiered_pricing ? <Badge bg="warning" className="text-dark">Sí</Badge> : '-'}</td>
-                <td>{p.active ? <Badge bg="success">Activo</Badge> : <Badge bg="danger">Inactivo</Badge>}</td>
-                <td>
-                  {p.active && (
-                    <>
-                      <Button variant="link" size="sm" className="text-dark p-0 me-2" onClick={() => handleEdit(p)}>
-                        <Pencil size={16} />
-                      </Button>
-                      <Button variant="link" size="sm" className="text-danger p-0" onClick={() => handleDeactivate(p)}>
-                        <Trash2 size={16} />
-                      </Button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable columns={columns} data={products} getRowId={(row) => String(row.id)} />
       )}
 
       {nextCursor && (

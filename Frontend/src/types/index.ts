@@ -51,6 +51,8 @@ export interface PaginatedFilters {
   active?: boolean
   status?: string
   rol?: string
+  date_from?: string
+  date_to?: string
 }
 
 export interface PaginatedRequest<T = PaginatedFilters> {

@@ -1,8 +1,9 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from models.user import User
 import traceback
 
 from models import Order, OrderProduct, InputOrderUpdate, InputPaginatedRequestFilter
@@ -41,6 +42,9 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
     limit = body.limit or 20
     last_seen_id = body.last_seen_id
     filters = body.filters or {}
+    search = (filters.get("search") or "").strip()
+    date_from = filters.get("date_from")
+    date_to = filters.get("date_to")
     status_filter = filters.get("status")
     active_filter = filters.get("active")
 
@@ -51,6 +55,24 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
         )
         if role == "CLIENT":
             stmt = stmt.where(Order.id_user == user_id)
+        if search:
+            stmt = stmt.join(Order.user)
+            stmt = stmt.where(
+                User.email.ilike(f"%{search}%") | User.name.ilike(f"%{search}%")
+            )
+        if date_from:
+            try:
+                d = datetime.strptime(str(date_from)[:10], "%Y-%m-%d")
+                stmt = stmt.where(Order.created_at >= d)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                d = datetime.strptime(str(date_to)[:10], "%Y-%m-%d")
+                d_end = d + timedelta(days=1)
+                stmt = stmt.where(Order.created_at < d_end)
+            except ValueError:
+                pass
         if status_filter:
             stmt = stmt.where(Order.status == str(status_filter).upper())
         if active_filter is not None:

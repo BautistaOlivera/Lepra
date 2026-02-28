@@ -4,6 +4,46 @@
   --lepra-yellow: #e6b800;
   --lepra-yellow-light: #ffe566;
   --lepra-yellow-dark: #b38f00;
+
+  /* Bootstrap theme Lepra: blancos, negros y amarillo (evitar azul) */
+  --bs-primary: var(--lepra-yellow);
+  --bs-primary-rgb: 230, 184, 0;
+  --bs-primary-text-emphasis: var(--lepra-yellow-dark);
+  --bs-primary-bg-subtle: rgba(230, 184, 0, 0.15);
+  --bs-primary-border-subtle: var(--lepra-yellow-light);
+  --bs-link-color: var(--lepra-yellow-dark);
+  --bs-link-color-rgb: 179, 143, 0;
+  --bs-link-hover-color: var(--lepra-black);
+  --bs-link-hover-color-rgb: 26, 26, 26;
+  --bs-focus-ring-color: rgba(230, 184, 0, 0.4);
+}
+
+/* btn-primary con btn-lepra: forzar Lepra amarillo (evitar flash azul) */
+.btn-primary.btn-lepra,
+.btn-primary.btn-lepra:hover,
+.btn-primary.btn-lepra:active,
+.btn-primary.btn-lepra:focus,
+.btn-primary.btn-lepra:focus-visible {
+  background-color: var(--lepra-yellow) !important;
+  color: var(--lepra-black) !important;
+  border: none !important;
+}
+.btn-primary.btn-lepra:hover {
+  background-color: var(--lepra-yellow-dark) !important;
+}
+.btn-primary.btn-lepra:focus,
+.btn-primary.btn-lepra:focus-visible {
+  box-shadow: 0 0 0 0.2rem rgba(230, 184, 0, 0.4) !important;
+}
+
+/* Focus: solo inputs y botón cerrar modal (no todos los botones) */
+.form-control:focus,
+.form-select:focus {
+  box-shadow: 0 0 0 0.2rem rgba(230, 184, 0, 0.4) !important;
+  border-color: var(--lepra-yellow) !important;
+}
+.btn-close:focus {
+  box-shadow: 0 0 0 0.2rem rgba(230, 184, 0, 0.4);
 }
 
 * {
@@ -49,6 +89,14 @@ body {
 
 .btn-lepra:focus {
   box-shadow: 0 0 0 0.2rem rgba(230, 184, 0, 0.4);
+}
+
+.btn-lepra:disabled,
+.btn-lepra.disabled {
+  background-color: #adb5bd !important;
+  color: #6c757d !important;
+  border: none;
+  opacity: 1;
 }
 
 .card-lepra {

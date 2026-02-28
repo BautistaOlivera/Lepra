@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { Container, Table, Button, Form, Spinner } from 'react-bootstrap'
+import { Container, Button, Form, Spinner } from 'react-bootstrap'
 import { Link, useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
+import { createColumnHelper } from '@tanstack/react-table'
 import { useCart } from '@/context/CartContext'
 import { createOrderClient, createOrder } from '@/api/order'
 import { getImageUrl } from '@/api/product'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
+import { DataTable } from '@/components/DataTable'
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=80&q=80'
 
@@ -19,16 +21,69 @@ function getUnitPrice(product: Product, quantity: number): number {
   return product.price
 }
 
+type CartRow = ReturnType<typeof useCart>['items'][0] & { unitPrice: number; subtotal: number }
+
 export function Carrito() {
   const { items, updateQuantity, removeItem, clearCart } = useCart()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
 
-  const totals = items.map((i) => {
+  const totals: CartRow[] = items.map((i) => {
     const unitPrice = getUnitPrice(i.product, i.quantity)
     return { ...i, unitPrice, subtotal: i.quantity * unitPrice }
   })
   const total = totals.reduce((s, t) => s + t.subtotal, 0)
+
+  const columnHelper = createColumnHelper<CartRow>()
+  const columns = [
+    columnHelper.display({
+      id: 'img',
+      header: '',
+      size: 70,
+      cell: ({ row }) => (
+        <Link to={`/producto/${row.original.id_product}`} className="d-inline-block" style={{ cursor: 'pointer' }}>
+          <img
+            src={getImageUrl(row.original.product.img) || DEFAULT_IMG}
+            alt={row.original.product.name}
+            className="rounded"
+            style={{ width: 56, height: 56, objectFit: 'cover' }}
+          />
+        </Link>
+      ),
+    }),
+    columnHelper.accessor((r) => r.product.name, { id: 'product', header: 'Producto' }),
+    columnHelper.display({
+      id: 'quantity',
+      header: 'Cantidad',
+      cell: ({ row }) => (
+        <Form.Control
+          type="number"
+          min={1}
+          size="sm"
+          style={{ width: 80 }}
+          value={row.original.quantity}
+          onChange={(e) => updateQuantity(row.original.id_product, parseInt(e.target.value) || 1)}
+        />
+      ),
+    }),
+    columnHelper.accessor('unitPrice', {
+      header: 'Precio u.',
+      cell: (info) => `$${info.getValue().toFixed(2)}`,
+    }),
+    columnHelper.accessor('subtotal', {
+      header: 'Subtotal',
+      cell: (info) => `$${info.getValue().toFixed(2)}`,
+    }),
+    columnHelper.display({
+      id: 'remove',
+      header: '',
+      cell: ({ row }) => (
+        <Button variant="link" size="sm" className="text-danger p-0" onClick={() => removeItem(row.original.id_product)}>
+          <Trash2 size={18} />
+        </Button>
+      ),
+    }),
+  ]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,52 +138,7 @@ export function Carrito() {
     <Container className="py-4">
       <h2 className="mb-4">Carrito</h2>
       <form onSubmit={handleSubmit}>
-        <Table responsive className="align-middle">
-          <thead className="table-dark">
-            <tr>
-              <th style={{ width: 70 }}></th>
-              <th>Producto</th>
-              <th>Cantidad</th>
-              <th>Precio u.</th>
-              <th>Subtotal</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {totals.map((t) => (
-              <tr key={t.id_product}>
-                <td>
-                  <Link to={`/producto/${t.id_product}`} className="d-inline-block" style={{ cursor: 'pointer' }}>
-                    <img
-                      src={getImageUrl(t.product.img) || DEFAULT_IMG}
-                      alt={t.product.name}
-                      className="rounded"
-                      style={{ width: 56, height: 56, objectFit: 'cover' }}
-                    />
-                  </Link>
-                </td>
-                <td>{t.product.name}</td>
-                <td>
-                  <Form.Control
-                    type="number"
-                    min={1}
-                    size="sm"
-                    style={{ width: 80 }}
-                    value={t.quantity}
-                    onChange={(e) => updateQuantity(t.id_product, parseInt(e.target.value) || 1)}
-                  />
-                </td>
-                <td>${t.unitPrice.toFixed(2)}</td>
-                <td>${t.subtotal.toFixed(2)}</td>
-                <td>
-                  <Button variant="link" size="sm" className="text-danger p-0" onClick={() => removeItem(t.id_product)}>
-                    <Trash2 size={18} />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <DataTable columns={columns} data={totals} getRowId={(row) => String(row.id_product)} />
 
         <div className="d-flex justify-content-between align-items-center mt-4 flex-wrap gap-3">
           <Link to="/" className="btn btn-outline-dark">← Seguir comprando</Link>

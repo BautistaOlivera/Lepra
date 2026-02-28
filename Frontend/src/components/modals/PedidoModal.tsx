@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Modal, Form, Button, Table } from 'react-bootstrap'
+import { Modal, Form, Button, Table, Spinner } from 'react-bootstrap'
 import { createOrder } from '@/api/order'
 import { getUsersPaginated } from '@/api/user'
 import { getProductsPaginated } from '@/api/product'
@@ -26,41 +26,58 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [idUser, setIdUser] = useState<number | ''>('')
   const [lines, setLines] = useState<{ id_product: number; quantity: number; unit_price: number; product?: Product }[]>([])
+
+  const validLines = lines.filter((l) => l.id_product > 0)
   const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(false)
 
   useEffect(() => {
-    if (show) {
-      getUsersPaginated({ limit: 100, filters: {} }).then(({ data }) => {
-        if (data) setUsers(data.items)
-      })
-      getProductsPaginated({ limit: 100, filters: {} }).then(({ data }) => {
-        if (data) setProducts(data.items)
-      })
-      setIdUser('')
-      setLines([])
+    if (!show) {
+      setLoadingData(false)
+      return
     }
+    setLoadingData(true)
+    setIdUser('')
+    setLines([])
+    Promise.all([
+      getUsersPaginated({ limit: 100, filters: {} }),
+      getProductsPaginated({ limit: 100, filters: {} }),
+    ])
+      .then(([usersRes, productsRes]) => {
+        if (usersRes.data) setUsers(usersRes.data.items)
+        if (productsRes.data) setProducts(productsRes.data.items)
+        if (productsRes.error) toast.error(productsRes.error.message || 'Error al cargar productos')
+        if (usersRes.error) toast.error(usersRes.error.message || 'Error al cargar clientes')
+      })
+      .catch(() => toast.error('Error al cargar datos'))
+      .finally(() => setLoadingData(false))
   }, [show])
 
   function addLine() {
-    const p = products[0]
-    if (!p) {
+    if (products.length === 0) {
       toast.error('No hay productos cargados')
       return
     }
-    setLines([...lines, { id_product: p.id, quantity: 1, unit_price: getUnitPrice(p, 1), product: p }])
+    setLines([...lines, { id_product: 0, quantity: 1, unit_price: 0 }])
   }
 
-  function updateLine(index: number, field: 'id_product' | 'quantity', value: number) {
+  function updateLine(index: number, field: 'id_product' | 'quantity', value: number | null) {
     const newLines = [...lines]
     const line = newLines[index]
     if (field === 'id_product') {
-      const product = products.find((x) => x.id === value)
-      if (product) {
-        line.id_product = product.id
-        line.unit_price = getUnitPrice(product, line.quantity)
-        line.product = product
+      if (value == null || value === 0) {
+        line.id_product = 0
+        line.unit_price = 0
+        line.product = undefined
+      } else {
+        const product = products.find((x) => x.id === value)
+        if (product) {
+          line.id_product = product.id
+          line.unit_price = getUnitPrice(product, line.quantity)
+          line.product = product
+        }
       }
-    } else {
+    } else if (typeof value === 'number') {
       line.quantity = Math.max(1, value)
       if (line.product) line.unit_price = getUnitPrice(line.product, line.quantity)
     }
@@ -71,7 +88,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     setLines(lines.filter((_, i) => i !== index))
   }
 
-  const total = lines.reduce((s, l) => s + l.quantity * l.unit_price, 0)
+  const total = validLines.reduce((s, l) => s + l.quantity * l.unit_price, 0)
 
   const userOptions: SelectOption<number>[] = users.map((u) => ({
     value: u.id,
@@ -79,19 +96,19 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
   }))
   const productOptions: SelectOption<number>[] = products.map((p) => ({
     value: p.id,
-    label: p.name,
+    label: p.brand ? `${p.name} (${p.brand})` : p.name,
   }))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!idUser || lines.length === 0) {
+    if (!idUser || validLines.length === 0) {
       toast.error('Selecciona un cliente y agrega al menos un producto')
       return
     }
     setLoading(true)
     const body = {
       id_user: Number(idUser),
-      lines: lines.map((l) => ({ id_product: l.id_product, quantity: l.quantity, unit_price: l.unit_price })),
+      lines: validLines.map((l) => ({ id_product: l.id_product, quantity: l.quantity, unit_price: l.unit_price })),
     }
     const { error } = await createOrder(body)
     setLoading(false)
@@ -121,46 +138,61 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
 
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h6 className="mb-0">Productos</h6>
-            <Button type="button" variant="outline-dark" size="sm" onClick={addLine}>
-              + Agregar
+            <Button
+              type="button"
+              variant="outline-dark"
+              size="sm"
+              onClick={addLine}
+              disabled={loadingData || products.length === 0}
+            >
+              {loadingData ? <><Spinner animation="border" size="sm" className="me-1" />Cargando...</> : '+ Agregar'}
             </Button>
           </div>
 
-          <Table size="sm" className="mb-4">
+          <Table size="sm" className="mb-4" style={{ tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: '45%' }} />
+              <col style={{ width: '12%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '5%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Producto</th>
-                <th>Cant.</th>
-                <th>Precio u.</th>
-                <th>Subtotal</th>
+                <th className="text-center">Cant.</th>
+                <th className="text-end">Precio u.</th>
+                <th className="text-end">Subtotal</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {lines.map((l, i) => (
                 <tr key={i}>
-                  <td>
+                  <td className="align-middle">
                     <Select<number>
                       size="sm"
                       options={productOptions}
-                      value={l.id_product}
-                      onChange={(id) => { if (id != null) updateLine(i, 'id_product', id) }}
-                      placeholder="Buscar producto..."
+                      value={l.id_product === 0 ? null : l.id_product}
+                      onChange={(id) => updateLine(i, 'id_product', id ?? 0)}
+                      placeholder="Buscar por nombre..."
+                      isSearchable
                     />
                   </td>
-                  <td>
+                  <td className="align-middle text-center">
                     <Form.Control
                       type="number"
                       min={1}
                       size="sm"
-                      style={{ width: 70 }}
+                      className="w-100"
+                      style={{ minHeight: 31 }}
                       value={l.quantity}
                       onChange={(e) => updateLine(i, 'quantity', parseInt(e.target.value) || 1)}
                     />
                   </td>
-                  <td>${l.unit_price.toFixed(2)}</td>
-                  <td>${(l.quantity * l.unit_price).toFixed(2)}</td>
-                  <td>
+                  <td className="text-end align-middle">${l.unit_price.toFixed(2)}</td>
+                  <td className="text-end align-middle">${(l.quantity * l.unit_price).toFixed(2)}</td>
+                  <td className="align-middle">
                     <Button variant="link" size="sm" className="text-danger p-0" onClick={() => removeLine(i)}>
                       ✕
                     </Button>
@@ -174,7 +206,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
 
           <div className="d-flex justify-content-end gap-2">
             <Button variant="outline-dark" onClick={() => onClose()}>Cancelar</Button>
-            <Button type="submit" className="btn-lepra" disabled={loading || lines.length === 0}>
+            <Button type="submit" className="btn-lepra" disabled={loading || validLines.length === 0}>
               {loading ? 'Creando...' : 'Crear pedido'}
             </Button>
           </div>
