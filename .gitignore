@@ -4,3 +4,6 @@ __pycache__/
 .env
 *.egg-info/
 .vscode/
+
+# Imágenes subidas (Backend/uploads/): locales, no versionar
+Backend/uploads/
