@@ -87,7 +87,9 @@ export function Select<T extends number | string = number | string>({
       placeholder={placeholder}
       isSearchable={isSearchable}
       isClearable={isClearable}
-      filterOption={filterOption !== undefined ? filterOption : defaultFilterOption}
+      filterOption={(option, inputValue) =>
+        (filterOption ?? defaultFilterOption)(option.data, inputValue)
+      }
       isDisabled={disabled}
       styles={computedStyles}
       noOptionsMessage={() => 'Sin resultados'}
