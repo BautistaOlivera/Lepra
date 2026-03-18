@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { login } from '@/api/auth'
 import toast from 'react-hot-toast'
+import { markOnlineAuth } from '@/offline/authGrace'
 
 const CHEESE_BG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=800&q=80'
 
@@ -25,6 +26,7 @@ export function Login() {
     if (data) {
       localStorage.setItem('lepra_token', data.access_token)
       localStorage.setItem('lepra_user', JSON.stringify(data.user))
+      markOnlineAuth()
       toast.success('¡Bienvenido!')
       navigate(data.user.rol === 'ADMIN' ? '/admin' : '/', { replace: true })
     }

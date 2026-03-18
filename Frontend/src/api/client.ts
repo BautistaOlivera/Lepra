@@ -30,7 +30,21 @@ export async function api<T>(
     const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        try {
+          localStorage.setItem('lepra_auth_required', '1')
+          window.dispatchEvent(new Event('lepra-auth-required'))
+        } catch {
+          // ignore
+        }
+      }
       return { error: { status: res.status, message: json.message || res.statusText } }
+    }
+    // si respondió OK, limpiamos flag de auth requerida
+    try {
+      localStorage.removeItem('lepra_auth_required')
+    } catch {
+      // ignore
     }
     return { data: json as T }
   } catch (err) {
@@ -50,7 +64,22 @@ export async function apiUpload<T>(
   try {
     const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body: formData, headers })
     const json = await res.json().catch(() => ({}))
-    if (!res.ok) return { error: { status: res.status, message: json.message || res.statusText } }
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        try {
+          localStorage.setItem('lepra_auth_required', '1')
+          window.dispatchEvent(new Event('lepra-auth-required'))
+        } catch {
+          // ignore
+        }
+      }
+      return { error: { status: res.status, message: json.message || res.statusText } }
+    }
+    try {
+      localStorage.removeItem('lepra_auth_required')
+    } catch {
+      // ignore
+    }
     return { data: json as T }
   } catch (err) {
     return { error: { status: 0, message: (err as Error).message } }

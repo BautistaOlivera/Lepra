@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { Row, Col, Card, Badge, Spinner } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
 import { Package, ShoppingCart, TrendingUp } from 'lucide-react'
-import { getProductsPaginated } from '@/api/product'
-import { getOrdersPaginated } from '@/api/order'
+import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
+import { getOrdersPaginatedOfflineFirst } from '@/repositories/ordersRepo'
 
 const CHEESE_CARD = 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=600&q=80'
 
@@ -14,8 +14,8 @@ export function Admin() {
   useEffect(() => {
     async function load() {
       const [prodRes, ordRes] = await Promise.all([
-        getProductsPaginated({ limit: 100, filters: {} }),
-        getOrdersPaginated({ limit: 100, filters: { status: 'PENDING' } }),
+        getProductsPaginatedOfflineFirst({ limit: 100, filters: {} }),
+        getOrdersPaginatedOfflineFirst({ limit: 100, filters: { status: 'PENDING' } }),
       ])
       if (prodRes.data) setStats((s) => ({ ...s, products: prodRes.data!.items.length }))
       if (ordRes.data) setStats((s) => ({ ...s, pendingOrders: ordRes.data!.items.length }))

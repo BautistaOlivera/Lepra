@@ -2,12 +2,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Spinner, Form, InputGroup } from 'react-bootstrap'
 import { Plus, Pencil, Trash2, Search, RotateCcw } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
-import { getUsersPaginated, deactivateUser } from '@/api/user'
+import { deactivateUser } from '@/api/user'
+import { getUsersPaginatedOfflineFirst } from '@/repositories/usersRepo'
 import { User } from '@/types'
 import toast from 'react-hot-toast'
 import { ClienteModal } from '@/components/modals/ClienteModal'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
+import { isOnlineNow } from '@/offline/network'
+import { enqueueCommand } from '@/offline/outbox'
+import { lepraDb } from '@/offline/db'
+import { useOutboxPending } from '@/offline/useOutboxPending'
 
 const columnHelper = createColumnHelper<User>()
 
@@ -21,6 +26,7 @@ export function Clientes() {
   const [searchDebounced, setSearchDebounced] = useState('')
   const [rolFilter, setRolFilter] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<boolean | null>(true)
+  const { users: pendingUsers, refresh: refreshPending } = useOutboxPending()
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300)
@@ -33,7 +39,7 @@ export function Clientes() {
     if (searchDebounced.trim()) filters.search = searchDebounced.trim()
     if (rolFilter) filters.rol = rolFilter
     if (activeFilter !== null) filters.active = activeFilter
-    const { data } = await getUsersPaginated({
+    const { data } = await getUsersPaginatedOfflineFirst({
       limit: 20,
       last_seen_id: lastId ?? null,
       filters,
@@ -61,6 +67,14 @@ export function Clientes() {
 
   async function handleDeactivate(u: User) {
     if (!confirm(`¿Desactivar a ${u.email}?`)) return
+    if (!isOnlineNow()) {
+      await enqueueCommand('USER_DEACTIVATE', { id: u.id })
+      await lepraDb.users.update(u.id, { active: false })
+      toast.success('Cambio guardado (pendiente de sincronizar)')
+      refreshPending().catch(() => {})
+      loadUsers()
+      return
+    }
     const { error } = await deactivateUser(u.id)
     if (error) toast.error(error.message)
     else {
@@ -72,7 +86,10 @@ export function Clientes() {
   function onModalClose(refresh?: boolean) {
     setModalOpen(false)
     setEditingUser(null)
-    if (refresh) loadUsers()
+    if (refresh) {
+      refreshPending().catch(() => {})
+      loadUsers()
+    }
   }
 
   function clearFilters() {
@@ -101,6 +118,14 @@ export function Clientes() {
       header: 'Estado',
       cell: (info) =>
         info.getValue() ? <Badge bg="success">Activo</Badge> : <Badge bg="danger">Inactivo</Badge>,
+    }),
+    columnHelper.display({
+      id: 'sync',
+      header: 'Sync',
+      cell: ({ row }) =>
+        row.original.id < 0 || pendingUsers.has(row.original.id) ? (
+          <Badge bg="warning" className="text-dark">Pendiente</Badge>
+        ) : null,
     }),
     columnHelper.display({
       id: 'actions',

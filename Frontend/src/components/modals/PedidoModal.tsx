@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import { Modal, Form, Button, Table, Spinner } from 'react-bootstrap'
 import { createOrder } from '@/api/order'
-import { getUsersPaginated } from '@/api/user'
-import { getProductsPaginated } from '@/api/product'
+import { getUsersPaginatedOfflineFirst } from '@/repositories/usersRepo'
+import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
 import { User, Product } from '@/types'
 import toast from 'react-hot-toast'
 import { Select, type SelectOption } from '@/components/Select'
+import { isOnlineNow } from '@/offline/network'
+import { enqueueCommand } from '@/offline/outbox'
+import { lepraDb } from '@/offline/db'
 
 interface PedidoModalProps {
   show: boolean
@@ -40,8 +43,8 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     setIdUser('')
     setLines([])
     Promise.all([
-      getUsersPaginated({ limit: 100, filters: {} }),
-      getProductsPaginated({ limit: 100, filters: {} }),
+      getUsersPaginatedOfflineFirst({ limit: 100, filters: {} }),
+      getProductsPaginatedOfflineFirst({ limit: 100, filters: {} }),
     ])
       .then(([usersRes, productsRes]) => {
         if (usersRes.data) setUsers(usersRes.data.items)
@@ -110,6 +113,32 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       id_user: Number(idUser),
       lines: validLines.map((l) => ({ id_product: l.id_product, quantity: l.quantity, unit_price: l.unit_price })),
     }
+    if (!isOnlineNow()) {
+      // Solo soportamos offline create si los IDs ya existen en server (positivos)
+      if (Number(idUser) <= 0 || validLines.some((l) => l.id_product <= 0)) {
+        toast.error('Sin conexión: sincroniza primero usuarios/productos antes de crear pedidos')
+        setLoading(false)
+        return
+      }
+      const tempId = -Date.now()
+      const selectedUser = users.find((u) => u.id === Number(idUser))
+      await enqueueCommand('ORDER_CREATE_ADMIN', { tempId, data: body })
+      await lepraDb.orders.put({
+        id: tempId,
+        id_user: Number(idUser),
+        user_name: selectedUser?.name || selectedUser?.email || null,
+        total,
+        created_at: new Date().toISOString(),
+        status: 'PENDING',
+        active: true,
+        lines: validLines.map((l) => ({ id_product: l.id_product, quantity: l.quantity, unit_price: l.unit_price })),
+      } as any)
+      toast.success('Pedido creado (pendiente de sincronizar)')
+      setLoading(false)
+      onClose(true)
+      return
+    }
+
     const { error } = await createOrder(body)
     setLoading(false)
     if (error) toast.error(error.message)

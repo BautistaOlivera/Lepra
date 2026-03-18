@@ -1,9 +1,13 @@
 from typing import Optional
-from sqlalchemy import Column, Integer, String, Boolean
+from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
 from config.db import Base
 
+def _utcnow_naive():
+    # Guardamos UTC sin tzinfo para evitar problemas con drivers/config
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 class User(Base):
     __tablename__ = "users"
@@ -15,6 +19,7 @@ class User(Base):
     location = Column(String, nullable=True)
     rol = Column(String, nullable=False)
     active = Column(Boolean, default=True)
+    updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive, nullable=False)
 
     orders = relationship("Order", back_populates="user", foreign_keys="Order.id_user")
 

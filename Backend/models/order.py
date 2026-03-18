@@ -1,10 +1,12 @@
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from sqlalchemy import Column, Integer, Float, String, Boolean, ForeignKey, Date, DateTime
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
 from config.db import Base
 
+def _utcnow_naive():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 class Order(Base):
     __tablename__ = "orders"
@@ -13,7 +15,8 @@ class Order(Base):
     id_user = Column(Integer, ForeignKey("users.id"), nullable=False)
     total = Column(Float, default=0.0)
     date = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    created_at = Column(DateTime, default=_utcnow_naive)
+    updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive, nullable=False)
     payment = Column(String, nullable=True)
     status = Column(String, default="PENDING")
     active = Column(Boolean, default=True)

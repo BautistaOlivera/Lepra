@@ -2,12 +2,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Spinner, Form, InputGroup } from 'react-bootstrap'
 import { Plus, Pencil, Trash2, Search, RotateCcw } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
-import { getProductsPaginated, deactivateProduct, getImageUrl } from '@/api/product'
+import { deactivateProduct, getImageUrl } from '@/api/product'
+import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
 import { ProductoModal } from '@/components/modals/ProductoModal'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
+import { isOnlineNow } from '@/offline/network'
+import { enqueueCommand } from '@/offline/outbox'
+import { lepraDb } from '@/offline/db'
+import { useOutboxPending } from '@/offline/useOutboxPending'
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=80&q=80'
 const columnHelper = createColumnHelper<Product>()
@@ -22,6 +27,7 @@ export function Productos() {
   const [searchDebounced, setSearchDebounced] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<boolean | null>(true)
+  const { products: pendingProducts, refresh: refreshPending } = useOutboxPending()
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300)
@@ -34,7 +40,7 @@ export function Productos() {
     if (searchDebounced.trim()) filters.search = searchDebounced.trim()
     if (categoryFilter) filters.category = categoryFilter
     if (activeFilter !== null) filters.active = activeFilter
-    const { data } = await getProductsPaginated({
+    const { data } = await getProductsPaginatedOfflineFirst({
       limit: 20,
       last_seen_id: lastId ?? null,
       filters,
@@ -62,6 +68,14 @@ export function Productos() {
 
   async function handleDeactivate(p: Product) {
     if (!confirm(`¿Desactivar "${p.name}"?`)) return
+    if (!isOnlineNow()) {
+      await enqueueCommand('PRODUCT_DEACTIVATE', { id: p.id })
+      await lepraDb.products.update(p.id, { active: false })
+      toast.success('Cambio guardado (pendiente de sincronizar)')
+      refreshPending().catch(() => {})
+      loadProducts()
+      return
+    }
     const { error } = await deactivateProduct(p.id)
     if (error) toast.error(error.message)
     else {
@@ -73,7 +87,10 @@ export function Productos() {
   function onModalClose(refresh?: boolean) {
     setModalOpen(false)
     setEditingProduct(null)
-    if (refresh) loadProducts()
+    if (refresh) {
+      refreshPending().catch(() => {})
+      loadProducts()
+    }
   }
 
   function clearFilters() {
@@ -111,6 +128,14 @@ export function Productos() {
       header: 'Estado',
       cell: (info) =>
         info.getValue() ? <Badge bg="success">Activo</Badge> : <Badge bg="danger">Inactivo</Badge>,
+    }),
+    columnHelper.display({
+      id: 'sync',
+      header: 'Sync',
+      cell: ({ row }) =>
+        row.original.id < 0 || pendingProducts.has(row.original.id) ? (
+          <Badge bg="warning" className="text-dark">Pendiente</Badge>
+        ) : null,
     }),
     columnHelper.display({
       id: 'actions',

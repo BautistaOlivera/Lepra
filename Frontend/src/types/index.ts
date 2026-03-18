@@ -8,6 +8,7 @@ export interface Product {
   img?: string | null
   active: boolean
   price_tiers?: PriceTier[]
+  updated_at?: string | null
 }
 
 export interface PriceTier {
@@ -23,6 +24,7 @@ export interface User {
   location?: string | null
   rol: string
   active: boolean
+  updated_at?: string | null
 }
 
 export interface OrderProduct {
@@ -39,6 +41,7 @@ export interface Order {
   total: number
   date?: string | null
   created_at?: string | null
+  updated_at?: string | null
   payment?: string | null
   status: 'PENDING' | 'FULFILLED' | 'CANCELED'
   active: boolean

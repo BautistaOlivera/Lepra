@@ -2,13 +2,18 @@ import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Spinner, Form, InputGroup } from 'react-bootstrap'
 import { Plus, FileText, Search, Calendar, RotateCcw } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
-import { getOrdersPaginated, setOrderStatus } from '@/api/order'
+import { setOrderStatus } from '@/api/order'
+import { getOrdersPaginatedOfflineFirst } from '@/repositories/ordersRepo'
 import { Order } from '@/types'
 import toast from 'react-hot-toast'
 import { PedidoModal } from '@/components/modals/PedidoModal'
 import { PedidoPdfModal } from '@/components/modals/PedidoPdfModal'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
+import { isOnlineNow } from '@/offline/network'
+import { enqueueCommand } from '@/offline/outbox'
+import { lepraDb } from '@/offline/db'
+import { useOutboxPending } from '@/offline/useOutboxPending'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -33,6 +38,7 @@ export function Pedidos() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const { orders: pendingOrders, refresh: refreshPending } = useOutboxPending()
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300)
@@ -46,7 +52,7 @@ export function Pedidos() {
     if (dateFrom) filters.date_from = dateFrom
     if (dateTo) filters.date_to = dateTo
     if (statusFilter) filters.status = statusFilter
-    const { data } = await getOrdersPaginated({
+    const { data } = await getOrdersPaginatedOfflineFirst({
       limit: 20,
       last_seen_id: lastId ?? null,
       filters,
@@ -63,6 +69,18 @@ export function Pedidos() {
   }, [loadOrders])
 
   async function handleStatusChange(orderId: number, newStatus: string) {
+    if (orderId < 0) {
+      toast.error('Este pedido aún no está sincronizado')
+      return
+    }
+    if (!isOnlineNow()) {
+      await enqueueCommand('ORDER_STATUS_SET', { id: orderId, status: newStatus })
+      await lepraDb.orders.update(orderId, { status: newStatus as any })
+      toast.success('Cambio guardado (pendiente de sincronizar)')
+      refreshPending().catch(() => {})
+      loadOrders()
+      return
+    }
     const { error } = await setOrderStatus(orderId, newStatus)
     if (error) toast.error(error.message)
     else {
@@ -73,7 +91,10 @@ export function Pedidos() {
 
   function onAddModalClose(refresh?: boolean) {
     setAddModalOpen(false)
-    if (refresh) loadOrders()
+    if (refresh) {
+      refreshPending().catch(() => {})
+      loadOrders()
+    }
   }
 
   function onPdfClose() {
@@ -104,9 +125,17 @@ export function Pedidos() {
     columnHelper.accessor('status', {
       header: 'Estado',
       cell: (info) => (
-        <Badge bg={STATUS_BG[info.getValue()] || 'secondary'}>
-          {STATUS_LABELS[info.getValue()] || info.getValue()}
-        </Badge>
+        <div className="d-flex align-items-center gap-2">
+          <Badge bg={STATUS_BG[info.getValue()] || 'secondary'}>
+            {STATUS_LABELS[info.getValue()] || info.getValue()}
+          </Badge>
+          {info.row.original.id < 0 && (
+            <Badge bg="warning" className="text-dark">Pendiente</Badge>
+          )}
+          {info.row.original.id >= 0 && pendingOrders.has(info.row.original.id) && (
+            <Badge bg="warning" className="text-dark">Pendiente</Badge>
+          )}
+        </div>
       ),
     }),
     columnHelper.display({
@@ -129,6 +158,7 @@ export function Pedidos() {
                 size="sm"
                 className="text-success p-0 me-1"
                 onClick={() => handleStatusChange(row.original.id, 'FULFILLED')}
+                disabled={row.original.id < 0}
               >
                 Cumplir
               </Button>
@@ -137,6 +167,7 @@ export function Pedidos() {
                 size="sm"
                 className="text-danger p-0"
                 onClick={() => handleStatusChange(row.original.id, 'CANCELED')}
+                disabled={row.original.id < 0}
               >
                 Cancelar
               </Button>

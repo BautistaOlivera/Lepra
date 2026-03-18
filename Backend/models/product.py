@@ -1,9 +1,12 @@
 from typing import Optional
-from sqlalchemy import Column, Integer, String, Boolean, Float
+from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
 from config.db import Base
 
+def _utcnow_naive():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 class Product(Base):
     __tablename__ = "products"
@@ -16,6 +19,7 @@ class Product(Base):
     has_tiered_pricing = Column(Boolean, default=False)
     img = Column(String, nullable=True)
     active = Column(Boolean, default=True)
+    updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive, nullable=False)
 
     price_tiers = relationship("ProductPriceTier", back_populates="product", cascade="all, delete-orphan")
     order_products = relationship("OrderProduct", back_populates="product")

@@ -4,6 +4,9 @@ import { createUser, updateUser } from '@/api/user'
 import { User } from '@/types'
 import toast from 'react-hot-toast'
 import { Select } from '@/components/Select'
+import { isOnlineNow } from '@/offline/network'
+import { enqueueCommand } from '@/offline/outbox'
+import { lepraDb } from '@/offline/db'
 
 interface ClienteModalProps {
   show: boolean
@@ -41,6 +44,26 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
     e.preventDefault()
     setLoading(true)
     if (isEditing) {
+      if (!isOnlineNow()) {
+        const patch = {
+          id: editingUser!.id,
+          email,
+          password: password || undefined,
+          name: name || undefined,
+          location: location || undefined,
+          rol,
+        }
+        await enqueueCommand('USER_UPDATE', patch)
+        await lepraDb.users.update(editingUser!.id, {
+          name: name || null,
+          location: location || null,
+          rol,
+        })
+        toast.success('Cambio guardado (pendiente de sincronizar)')
+        onClose(true)
+        setLoading(false)
+        return
+      }
       const { error } = await updateUser({
         id: editingUser!.id,
         email,
@@ -55,6 +78,23 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
         onClose(true)
       }
     } else {
+      if (!isOnlineNow()) {
+        const tempId = -Date.now()
+        const data = { email, password, name: name || undefined, location: location || undefined, rol }
+        await enqueueCommand('USER_CREATE', { tempId, data })
+        await lepraDb.users.put({
+          id: tempId,
+          email,
+          name: name || null,
+          location: location || null,
+          rol,
+          active: true,
+        } as any)
+        toast.success('Usuario creado (pendiente de sincronizar)')
+        onClose(true)
+        setLoading(false)
+        return
+      }
       const { error } = await createUser({ email, password, name: name || undefined, location: location || undefined, rol })
       if (error) toast.error(error.message)
       else {

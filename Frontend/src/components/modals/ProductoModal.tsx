@@ -4,6 +4,9 @@ import { createProduct, updateProduct, uploadProductImage, getImageUrl } from '@
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
 import { Select } from '@/components/Select'
+import { isOnlineNow } from '@/offline/network'
+import { enqueueCommand } from '@/offline/outbox'
+import { lepraDb } from '@/offline/db'
 
 interface ProductoModalProps {
   show: boolean
@@ -35,6 +38,11 @@ const CATEGORIAS = [
   const isFormValid = name.trim() !== '' && isPriceValid
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!isOnlineNow()) {
+      toast.error('Sin conexión: no se puede subir imagen')
+      e.target.value = ''
+      return
+    }
     const file = e.target.files?.[0]
     if (!file) return
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
@@ -84,6 +92,30 @@ const CATEGORIAS = [
     }
     setLoading(true)
     if (isEditing) {
+      if (!isOnlineNow()) {
+        const patch = {
+          id: editingProduct!.id,
+          name,
+          price: priceNum,
+          brand: brand || undefined,
+          category: category || undefined,
+          img: img || undefined,
+          has_tiered_pricing: hasTieredPricing,
+        }
+        await enqueueCommand('PRODUCT_UPDATE', patch)
+        await lepraDb.products.update(editingProduct!.id, {
+          name,
+          price: priceNum,
+          brand: brand || null,
+          category: category || null,
+          img: img || null,
+          has_tiered_pricing: hasTieredPricing,
+        })
+        toast.success('Cambio guardado (pendiente de sincronizar)')
+        onClose(true)
+        setLoading(false)
+        return
+      }
       const { error } = await updateProduct({
         id: editingProduct!.id,
         name,
@@ -99,6 +131,37 @@ const CATEGORIAS = [
         onClose(true)
       }
     } else {
+      if (!isOnlineNow()) {
+        if (img) {
+          toast.error('Sin conexión: no se puede crear con imagen. Quita la imagen o espera a estar online.')
+          setLoading(false)
+          return
+        }
+        const tempId = -Date.now()
+        const data = {
+          name,
+          price: priceNum,
+          brand: brand || undefined,
+          category: category || undefined,
+          img: undefined,
+          has_tiered_pricing: hasTieredPricing,
+        }
+        await enqueueCommand('PRODUCT_CREATE', { tempId, data })
+        await lepraDb.products.put({
+          id: tempId,
+          name,
+          price: priceNum,
+          brand: brand || null,
+          category: category || null,
+          has_tiered_pricing: hasTieredPricing,
+          img: null,
+          active: true,
+        } as any)
+        toast.success('Producto creado (pendiente de sincronizar)')
+        onClose(true)
+        setLoading(false)
+        return
+      }
       const { error } = await createProduct({
         name,
         price: priceNum,
