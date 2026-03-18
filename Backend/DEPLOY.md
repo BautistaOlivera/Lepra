@@ -26,16 +26,46 @@
      - `DATABASE_URL` = Internal Database URL (pegado desde lepra-db).
      - `SECRET_KEY` = una clave larga y aleatoria (ej. generada con `openssl rand -hex 32`).
 
+## Crear el primer usuario admin
+
+Después del primer deploy, crea un usuario administrador:
+
+**En Render (recomendado):** Servicio **lepra-api** → pestaña **Shell** → ejecuta:
+
+```bash
+python scripts/create_admin.py
+```
+
+Por defecto crea: `admin@lepra.local` / `admin123`. **Cambia la contraseña** tras el primer login en producción.
+
+**Con email/contraseña propios:** En el servicio lepra-api → **Environment** añade `ADMIN_EMAIL`, `ADMIN_PASSWORD` y opcionalmente `ADMIN_NAME`. Luego en Shell ejecuta de nuevo `python scripts/create_admin.py`.
+
+**Desde tu PC:** Usa la **External Database URL** de lepra-db, así en la terminal (desde la carpeta `Backend`):
+
+```bash
+export DATABASE_URL="postgresql://..."
+python scripts/create_admin.py
+```
+
 ## Frontend (Netlify)
 
-En el frontend, configura la variable de entorno con la URL del backend en Render, por ejemplo:
+Configuración detallada en **Frontend/NETLIFY.md**. Resumen:
 
-- `VITE_API_URL=https://lepra-api.onrender.com`
-
-(o el nombre real de tu servicio en Render).
+- **Base directory:** `Frontend`
+- **Variable de entorno:** `VITE_API_URL` = URL de tu API en Render (ej. `https://lepra-api.onrender.com`, sin barra final)
+- Después de cambiar `VITE_API_URL`, haz un nuevo deploy para que el build use la nueva URL.
 
 ## Notas
 
 - **CORS**: La API tiene `allow_origins=["*"]`. Para producción puedes restringirlo al dominio del frontend en Netlify.
 - **Uploads**: La ruta `/uploads` usa el disco del servicio. En Render el sistema de archivos es efímero; si necesitas persistencia, usa un almacenamiento externo (p. ej. S3).
 - **Free tier**: El servicio free se “duerme” tras inactividad; la primera petición puede tardar unos segundos en responder.
+
+## Issue conocido: imágenes (uploads) se “pierden” en Render Free
+
+En el deploy gratuito de Render, los archivos guardados localmente en el servicio (por ejemplo `Backend/uploads/`) pueden desaparecer tras un tiempo porque el filesystem del servicio es **efímero** (sleep/restart/redeploy).
+
+- **Síntoma**: la DB mantiene la ruta/URL, pero al pedirla la API devuelve 404 porque el archivo ya no está.
+- **Decisión para producción** (antes de entregar):
+  - **Opción A (recomendada)**: mover uploads a storage externo (S3 / Cloudflare R2 / Supabase Storage) y guardar en DB la URL o key.
+  - **Opción B**: usar un hosting con **disco persistente** (en Render, Persistent Disk) y montar una ruta fija para uploads.

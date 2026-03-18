@@ -1,8 +1,12 @@
 """
 Crear usuario admin inicial.
-admin@lepra.local / admin123
+
+Por defecto: admin@lepra.local / admin123
+Para producción, usar variables de entorno:
+  ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME
 
 Ejecutar desde Backend: python scripts/create_admin.py
+En Render: Shell del servicio → python scripts/create_admin.py
 """
 
 import sys
@@ -16,9 +20,9 @@ from models.user import User
 from config.db import SessionLocal
 from auth.security import hash_password
 
-ADMIN_EMAIL = "admin@lepra.local"
-ADMIN_PASSWORD = "admin123"
-ADMIN_NAME = "Admin"
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@lepra.local")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+ADMIN_NAME = os.getenv("ADMIN_NAME", "Admin")
 
 
 def main():

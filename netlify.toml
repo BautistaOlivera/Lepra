@@ -1,0 +1,16 @@
+# Netlify – Lepra (monorepo: frontend en Frontend/)
+# Este archivo en la raíz hace que el deploy use la app React sin tocar la UI de Netlify.
+
+[build]
+  base = "Frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA: todas las rutas a index.html para React Router
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
