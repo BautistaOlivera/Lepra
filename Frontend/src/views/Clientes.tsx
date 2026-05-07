@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Spinner, Form, InputGroup } from 'react-bootstrap'
-import { Plus, Pencil, Trash2, Search, RotateCcw } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, RotateCcw, CheckCircle2 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { deactivateUser } from '@/api/user'
 import { getUsersPaginatedOfflineFirst } from '@/repositories/usersRepo'
@@ -125,7 +125,11 @@ export function Clientes() {
       cell: ({ row }) =>
         row.original.id < 0 || pendingUsers.has(row.original.id) ? (
           <Badge bg="warning" className="text-dark">Pendiente</Badge>
-        ) : null,
+        ) : (
+          <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado">
+            <title>Sincronizado</title>
+          </CheckCircle2>
+        ),
     }),
     columnHelper.display({
       id: 'actions',
