@@ -3,6 +3,7 @@ import bcrypt
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import jwt
+from jose.exceptions import ExpiredSignatureError, JWTError
 from fastapi.security import OAuth2PasswordBearer
 
 SECRET_KEY = os.getenv("SECRET_KEY", "cambiar_en_produccion_clave_secreta_lepra")
@@ -50,11 +51,9 @@ class Security:
             payload = jwt.decode(token, cls.secret, algorithms=[ALGORITHM])
             return payload
 
-        except jwt.ExpiredSignatureError:
+        except ExpiredSignatureError:
             return {"message": "Token expirado"}
-        except jwt.InvalidSignatureError:
-            return {"message": "Firma de token inválida"}
-        except jwt.DecodeError:
+        except JWTError:
             return {"message": "Token inválido"}
         except Exception as e:
             return {"message": "Error al verificar token", "detail": str(e)}
