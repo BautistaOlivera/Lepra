@@ -31,7 +31,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
   const [idUser, setIdUser] = useState<number | ''>('')
   const [lines, setLines] = useState<{ id_product: number; quantity: number; unit_price: number; product?: Product }[]>([])
 
-  const validLines = lines.filter((l) => l.id_product > 0)
+  const validLines = lines.filter((l) => l.id_product !== 0)
   const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
 
