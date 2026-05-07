@@ -73,12 +73,12 @@ Con DevTools en **Offline**:
 ### D. Crear Pedido offline
 
 1. `/admin/pedidos` → **Nuevo pedido**
-2. Caso 1 (esperado si usas IDs temporales):
-   - Si intentas usar cliente/producto recién creados offline (IDs < 0):
-   - Esperado: error “Sin conexión: sincroniza primero usuarios/productos antes de crear pedidos”
-3. Caso 2 (esperado si usas IDs reales):
-   - Si usas cliente/productos con IDs reales (> 0):
+2. Caso 1 (cliente/productos con IDs reales > 0):
    - Esperado: “Pedido creado (pendiente de sincronizar)” y en tabla badge **Pendiente**.
+3. Caso 2 (cliente o algún producto creados offline en esta sesión, IDs < 0):
+   - Esperado: “Pedido creado (pendiente; sincronizará después de productos/clientes nuevos)”.
+   - En tabla: badge **Pendiente**.
+   - Al volver online, el outbox procesa primero los `*_CREATE` (orden FIFO por createdAt) y reconcilia los IDs temporales antes de procesar el `ORDER_CREATE_ADMIN`. Si por carrera el pedido se intenta antes de que las dependencias estén mapeadas, se reintenta automáticamente cada 2s (`DependencyNotReadyError`).
 
 ## Volver Online — reconciliación (idmap) + sync “redondo”
 

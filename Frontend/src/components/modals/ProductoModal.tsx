@@ -7,6 +7,7 @@ import { Select } from '@/components/Select'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
+import { nextTempId } from '@/offline/ids'
 
 interface ProductoModalProps {
   show: boolean
@@ -137,7 +138,7 @@ const CATEGORIAS = [
           setLoading(false)
           return
         }
-        const tempId = -Date.now()
+        const tempId = nextTempId()
         const data = {
           name,
           price: priceNum,

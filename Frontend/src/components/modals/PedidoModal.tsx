@@ -9,6 +9,7 @@ import { Select, type SelectOption } from '@/components/Select'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
+import { nextTempId } from '@/offline/ids'
 
 interface PedidoModalProps {
   show: boolean
@@ -114,13 +115,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       lines: validLines.map((l) => ({ id_product: l.id_product, quantity: l.quantity, unit_price: l.unit_price })),
     }
     if (!isOnlineNow()) {
-      // Solo soportamos offline create si los IDs ya existen en server (positivos)
-      if (Number(idUser) <= 0 || validLines.some((l) => l.id_product <= 0)) {
-        toast.error('Sin conexión: sincroniza primero usuarios/productos antes de crear pedidos')
-        setLoading(false)
-        return
-      }
-      const tempId = -Date.now()
+      const tempId = nextTempId()
       const selectedUser = users.find((u) => u.id === Number(idUser))
       await enqueueCommand('ORDER_CREATE_ADMIN', { tempId, data: body })
       await lepraDb.orders.put({
@@ -133,7 +128,12 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
         active: true,
         lines: validLines.map((l) => ({ id_product: l.id_product, quantity: l.quantity, unit_price: l.unit_price })),
       } as any)
-      toast.success('Pedido creado (pendiente de sincronizar)')
+      const dependsOnPending = Number(idUser) < 0 || validLines.some((l) => l.id_product < 0)
+      toast.success(
+        dependsOnPending
+          ? 'Pedido creado (pendiente; sincronizará después de productos/clientes nuevos)'
+          : 'Pedido creado (pendiente de sincronizar)'
+      )
       setLoading(false)
       onClose(true)
       return

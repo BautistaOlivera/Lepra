@@ -7,6 +7,7 @@ import { Select } from '@/components/Select'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
+import { nextTempId } from '@/offline/ids'
 
 interface ClienteModalProps {
   show: boolean
@@ -79,7 +80,7 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
       }
     } else {
       if (!isOnlineNow()) {
-        const tempId = -Date.now()
+        const tempId = nextTempId()
         const data = { email, password, name: name || undefined, location: location || undefined, rol }
         await enqueueCommand('USER_CREATE', { tempId, data })
         await lepraDb.users.put({
