@@ -18,6 +18,7 @@ interface ClienteModalProps {
 export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordConfirm, setPasswordConfirm] = useState('')
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [rol, setRol] = useState<'CLIENT' | 'ADMIN'>('CLIENT')
@@ -25,16 +26,27 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
 
   const isEditing = !!editingUser
 
+  const passwordMismatchCreate =
+    !isEditing && passwordConfirm.length > 0 && password !== passwordConfirm
+  const passwordMismatchEdit =
+    isEditing &&
+    (password.length > 0 || passwordConfirm.length > 0) &&
+    (password !== passwordConfirm || password.length === 0)
+  const cannotSubmitPassword =
+    (!isEditing && (!password || password !== passwordConfirm)) || passwordMismatchEdit
+
   useEffect(() => {
     if (editingUser) {
       setEmail(editingUser.email)
       setPassword('')
+      setPasswordConfirm('')
       setName(editingUser.name || '')
       setLocation(editingUser.location || '')
       setRol(editingUser.rol as 'CLIENT' | 'ADMIN')
     } else {
       setEmail('')
       setPassword('')
+      setPasswordConfirm('')
       setName('')
       setLocation('')
       setRol('CLIENT')
@@ -43,6 +55,22 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!isEditing && password !== passwordConfirm) {
+      toast.error('Las contraseñas no coinciden')
+      return
+    }
+    if (
+      isEditing &&
+      (password.length > 0 || passwordConfirm.length > 0) &&
+      (password !== passwordConfirm || !password)
+    ) {
+      toast.error(
+        password.length === 0
+          ? 'Completá la nueva contraseña en ambos campos'
+          : 'Las contraseñas no coinciden',
+      )
+      return
+    }
     setLoading(true)
     if (isEditing) {
       if (!isOnlineNow()) {
@@ -129,8 +157,28 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
               required={!isEditing}
+              isInvalid={passwordMismatchCreate || passwordMismatchEdit}
             />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>{isEditing ? 'Repetir nueva contraseña' : 'Repetir contraseña'}</Form.Label>
+            <Form.Control
+              type="password"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              autoComplete="new-password"
+              required={!isEditing}
+              isInvalid={passwordMismatchCreate || passwordMismatchEdit}
+            />
+            {(passwordMismatchCreate || passwordMismatchEdit) && (
+              <Form.Control.Feedback type="invalid">
+                {isEditing && password.length === 0 && passwordConfirm.length > 0
+                  ? 'Completá también el campo de contraseña'
+                  : 'Las contraseñas deben coincidir'}
+              </Form.Control.Feedback>
+            )}
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Nombre</Form.Label>
@@ -155,7 +203,7 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
           </Form.Group>
           <div className="d-flex justify-content-end gap-2">
             <Button variant="outline-dark" onClick={() => onClose()}>Cancelar</Button>
-            <Button type="submit" className="btn-lepra" disabled={loading}>
+            <Button type="submit" className="btn-lepra" disabled={loading || cannotSubmitPassword}>
               {loading ? 'Guardando...' : isEditing ? 'Guardar' : 'Crear'}
             </Button>
           </div>
