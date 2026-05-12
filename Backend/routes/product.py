@@ -5,6 +5,8 @@ from sqlalchemy.orm import selectinload
 import traceback
 import os
 import uuid
+from io import BytesIO
+from PIL import Image, ImageOps
 
 from models import Product, InputProduct, InputProductUpdate, InputPaginatedRequestFilter
 from models.product_price_tier import ProductPriceTier
@@ -16,6 +18,29 @@ product_router = APIRouter(prefix="/product", tags=["Product"])
 # Carpeta donde se guardan las imágenes subidas (relativa al directorio del backend)
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 ALLOWED_EXTENSIONS = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+MAX_IMAGE_WIDTH = 1200
+WEBP_QUALITY = 80
+
+
+def _optimize_image_to_webp(content: bytes) -> tuple[bytes, int, int]:
+    """Convierte la imagen a WebP optimizado y retorna bytes + dimensiones finales."""
+    with Image.open(BytesIO(content)) as img:
+        # Corrige rotación/orientación según EXIF (fotos de celular).
+        img = ImageOps.exif_transpose(img)
+
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGBA" if "A" in img.getbands() else "RGB")
+
+        if img.width > MAX_IMAGE_WIDTH:
+            ratio = MAX_IMAGE_WIDTH / float(img.width)
+            target_height = int(img.height * ratio)
+            img = img.resize((MAX_IMAGE_WIDTH, target_height), Image.Resampling.LANCZOS)
+
+        output = BytesIO()
+        img.save(output, format="WEBP", quality=WEBP_QUALITY, method=6, optimize=True)
+        optimized = output.getvalue()
+        return optimized, img.width, img.height
 
 
 @product_router.post("/upload")
@@ -32,27 +57,30 @@ async def upload_image(req: Request, file: UploadFile = File(...)):
         )
 
     os.makedirs(UPLOAD_DIR, exist_ok=True)
-    ext = ".jpg"
-    if file.content_type == "image/png":
-        ext = ".png"
-    elif file.content_type == "image/gif":
-        ext = ".gif"
-    elif file.content_type == "image/webp":
-        ext = ".webp"
-    filename = f"{uuid.uuid4().hex}{ext}"
+    filename = f"{uuid.uuid4().hex}.webp"
     filepath = os.path.join(UPLOAD_DIR, filename)
 
     try:
         content = await file.read()
-        if len(content) > 5 * 1024 * 1024:  # 5 MB max
+        if len(content) > MAX_UPLOAD_BYTES:
             return JSONResponse(status_code=400, content={"message": "La imagen no debe superar 5 MB"})
+
+        optimized_content, width, height = _optimize_image_to_webp(content)
         with open(filepath, "wb") as f:
-            f.write(content)
+            f.write(optimized_content)
         url = f"/uploads/{filename}"
-        return JSONResponse(status_code=200, content={"url": url})
+        return JSONResponse(
+            status_code=200,
+            content={
+                "url": url,
+                "width": width,
+                "height": height,
+                "size_kb": round(len(optimized_content) / 1024, 1),
+            },
+        )
     except Exception as e:
         traceback.print_exc()
-        return JSONResponse(status_code=500, content={"message": "Error al guardar la imagen"})
+        return JSONResponse(status_code=500, content={"message": "Error al procesar o guardar la imagen"})
 
 
 @product_router.post("/paginated")

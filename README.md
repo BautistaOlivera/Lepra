@@ -90,3 +90,10 @@ Product_price_tier — id, id_product, min_quantity, unit_price.
 3. Capa IndexedDB: guardar y sincronizar usuarios, productos (con volúmenes) y pedidos del administrador; deduplicar por created_at.
 4. PWA (manifest, service worker, offline): **implementado** en `Frontend` (`vite-plugin-pwa`). Para probar instalación en el teléfono en tu red Wi‑Fi: `npm run dev:https` en la carpeta Frontend y abrir `https://<IP-de-tu-PC>:5173` (certificado de desarrollo: el navegador pedirá confiar una vez). Si el catálogo o el login no cargan datos desde el móvil, usá `VITE_API_URL` apuntando al backend por IP de la misma red (no `localhost`).
 5. Probar: administrador crea/edita usuarios, productos y pedidos offline, genera ticket y luego sincroniza al conectarse.
+
+---
+
+## Tests automáticos
+
+- **Frontend** (`Frontend/`): `npm install` y `npm run test` (Vitest; no usa el `vite.config` de producción, solo `vitest.config.ts`). `npm run build` sigue igual.
+- **Backend** (`Backend/`): `pip install -r requirements-dev.txt` y `pytest` (no levanta la API ni requiere Postgres para los tests actuales).
