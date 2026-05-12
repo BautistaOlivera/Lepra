@@ -1,6 +1,7 @@
 import type { Order, PaginatedRequest, PaginatedResponse } from '@/types'
 import { getOrdersPaginated } from '@/api/order'
 import { lepraDb } from '@/offline/db'
+import { parseUtcFromApi } from '@/lib/dateApi'
 import { isAdminUser } from '@/offline/admin'
 import { isOnlineNow } from '@/offline/network'
 import { clampLimit, toOfflinePage } from './pagination'
@@ -22,7 +23,7 @@ function filterOrders(all: Order[], filters: Record<string, unknown> = {}): Orde
     const from = dateFrom ? new Date(dateFrom).getTime() : -Infinity
     const to = dateTo ? new Date(dateTo).getTime() : Infinity
     items = items.filter((o) => {
-      const t = o.created_at ? new Date(o.created_at).getTime() : 0
+      const t = o.created_at ? (parseUtcFromApi(o.created_at)?.getTime() ?? 0) : 0
       return t >= from && t <= to
     })
   }

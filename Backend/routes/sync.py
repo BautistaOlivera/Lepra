@@ -8,6 +8,7 @@ from auth.roles import require_roles
 from models.user import User
 from models.product import Product
 from models.order import Order
+from utils.datetime_api import utc_naive_iso
 
 sync_router = APIRouter(prefix="/sync", tags=["Sync"])
 
@@ -47,7 +48,7 @@ async def sync_users(req: Request, since: int | None = None):
                     "location": u.location,
                     "rol": u.rol,
                     "active": u.active,
-                    "updated_at": u.updated_at.isoformat() if u.updated_at else None,
+                    "updated_at": utc_naive_iso(u.updated_at),
                 }
                 for u in items
             ],
@@ -82,7 +83,7 @@ async def sync_products(req: Request, since: int | None = None):
                     "has_tiered_pricing": p.has_tiered_pricing,
                     "img": p.img,
                     "active": p.active,
-                    "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+                    "updated_at": utc_naive_iso(p.updated_at),
                 }
                 for p in items
             ],
@@ -113,11 +114,11 @@ async def sync_orders(req: Request, since: int | None = None):
                     "id_user": o.id_user,
                     "total": o.total,
                     "date": o.date.isoformat() if o.date else None,
-                    "created_at": o.created_at.isoformat() if o.created_at else None,
+                    "created_at": utc_naive_iso(o.created_at),
                     "payment": o.payment,
                     "status": o.status,
                     "active": o.active,
-                    "updated_at": o.updated_at.isoformat() if o.updated_at else None,
+                    "updated_at": utc_naive_iso(o.updated_at),
                 }
                 for o in items
             ],

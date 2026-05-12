@@ -11,6 +11,7 @@ from models.order import OrderCreateClient, OrderCreateAdmin
 from models.product import Product
 from config.db import AsyncSessionLocal
 from auth.roles import require_roles
+from utils.datetime_api import utc_naive_iso
 
 order_router = APIRouter(prefix="/order", tags=["Order"])
 
@@ -99,7 +100,7 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
                 "user_name": user_name,
                 "total": o.total,
                 "date": o.date.isoformat() if o.date else None,
-                "created_at": o.created_at.isoformat() if o.created_at else None,
+                "created_at": utc_naive_iso(o.created_at),
                 "payment": o.payment,
                 "status": o.status,
                 "active": o.active,
@@ -157,7 +158,7 @@ async def get_order(req: Request, order_id: int):
                 "user_name": user_name,
                 "total": o.total,
                 "date": o.date.isoformat() if o.date else None,
-                "created_at": o.created_at.isoformat() if o.created_at else None,
+                "created_at": utc_naive_iso(o.created_at),
                 "payment": o.payment,
                 "status": o.status,
                 "active": o.active,

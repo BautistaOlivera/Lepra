@@ -14,6 +14,7 @@ import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
+import { parseUtcFromApi } from '@/lib/dateApi'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -119,8 +120,10 @@ export function Pedidos() {
     }),
     columnHelper.accessor('created_at', {
       header: 'Fecha',
-      cell: (info) =>
-        info.getValue() ? new Date(info.getValue()!).toLocaleDateString() : '-',
+      cell: (info) => {
+        const d = parseUtcFromApi(info.getValue()!)
+        return d ? d.toLocaleDateString('es-AR') : '-'
+      },
     }),
     columnHelper.accessor('status', {
       header: 'Estado',

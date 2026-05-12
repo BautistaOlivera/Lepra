@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { Order } from '@/types'
+import { parseUtcFromApi } from '@/lib/dateApi'
 
 const STATUS_ES: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -156,9 +157,9 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
   metaLine('Nº pedido', `#${order.id}`)
   metaLine('Cliente', (order.user_name && order.user_name.trim()) || `Usuario #${order.id_user}`)
   const when = order.created_at
-    ? new Date(order.created_at)
+    ? parseUtcFromApi(order.created_at)
     : order.date
-      ? new Date(order.date)
+      ? parseUtcFromApi(order.date)
       : null
   metaLine('Fecha', when ? when.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '—')
   metaLine('Estado', STATUS_ES[order.status] || order.status)
