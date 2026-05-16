@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { Container, Navbar, Nav, Button, Badge } from 'react-bootstrap'
-import { LayoutDashboard, Users, Package, ShoppingCart, LogOut, RefreshCw } from 'lucide-react'
+import { LayoutDashboard, LogOut, RefreshCw } from 'lucide-react'
 import { useOnlineStatus } from '@/offline/network'
 import { useEffect, useState } from 'react'
 import { getAdminLastSync, runAdminIncrementalSync } from '@/offline/sync'
@@ -129,15 +129,6 @@ export function AdminLayout() {
             <Nav className="me-auto">
               <Nav.Link as={Link} to="/admin">
                 <LayoutDashboard size={18} className="me-1" /> Dashboard
-              </Nav.Link>
-              <Nav.Link as={Link} to="/admin/clientes">
-                <Users size={18} className="me-1" /> Clientes
-              </Nav.Link>
-              <Nav.Link as={Link} to="/admin/productos">
-                <Package size={18} className="me-1" /> Productos
-              </Nav.Link>
-              <Nav.Link as={Link} to="/admin/pedidos">
-                <ShoppingCart size={18} className="me-1" /> Pedidos
               </Nav.Link>
             </Nav>
             <div className="d-flex align-items-center gap-2 me-2">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Button, Badge, Spinner, Form, InputGroup } from 'react-bootstrap'
-import { Plus, Pencil, Trash2, Search, RotateCcw, CheckCircle2 } from 'lucide-react'
+import { Button, Badge, Spinner, Form, InputGroup, Card } from 'react-bootstrap'
+import { Plus, Pencil, Trash2, Search, CheckCircle2 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { deactivateUser } from '@/api/user'
 import { getUsersPaginatedOfflineFirst } from '@/repositories/usersRepo'
@@ -9,12 +9,20 @@ import toast from 'react-hot-toast'
 import { ClienteModal } from '@/components/modals/ClienteModal'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
+import { AdminFilterResetButton } from '@/components/AdminFilterResetButton'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 
 const columnHelper = createColumnHelper<User>()
+
+function ClienteSyncBadge({ user, pending }: { user: User; pending: boolean }) {
+  if (user.id < 0 || pending) {
+    return <Badge bg="warning" className="text-dark">Pendiente</Badge>
+  }
+  return <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado" />
+}
 
 export function Clientes() {
   const [users, setUsers] = useState<User[]>([])
@@ -122,14 +130,9 @@ export function Clientes() {
     columnHelper.display({
       id: 'sync',
       header: 'Sync',
-      cell: ({ row }) =>
-        row.original.id < 0 || pendingUsers.has(row.original.id) ? (
-          <Badge bg="warning" className="text-dark">Pendiente</Badge>
-        ) : (
-          <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado">
-            <title>Sincronizado</title>
-          </CheckCircle2>
-        ),
+      cell: ({ row }) => (
+        <ClienteSyncBadge user={row.original} pending={pendingUsers.has(row.original.id)} />
+      ),
     }),
     columnHelper.display({
       id: 'actions',
@@ -137,10 +140,22 @@ export function Clientes() {
       cell: ({ row }) =>
         row.original.active ? (
           <>
-            <Button variant="link" size="sm" className="text-dark p-0 me-2" onClick={() => handleEdit(row.original)}>
+            <Button
+              variant="link"
+              size="sm"
+              className="text-dark p-0 me-2"
+              onClick={() => handleEdit(row.original)}
+              aria-label={`Editar ${row.original.email}`}
+            >
               <Pencil size={16} />
             </Button>
-            <Button variant="link" size="sm" className="text-danger p-0" onClick={() => handleDeactivate(row.original)}>
+            <Button
+              variant="link"
+              size="sm"
+              className="text-danger p-0"
+              onClick={() => handleDeactivate(row.original)}
+              aria-label={`Desactivar ${row.original.email}`}
+            >
               <Trash2 size={16} />
             </Button>
           </>
@@ -149,54 +164,54 @@ export function Clientes() {
   ]
 
   return (
-    <>
-      <h2 className="text-dark mb-3">Clientes</h2>
-      <div className="d-flex align-items-center gap-3 mb-4 flex-wrap" style={{ width: '100%' }}>
-        <InputGroup className="flex-grow-1" style={{ minWidth: 200, maxWidth: 340 }}>
-          <InputGroup.Text><Search size={18} /></InputGroup.Text>
+    <div className="admin-list-page">
+      <h1 className="admin-list-title h3 text-dark mb-3">Clientes</h1>
+
+      <div className="admin-list-toolbar">
+        <InputGroup className="admin-list-search">
+          <InputGroup.Text>
+            <Search size={18} aria-hidden />
+          </InputGroup.Text>
           <Form.Control
-            placeholder="Buscar clientes por nombre o email..."
+            placeholder="Buscar por nombre o email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar clientes"
           />
         </InputGroup>
-        <div style={{ minWidth: 150, width: 150 }}>
-          <Select<string>
-            options={[
-              { value: '', label: 'Todos los roles' },
-              { value: 'CLIENT', label: 'Cliente' },
-              { value: 'ADMIN', label: 'Administrador' },
-            ]}
-            value={rolFilter ?? ''}
-            onChange={(v) => setRolFilter(v || null)}
-            placeholder="Rol"
-            isSearchable={false}
-          />
+
+        <div className="admin-list-filters-row">
+          <div className="admin-list-filter">
+            <Select<string>
+              options={[
+                { value: '', label: 'Todos los roles' },
+                { value: 'CLIENT', label: 'Cliente' },
+                { value: 'ADMIN', label: 'Administrador' },
+              ]}
+              value={rolFilter ?? ''}
+              onChange={(v) => setRolFilter(v || null)}
+              placeholder="Rol"
+              isSearchable={false}
+            />
+          </div>
+          <div className="admin-list-filter">
+            <Select<string>
+              options={[
+                { value: 'true', label: 'Activos' },
+                { value: 'false', label: 'Inactivos' },
+                { value: 'all', label: 'Todos' },
+              ]}
+              value={activeFilter === null ? 'all' : String(activeFilter)}
+              onChange={(v) => setActiveFilter(v === 'all' || v === '' ? null : v === 'true')}
+              placeholder="Estado"
+              isSearchable={false}
+            />
+          </div>
+          <AdminFilterResetButton onClick={clearFilters} />
         </div>
-        <div style={{ minWidth: 150, width: 150 }}>
-          <Select<string>
-            options={[
-              { value: 'true', label: 'Activos' },
-              { value: 'false', label: 'Inactivos' },
-              { value: 'all', label: 'Todos' },
-            ]}
-            value={activeFilter === null ? 'all' : String(activeFilter)}
-            onChange={(v) => setActiveFilter(v === 'all' || v === '' ? null : v === 'true')}
-            placeholder="Estado"
-            isSearchable={false}
-          />
-        </div>
-        <Button
-          variant="outline-secondary"
-          onClick={clearFilters}
-          title="Limpiar filtros"
-          className="d-flex align-items-center justify-content-center p-0 flex-shrink-0"
-          style={{ height: 38, width: 38 }}
-        >
-          <RotateCcw size={18} />
-        </Button>
-        <Button className="btn-lepra flex-shrink-0 ms-auto" onClick={handleAdd}>
-          <Plus size={18} className="me-1" /> Agregar cliente
+
+        <Button className="btn-lepra admin-list-add-btn" onClick={handleAdd}>
+          <Plus size={18} className="me-1" aria-hidden /> Agregar cliente
         </Button>
       </div>
 
@@ -205,18 +220,84 @@ export function Clientes() {
           <Spinner animation="border" />
         </div>
       ) : (
-        <DataTable columns={columns} data={users} getRowId={(row) => String(row.id)} />
+        <>
+          <div className="admin-list-mobile d-lg-none">
+            {users.length === 0 ? (
+              <p className="text-muted text-center py-4 mb-0">No hay clientes con estos filtros.</p>
+            ) : (
+              users.map((u) => (
+                <Card key={u.id} className="card-lepra admin-list-card mb-3">
+                  <Card.Body className="p-3">
+                    <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
+                      <div className="min-w-0 flex-grow-1">
+                        <div className="admin-list-card-email fw-semibold text-dark">
+                          {u.email || '—'}
+                        </div>
+                        {u.name && (
+                          <div className="text-muted small mt-1">{u.name}</div>
+                        )}
+                      </div>
+                      {u.active && (
+                        <div className="admin-list-card-actions d-flex gap-1 flex-shrink-0">
+                          <Button
+                            variant="outline-dark"
+                            size="sm"
+                            onClick={() => handleEdit(u)}
+                            aria-label={`Editar ${u.email}`}
+                          >
+                            <Pencil size={16} aria-hidden />
+                          </Button>
+                          <Button
+                            variant="outline-danger"
+                            size="sm"
+                            onClick={() => handleDeactivate(u)}
+                            aria-label={`Desactivar ${u.email}`}
+                          >
+                            <Trash2 size={16} aria-hidden />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {u.location && (
+                      <p className="small text-muted mb-2">{u.location}</p>
+                    )}
+
+                    <div className="d-flex flex-wrap gap-2 align-items-center">
+                      <Badge bg={u.rol === 'ADMIN' ? 'dark' : 'secondary'}>{u.rol}</Badge>
+                      {u.active ? (
+                        <Badge bg="success">Activo</Badge>
+                      ) : (
+                        <Badge bg="danger">Inactivo</Badge>
+                      )}
+                      <ClienteSyncBadge user={u} pending={pendingUsers.has(u.id)} />
+                    </div>
+                  </Card.Body>
+                </Card>
+              ))
+            )}
+          </div>
+
+          <div className="admin-list-desktop d-none d-lg-block">
+            <DataTable columns={columns} data={users} getRowId={(row) => String(row.id)} />
+          </div>
+        </>
       )}
 
       {nextCursor && (
         <div className="text-center mt-3">
-          <Button variant="outline-dark" size="sm" onClick={() => loadUsers(nextCursor)} disabled={loading}>
-            Cargar más
+          <Button
+            variant="outline-dark"
+            className="admin-list-load-more"
+            onClick={() => loadUsers(nextCursor)}
+            disabled={loading}
+          >
+            {loading ? 'Cargando...' : 'Cargar más'}
           </Button>
         </div>
       )}
 
       <ClienteModal show={modalOpen} onClose={onModalClose} editingUser={editingUser} />
-    </>
+    </div>
   )
 }

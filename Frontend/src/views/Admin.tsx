@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Row, Col, Card, Badge, Spinner, Alert } from 'react-bootstrap'
 import { Link } from 'react-router-dom'
-import { Package, ShoppingCart, Users, TrendingUp } from 'lucide-react'
+import { Package, ShoppingCart, Users } from 'lucide-react'
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
 import { getDashboardStatsHybrid } from '@/repositories/dashboardRepo'
 import { useOnlineStatus } from '@/offline/network'
@@ -53,25 +53,38 @@ export function Admin() {
       </div>
 
       <div
-        className="rounded-3 mb-4 p-4 text-white"
+        className="admin-welcome-banner rounded-3 mb-4 p-3 p-md-4 text-white"
         style={{ background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)' }}
       >
-        <Row>
-          <Col md={6} className="d-flex align-items-center">
-            <div>
-              <h4 className="mb-1">Bienvenido a El Lepra</h4>
-              <p className="mb-0 text-white-50">Panel de administración</p>
+        <Row className="align-items-center g-3">
+          <Col lg={7}>
+            <h4 className="mb-1">Bienvenido a El Lepra</h4>
+            <p className="mb-0 text-white-50">Panel de administración</p>
+            <div className="d-flex flex-column flex-sm-row flex-wrap gap-2 mt-3">
+              <Link to="/admin/clientes" className="btn btn-lepra admin-quick-btn">
+                <Users size={18} className="me-1" aria-hidden /> Clientes
+              </Link>
+              <Link to="/admin/productos" className="btn btn-lepra admin-quick-btn">
+                <Package size={18} className="me-1" aria-hidden /> Productos
+              </Link>
+              <Link to="/admin/pedidos" className="btn btn-lepra admin-quick-btn">
+                <ShoppingCart size={18} className="me-1" aria-hidden /> Pedidos
+              </Link>
             </div>
+            {!online && stats.source === 'local' && (
+              <p className="text-white-50 small mt-3 mb-0">Sin conexión — mostrando datos sincronizados</p>
+            )}
           </Col>
-          <Col md={6}>
+          <Col lg={5}>
             <div
-              className="rounded-3 mt-3 mt-md-0"
+              className="admin-welcome-image rounded-3"
               style={{
-                height: 120,
                 backgroundImage: `url(${CHEESE_CARD})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
               }}
+              role="img"
+              aria-hidden
             />
           </Col>
         </Row>
@@ -121,29 +134,6 @@ export function Admin() {
                 <Card.Text className="text-muted mb-0 small">Clientes activos</Card.Text>
                 <Card.Title className="mb-0">{counts.users_active}</Card.Title>
               </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      <Row className="g-4 mb-4">
-        <Col xs={12}>
-          <Card className="card-lepra border-0 shadow-sm">
-            <Card.Body className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-              <div className="d-flex align-items-center">
-                <div className="rounded-3 bg-warning bg-opacity-25 p-2 me-3">
-                  <TrendingUp size={24} className="text-dark" />
-                </div>
-                <div>
-                  <Card.Text className="text-muted mb-0 small">Acciones rápidas</Card.Text>
-                  <Link to="/admin/pedidos" className="text-dark text-decoration-none fw-semibold">
-                    Ir a Pedidos →
-                  </Link>
-                </div>
-              </div>
-              {!online && stats.source === 'local' && (
-                <span className="text-muted small">Sin conexión — mostrando datos sincronizados</span>
-              )}
             </Card.Body>
           </Card>
         </Col>

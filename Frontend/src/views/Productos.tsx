@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Button, Badge, Spinner, Form, InputGroup } from 'react-bootstrap'
-import { Plus, Pencil, Trash2, Search, RotateCcw, CheckCircle2 } from 'lucide-react'
+import { Button, Badge, Spinner, Form, InputGroup, Card } from 'react-bootstrap'
+import { Plus, Pencil, Trash2, Search, CheckCircle2 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
+import { Link } from 'react-router-dom'
 import { deactivateProduct, getImageUrl } from '@/api/product'
 import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
 import { Product } from '@/types'
@@ -9,6 +10,7 @@ import toast from 'react-hot-toast'
 import { ProductoModal } from '@/components/modals/ProductoModal'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
+import { AdminFilterResetButton } from '@/components/AdminFilterResetButton'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
@@ -16,6 +18,13 @@ import { useOutboxPending } from '@/offline/useOutboxPending'
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=80&q=80'
 const columnHelper = createColumnHelper<Product>()
+
+function ProductoSyncBadge({ product, pending }: { product: Product; pending: boolean }) {
+  if (product.id < 0 || pending) {
+    return <Badge bg="warning" className="text-dark">Pendiente</Badge>
+  }
+  return <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado" />
+}
 
 export function Productos() {
   const [products, setProducts] = useState<Product[]>([])
@@ -132,14 +141,9 @@ export function Productos() {
     columnHelper.display({
       id: 'sync',
       header: 'Sync',
-      cell: ({ row }) =>
-        row.original.id < 0 || pendingProducts.has(row.original.id) ? (
-          <Badge bg="warning" className="text-dark">Pendiente</Badge>
-        ) : (
-          <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado">
-            <title>Sincronizado</title>
-          </CheckCircle2>
-        ),
+      cell: ({ row }) => (
+        <ProductoSyncBadge product={row.original} pending={pendingProducts.has(row.original.id)} />
+      ),
     }),
     columnHelper.display({
       id: 'actions',
@@ -147,10 +151,22 @@ export function Productos() {
       cell: ({ row }) =>
         row.original.active ? (
           <>
-            <Button variant="link" size="sm" className="text-dark p-0 me-2" onClick={() => handleEdit(row.original)}>
+            <Button
+              variant="link"
+              size="sm"
+              className="text-dark p-0 me-2"
+              onClick={() => handleEdit(row.original)}
+              aria-label={`Editar ${row.original.name}`}
+            >
               <Pencil size={16} />
             </Button>
-            <Button variant="link" size="sm" className="text-danger p-0" onClick={() => handleDeactivate(row.original)}>
+            <Button
+              variant="link"
+              size="sm"
+              className="text-danger p-0"
+              onClick={() => handleDeactivate(row.original)}
+              aria-label={`Desactivar ${row.original.name}`}
+            >
               <Trash2 size={16} />
             </Button>
           </>
@@ -159,54 +175,54 @@ export function Productos() {
   ]
 
   return (
-    <>
-      <h2 className="text-dark mb-3">Productos</h2>
-      <div className="d-flex align-items-center gap-3 mb-4 flex-wrap" style={{ width: '100%' }}>
-        <InputGroup className="flex-grow-1" style={{ minWidth: 200, maxWidth: 340 }}>
-          <InputGroup.Text><Search size={18} /></InputGroup.Text>
+    <div className="admin-list-page">
+      <h1 className="admin-list-title h3 text-dark mb-3">Productos</h1>
+
+      <div className="admin-list-toolbar">
+        <InputGroup className="admin-list-search">
+          <InputGroup.Text>
+            <Search size={18} aria-hidden />
+          </InputGroup.Text>
           <Form.Control
             placeholder="Buscar por nombre o marca..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar productos"
           />
         </InputGroup>
-        <div style={{ minWidth: 150, width: 150 }}>
-          <Select<string>
-            options={[
-              { value: '', label: 'Todas las categorías' },
-              { value: 'Lacteos', label: 'Lácteos' },
-              { value: 'Embutidos', label: 'Embutidos' },
-            ]}
-            value={categoryFilter ?? ''}
-            onChange={(v) => setCategoryFilter(v || null)}
-            placeholder="Categoría"
-            isSearchable={false}
-          />
+
+        <div className="admin-list-filters-row">
+          <div className="admin-list-filter">
+            <Select<string>
+              options={[
+                { value: '', label: 'Todas las categorías' },
+                { value: 'Lacteos', label: 'Lácteos' },
+                { value: 'Embutidos', label: 'Embutidos' },
+              ]}
+              value={categoryFilter ?? ''}
+              onChange={(v) => setCategoryFilter(v || null)}
+              placeholder="Categoría"
+              isSearchable={false}
+            />
+          </div>
+          <div className="admin-list-filter">
+            <Select<string>
+              options={[
+                { value: 'true', label: 'Activos' },
+                { value: 'false', label: 'Inactivos' },
+                { value: 'all', label: 'Todos' },
+              ]}
+              value={activeFilter === null ? 'all' : String(activeFilter)}
+              onChange={(v) => setActiveFilter(v === 'all' || v === '' ? null : v === 'true')}
+              placeholder="Estado"
+              isSearchable={false}
+            />
+          </div>
+          <AdminFilterResetButton onClick={clearFilters} />
         </div>
-        <div style={{ minWidth: 150, width: 150 }}>
-          <Select<string>
-            options={[
-              { value: 'true', label: 'Activos' },
-              { value: 'false', label: 'Inactivos' },
-              { value: 'all', label: 'Todos' },
-            ]}
-            value={activeFilter === null ? 'all' : String(activeFilter)}
-            onChange={(v) => setActiveFilter(v === 'all' || v === '' ? null : v === 'true')}
-            placeholder="Estado"
-            isSearchable={false}
-          />
-        </div>
-        <Button
-          variant="outline-secondary"
-          onClick={clearFilters}
-          title="Limpiar filtros"
-          className="d-flex align-items-center justify-content-center p-0 flex-shrink-0"
-          style={{ height: 38, width: 38 }}
-        >
-          <RotateCcw size={18} />
-        </Button>
-        <Button className="btn-lepra flex-shrink-0 ms-auto" onClick={handleAdd}>
-          <Plus size={18} className="me-1" /> Agregar producto
+
+        <Button className="btn-lepra admin-list-add-btn" onClick={handleAdd}>
+          <Plus size={18} className="me-1" aria-hidden /> Agregar producto
         </Button>
       </div>
 
@@ -215,18 +231,98 @@ export function Productos() {
           <Spinner animation="border" />
         </div>
       ) : (
-        <DataTable columns={columns} data={products} getRowId={(row) => String(row.id)} />
+        <>
+          <div className="admin-list-mobile d-lg-none">
+            {products.length === 0 ? (
+              <p className="text-muted text-center py-4 mb-0">No hay productos con estos filtros.</p>
+            ) : (
+              products.map((p) => (
+                <Card key={p.id} className="card-lepra admin-list-card mb-3">
+                  <Card.Body className="p-3">
+                    <div className="d-flex gap-3 align-items-start">
+                      <Link
+                        to={`/producto/${p.id}`}
+                        className="flex-shrink-0"
+                        aria-label={`Ver ${p.name}`}
+                      >
+                        <img
+                          src={getImageUrl(p.img) || DEFAULT_IMG}
+                          alt=""
+                          className="admin-list-card-image rounded"
+                        />
+                      </Link>
+                      <div className="min-w-0 flex-grow-1">
+                        <div className="d-flex justify-content-between align-items-start gap-2">
+                          <div className="min-w-0">
+                            <div className="fw-semibold text-dark text-truncate">{p.name}</div>
+                            {p.brand && (
+                              <div className="text-muted small mt-1">{p.brand}</div>
+                            )}
+                            <div className="fw-bold text-dark mt-1">${p.price.toFixed(2)}</div>
+                          </div>
+                          {p.active && (
+                            <div className="admin-list-card-actions d-flex gap-1 flex-shrink-0">
+                              <Button
+                                variant="outline-dark"
+                                size="sm"
+                                onClick={() => handleEdit(p)}
+                                aria-label={`Editar ${p.name}`}
+                              >
+                                <Pencil size={16} aria-hidden />
+                              </Button>
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => handleDeactivate(p)}
+                                aria-label={`Desactivar ${p.name}`}
+                              >
+                                <Trash2 size={16} aria-hidden />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="d-flex flex-wrap gap-2 align-items-center mt-2">
+                          {p.category && (
+                            <Badge bg="secondary">{p.category}</Badge>
+                          )}
+                          {p.has_tiered_pricing && (
+                            <Badge bg="warning" className="text-dark">Tramos</Badge>
+                          )}
+                          {p.active ? (
+                            <Badge bg="success">Activo</Badge>
+                          ) : (
+                            <Badge bg="danger">Inactivo</Badge>
+                          )}
+                          <ProductoSyncBadge product={p} pending={pendingProducts.has(p.id)} />
+                        </div>
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              ))
+            )}
+          </div>
+
+          <div className="admin-list-desktop d-none d-lg-block">
+            <DataTable columns={columns} data={products} getRowId={(row) => String(row.id)} />
+          </div>
+        </>
       )}
 
       {nextCursor && (
         <div className="text-center mt-3">
-          <Button variant="outline-dark" size="sm" onClick={() => loadProducts(nextCursor)} disabled={loading}>
-            Cargar más
+          <Button
+            variant="outline-dark"
+            className="admin-list-load-more"
+            onClick={() => loadProducts(nextCursor)}
+            disabled={loading}
+          >
+            {loading ? 'Cargando...' : 'Cargar más'}
           </Button>
         </div>
       )}
 
       <ProductoModal show={modalOpen} onClose={onModalClose} editingProduct={editingProduct} />
-    </>
+    </div>
   )
 }
