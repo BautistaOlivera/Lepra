@@ -48,6 +48,32 @@ export function ProductoDetalle() {
   const decrementQuantity = () => setQuantity((q) => Math.max(1, q - 1))
   const incrementQuantity = () => setQuantity((q) => q + 1)
 
+  const releaseQtyBtn = (btn: HTMLButtonElement) => {
+    window.setTimeout(() => {
+      btn.classList.remove('product-detail-qty-btn--pressed')
+      btn.blur()
+    }, 150)
+  }
+
+  const handleQtyPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.currentTarget.disabled) return
+    e.currentTarget.classList.add('product-detail-qty-btn--pressed')
+  }
+
+  const handleQtyPointerUp = (
+    e: React.PointerEvent<HTMLButtonElement>,
+    action: () => void,
+  ) => {
+    const btn = e.currentTarget
+    if (btn.disabled) return
+    action()
+    releaseQtyBtn(btn)
+  }
+
+  const handleQtyPointerLeave = (e: React.PointerEvent<HTMLButtonElement>) => {
+    releaseQtyBtn(e.currentTarget)
+  }
+
   return (
     <Container fluid="sm" className="product-detail px-3 px-sm-4 py-3 py-sm-4 pb-4 pb-sm-5">
       <Link to="/" className="product-detail-back text-dark text-decoration-none">
@@ -88,7 +114,9 @@ export function ProductoDetalle() {
                     <button
                       type="button"
                       className="btn btn-outline-dark product-detail-qty-btn"
-                      onClick={decrementQuantity}
+                      onPointerDown={handleQtyPointerDown}
+                      onPointerUp={(e) => handleQtyPointerUp(e, decrementQuantity)}
+                      onPointerLeave={handleQtyPointerLeave}
                       disabled={quantity <= 1}
                       aria-label="Reducir cantidad"
                     >
@@ -100,7 +128,9 @@ export function ProductoDetalle() {
                     <button
                       type="button"
                       className="btn btn-outline-dark product-detail-qty-btn"
-                      onClick={incrementQuantity}
+                      onPointerDown={handleQtyPointerDown}
+                      onPointerUp={(e) => handleQtyPointerUp(e, incrementQuantity)}
+                      onPointerLeave={handleQtyPointerLeave}
                       aria-label="Aumentar cantidad"
                     >
                       <Plus size={20} aria-hidden />

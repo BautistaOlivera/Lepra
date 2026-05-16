@@ -117,7 +117,13 @@ export function AdminLayout() {
     <>
       <Navbar expand="lg" className="navbar-lepra">
         <Container>
-          <Navbar.Brand as={Link} to="/admin">El Lepra</Navbar.Brand>
+          <Navbar.Brand
+            as={Link}
+            to="/admin"
+            onPointerUp={(e) => window.setTimeout(() => e.currentTarget.blur(), 0)}
+          >
+            El Lepra
+          </Navbar.Brand>
           <Navbar.Toggle aria-controls="admin-nav" />
           <Navbar.Collapse id="admin-nav">
             <Nav className="me-auto">
