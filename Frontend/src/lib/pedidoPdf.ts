@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import { __createTable, __drawTable } from 'jspdf-autotable'
 import type { Order } from '@/types'
 import { parseUtcFromApi } from '@/lib/dateApi'
 
@@ -74,7 +74,7 @@ async function loadCompanyLogoWatermark(): Promise<LogoWatermark | null> {
     const sctx = src.getContext('2d', { alpha: true })
     if (!sctx) return null
     sctx.clearRect(0, 0, w, h)
-    const task = page.render({ canvasContext: sctx, viewport })
+    const task = page.render({ canvas: src, canvasContext: sctx, viewport })
     await task.promise
 
     const faded = document.createElement('canvas')
@@ -174,7 +174,7 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
 
   const tableW = pageW - margin * 2
 
-  autoTable(doc, {
+  const table = __createTable(doc, {
     startY: y + 4,
     head: [['Producto', 'Cant.', 'P. unit.', 'Subtotal']],
     body: body.length ? body : [['(Sin líneas registradas)', '—', '—', '—']],
@@ -207,8 +207,9 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
     },
     margin: { left: margin, right: margin },
   })
+  __drawTable(doc, table)
 
-  const finalY = doc.lastAutoTable?.finalY ?? y + 40
+  const finalY = table.finalY ?? y + 40
   const totalBoxY = finalY + 2
   const totalBoxH = 9
   const padX = 2.5
