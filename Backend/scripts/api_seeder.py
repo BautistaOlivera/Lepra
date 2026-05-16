@@ -1,5 +1,5 @@
 """
-Seeder/Test script para la API Lepra.
+Seeder/Test script para la API El Lepra.
 Replica las llamadas de Lepra_API.postman_collection.json.
 
 Requisitos:
@@ -316,7 +316,7 @@ def order_deactivate(order_id: int = 1):
 
 
 def run_all():
-    print("=== Lepra API Seeder (mismo flujo que Postman) ===\n")
+    print("=== El Lepra API Seeder (mismo flujo que Postman) ===\n")
     print("1. Auth")
     auth_signup()  # puede fallar si ya existe
     auth_login()

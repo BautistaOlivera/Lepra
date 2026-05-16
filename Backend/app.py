@@ -14,8 +14,9 @@ from routes.product import product_router
 from routes.product_price_tier import tier_router
 from routes.order import order_router
 from routes.sync import sync_router
+from routes.stats import stats_router
 
-lepra = FastAPI(title="Lepra API", description="API para catálogo, pedidos y tickets")
+lepra = FastAPI(title="El Lepra API", description="API para catálogo, pedidos y tickets")
 
 Base.metadata.create_all(bind=engine)
 
@@ -33,6 +34,7 @@ lepra.include_router(product_router)
 lepra.include_router(tier_router)
 lepra.include_router(order_router)
 lepra.include_router(sync_router)
+lepra.include_router(stats_router)
 
 # Servir imágenes subidas (uploads)
 uploads_path = os.path.join(os.path.dirname(__file__), "uploads")

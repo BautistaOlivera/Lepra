@@ -1,4 +1,4 @@
-# Desplegar Frontend (Lepra) en Netlify
+# Desplegar Frontend (El Lepra) en Netlify
 
 ## 1. Conectar el repositorio
 

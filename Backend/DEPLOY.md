@@ -1,4 +1,4 @@
-# Deploy Backend (Lepra API) to Render
+# Deploy Backend (El Lepra API) to Render
 
 ## Opción 1: Blueprint (recomendado)
 

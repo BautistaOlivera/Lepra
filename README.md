@@ -1,4 +1,4 @@
-# Lepra
+# El Lepra
 
 PWA para un negocio de venta de lácteos y otros productos: catálogo público, pedidos para clientes registrados y generación de tickets/facturas. La diferencia principal es que los administradores pueden usar la app sin conexión (catálogo, usuarios, productos, pedidos, tickets) y sincronizar cuando haya internet.
 

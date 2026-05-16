@@ -5,7 +5,7 @@
   --lepra-yellow-light: #ffe566;
   --lepra-yellow-dark: #b38f00;
 
-  /* Bootstrap theme Lepra: blancos, negros y amarillo (evitar azul) */
+  /* Bootstrap theme El Lepra: blancos, negros y amarillo (evitar azul) */
   --bs-primary: var(--lepra-yellow);
   --bs-primary-rgb: 230, 184, 0;
   --bs-primary-text-emphasis: var(--lepra-yellow-dark);
@@ -18,7 +18,7 @@
   --bs-focus-ring-color: rgba(230, 184, 0, 0.4);
 }
 
-/* btn-primary con btn-lepra: forzar Lepra amarillo (evitar flash azul) */
+/* btn-primary con btn-lepra: forzar El Lepra amarillo (evitar flash azul) */
 .btn-primary.btn-lepra,
 .btn-primary.btn-lepra:hover,
 .btn-primary.btn-lepra:active,
@@ -73,6 +73,35 @@ body {
 
 .navbar-lepra .nav-link.active {
   color: var(--lepra-yellow) !important;
+}
+
+.navbar-lepra .navbar-toggler {
+  border: none;
+  padding: 0.35rem 0.5rem;
+  box-shadow: none;
+}
+
+.navbar-lepra .navbar-toggler:focus {
+  box-shadow: none;
+  outline: none;
+}
+
+.navbar-lepra .navbar-toggler .navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.95%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+.navbar-lepra .catalog-nav-cart {
+  color: var(--lepra-white) !important;
+  min-height: 44px;
+}
+
+.navbar-lepra .catalog-nav-cart:hover {
+  color: var(--lepra-yellow) !important;
+}
+
+.catalog-navbar-container {
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 .btn-lepra {
@@ -134,4 +163,156 @@ body {
 }
 .lepra-select__menu {
   z-index: 1060;
+}
+
+/* —— Catálogo público (móvil / tablet) —— */
+
+.catalog-hero {
+  margin-bottom: 1rem;
+}
+
+.catalog-hero-overlay {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.catalog-hero-title {
+  font-size: clamp(1.5rem, 5vw, 2.75rem);
+  line-height: 1.15;
+}
+
+.catalog-hero-subtitle {
+  font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+}
+
+.catalog-search-form .form-control {
+  min-height: 44px;
+}
+
+.catalog-search-form .btn-lepra {
+  min-height: 44px;
+  white-space: nowrap;
+}
+
+.catalog-card-image {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  min-height: 140px;
+  background-repeat: no-repeat;
+}
+
+.catalog-card-actions .btn {
+  min-height: 40px;
+}
+
+.catalog-load-more {
+  min-height: 44px;
+  min-width: 10rem;
+}
+
+.navbar-lepra.sticky-top {
+  z-index: 1030;
+}
+
+@media (max-width: 575.98px) {
+  .catalog-hero,
+  .catalog-hero-overlay {
+    border-radius: 0 !important;
+  }
+
+  .catalog-hero {
+    margin-bottom: 0.75rem;
+  }
+
+  .catalog-hero-overlay {
+    padding-top: 1.25rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .catalog-search-form {
+    flex-direction: column;
+  }
+
+  .catalog-search-form .btn-lepra {
+    width: 100%;
+  }
+
+  .catalog-products {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .catalog-card-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .catalog-card-actions .catalog-card-price {
+    text-align: center;
+    font-size: 1.1rem;
+  }
+
+  .catalog-card-actions .catalog-card-buttons {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .catalog-card-actions .catalog-card-buttons .btn {
+    flex: 1 1 0;
+  }
+
+  .catalog-load-more {
+    width: 100%;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 991.98px) {
+  .catalog-hero-overlay {
+    padding-top: 1.75rem;
+    padding-bottom: 1.75rem;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .catalog-navbar-collapse {
+    flex-basis: 100%;
+  }
+
+  .navbar-lepra .navbar-collapse {
+    padding-top: 0.5rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .navbar-lepra .navbar-collapse .navbar-nav {
+    width: 100%;
+    align-items: stretch !important;
+    gap: 0.25rem !important;
+  }
+
+  .navbar-lepra .navbar-collapse .nav-link {
+    padding: 0.625rem 0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .navbar-lepra .navbar-collapse .btn {
+    width: 100%;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .navbar-lepra .navbar-collapse .catalog-nav-welcome {
+    padding: 0.5rem 0;
+    text-align: center;
+    width: 100%;
+  }
+}
+
+@media (min-width: 576px) {
+  .catalog-search-form .btn-lepra {
+    flex-shrink: 0;
+  }
 }

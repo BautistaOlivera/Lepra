@@ -1,4 +1,4 @@
-# Render Blueprint: Lepra API (Backend) + PostgreSQL
+# Render Blueprint: El Lepra API (Backend) + PostgreSQL
 # Deploy from dashboard: New > Blueprint > connect repo and select this file
 
 databases:

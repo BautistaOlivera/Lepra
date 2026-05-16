@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timezone
 
 from config.db import AsyncSessionLocal
@@ -99,9 +100,13 @@ async def sync_orders(req: Request, since: int | None = None):
 
     since_dt = _since_ms_to_dt(since)
     async with AsyncSessionLocal() as session:
-        stmt = select(Order).where(Order.updated_at > since_dt)
+        stmt = (
+            select(Order)
+            .where(Order.updated_at > since_dt)
+            .options(selectinload(Order.order_products), selectinload(Order.user))
+        )
         result = await session.execute(stmt)
-        items = result.scalars().all()
+        items = result.scalars().unique().all()
 
     server_time = int(datetime.now(timezone.utc).timestamp() * 1000)
     return JSONResponse(
@@ -112,6 +117,11 @@ async def sync_orders(req: Request, since: int | None = None):
                 {
                     "id": o.id,
                     "id_user": o.id_user,
+                    "user_name": (
+                        ((o.user.name or o.user.email or "").strip() or o.user.email)
+                        if o.user
+                        else None
+                    ),
                     "total": o.total,
                     "date": o.date.isoformat() if o.date else None,
                     "created_at": utc_naive_iso(o.created_at),
@@ -119,6 +129,15 @@ async def sync_orders(req: Request, since: int | None = None):
                     "status": o.status,
                     "active": o.active,
                     "updated_at": utc_naive_iso(o.updated_at),
+                    "lines": [
+                        {
+                            "id": op.id,
+                            "id_product": op.id_product,
+                            "quantity": op.quantity,
+                            "unit_price": op.unit_price,
+                        }
+                        for op in o.order_products
+                    ],
                 }
                 for o in items
             ],

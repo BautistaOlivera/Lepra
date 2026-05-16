@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Lepra API",
-    "description": "Colección para probar los endpoints del backend Lepra.",
+    "name": "El Lepra API",
+    "description": "Colección para probar los endpoints del backend El Lepra.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

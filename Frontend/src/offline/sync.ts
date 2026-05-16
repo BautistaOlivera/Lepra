@@ -73,7 +73,14 @@ export async function runAdminIncrementalSync(opts?: { force?: boolean }): Promi
     serverTime = Math.max(serverTime, productsRes.data.serverTime)
   }
   if (ordersRes.data) {
-    await lepraDb.orders.bulkPut(ordersRes.data.items)
+    for (const item of ordersRes.data.items) {
+      const existing = await lepraDb.orders.get(item.id)
+      const merged =
+        existing?.lines?.length && !item.lines?.length
+          ? { ...item, lines: existing.lines, user_name: item.user_name ?? existing.user_name }
+          : item
+      await lepraDb.orders.put(merged)
+    }
     await setLastSync('orders_lastSync', ordersRes.data.serverTime)
     ordersUpserted = ordersRes.data.items.length
     serverTime = Math.max(serverTime, ordersRes.data.serverTime)

@@ -26,22 +26,19 @@ export function CatalogLayout() {
 
   return (
     <>
-      <Navbar expand="lg" className="navbar-lepra">
-        <Container>
-          <Navbar.Brand as={Link} to="/">Lepra</Navbar.Brand>
-          <Navbar.Toggle aria-controls="main-nav" />
-          <Navbar.Collapse id="main-nav">
-            <Nav className="ms-auto align-items-center gap-2">
-              {(user || itemCount > 0) && (
-                <Nav.Link as={Link} to="/carrito" className="d-flex align-items-center">
-                  <ShoppingCart size={20} className="me-1" />
-                  Carrito {itemCount > 0 && <span className="badge bg-warning text-dark ms-1">{itemCount}</span>}
-                </Nav.Link>
-              )}
+      <Navbar expand="lg" className="navbar-lepra sticky-top">
+        <Container fluid="sm" className="px-3 px-sm-4 catalog-navbar-container">
+          <Navbar.Brand as={Link} to="/" className="fw-bold">El Lepra</Navbar.Brand>
+
+          <Navbar.Collapse id="main-nav" className="catalog-navbar-collapse order-3 order-lg-2 flex-lg-grow-1">
+            <Nav className="ms-lg-auto align-items-lg-center gap-lg-2">
               {user ? (
                 <>
-                  <span className="text-white-50 small d-none d-md-inline">
+                  <span className="text-white-50 small catalog-nav-welcome d-none d-lg-inline">
                     Bienvenido, {user.name || user.email}
+                  </span>
+                  <span className="text-white-50 small catalog-nav-welcome d-lg-none">
+                    {user.name || user.email}
                   </span>
                   {user?.rol === 'ADMIN' && (
                     <Nav.Link as={Link} to="/admin">
@@ -59,6 +56,26 @@ export function CatalogLayout() {
               )}
             </Nav>
           </Navbar.Collapse>
+
+          <div className="catalog-navbar-actions order-2 order-lg-3 d-flex align-items-center gap-1 ms-auto">
+            <Nav.Link
+              as={Link}
+              to="/carrito"
+              className="catalog-nav-cart d-flex align-items-center py-2"
+              aria-label={itemCount > 0 ? `Carrito, ${itemCount} productos` : 'Carrito'}
+            >
+              <ShoppingCart size={22} aria-hidden />
+              <span className="d-none d-sm-inline ms-1">Carrito</span>
+              {itemCount > 0 && (
+                <span className="badge bg-warning text-dark ms-1">{itemCount}</span>
+              )}
+            </Nav.Link>
+            <Navbar.Toggle
+              aria-controls="main-nav"
+              aria-label="Abrir menú"
+              className="catalog-navbar-toggler d-lg-none"
+            />
+          </div>
         </Container>
       </Navbar>
       <Outlet />

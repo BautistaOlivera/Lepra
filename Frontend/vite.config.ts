@@ -39,8 +39,8 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['favicon.svg', 'pwa-maskable.svg', 'apple-touch-icon.png'],
         manifest: {
-          name: 'Lepra',
-          short_name: 'Lepra',
+          name: 'El Lepra',
+          short_name: 'El Lepra',
           description: 'Catálogo y administración de pedidos; panel admin con datos locales y sincronización.',
           lang: 'es',
           dir: 'ltr',

@@ -17,7 +17,7 @@ const PDF_PT_TO_MM = 25.4 / 72
 
 export function pedidoPdfFilename(order: Order): string {
   const safeId = order.id < 0 ? `temp-${Math.abs(order.id)}` : String(order.id)
-  return `Lepra-pedido-${safeId}.pdf`
+  return `El-Lepra-pedido-${safeId}.pdf`
 }
 
 let pdfWorkerSetup: Promise<void> | null = null
@@ -136,7 +136,7 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
   doc.setTextColor(26, 26, 26)
-  doc.text('Lepra', pageW / 2, y + 4, { align: 'center' })
+  doc.text('El Lepra', pageW / 2, y + 4, { align: 'center' })
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(90, 90, 90)
