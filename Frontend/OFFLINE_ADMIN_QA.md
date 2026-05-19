@@ -2,9 +2,12 @@
 
 Este documento valida el uso offline del **ADMIN** (IndexedDB + outbox + sync).
 
+> **Producción:** front en `https://store.lepramg.com`, API en `https://api.lepramg.com`.  
+> Este checklist está pensado para **desarrollo local**; en producción usá las mismas rutas con esas URLs si probás online.
+
 ## Requisitos previos
 
-- Backend local corriendo en `http://127.0.0.1:8000`
+- Backend local corriendo en `http://127.0.0.1:8000` (o API de staging)
 - Frontend corriendo en `http://127.0.0.1:5173`
 - Variables del frontend:
   - `VITE_API_URL=http://127.0.0.1:8000`

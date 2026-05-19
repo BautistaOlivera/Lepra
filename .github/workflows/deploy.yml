@@ -1,0 +1,90 @@
+# Deploy a VPS (CloudPanel) por SSH al hacer push en main
+# Secrets: SSH_HOST, SSH_USER, SSH_PRIVATE_KEY, SSH_PORT, VITE_API_URL
+# Ver DEPLOY_GITHUB.md
+
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  REMOTE_BACKEND: /home/lepramg-store/lepra-api/Backend
+  REMOTE_FRONTEND: /home/lepramg-store/htdocs/store.lepramg.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: Frontend
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          SSH_PORT="${{ secrets.SSH_PORT }}"
+          if [ -z "$SSH_PORT" ]; then SSH_PORT=22; fi
+          echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
+          ssh-keyscan -p "$SSH_PORT" -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy backend (rsync)
+        run: |
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p $SSH_PORT" \
+            --exclude 'venv/' \
+            --exclude '__pycache__/' \
+            --exclude '*.pyc' \
+            --exclude 'uploads/' \
+            --exclude '.env' \
+            --exclude '.pytest_cache/' \
+            --exclude '.env.example' \
+            Backend/ \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_BACKEND }}/"
+
+      - name: Deploy frontend (rsync)
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p $SSH_PORT" \
+            Frontend/dist/ \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ env.REMOTE_FRONTEND }}/"
+
+      - name: Install dependencies and restart API
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p "$SSH_PORT" \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s << 'REMOTE'
+          set -euo pipefail
+          BACKEND="/home/lepramg-store/lepra-api/Backend"
+          cd "$BACKEND"
+          if [ ! -d venv ]; then
+            python3 -m venv venv
+          fi
+          source venv/bin/activate
+          pip install -r requirements.txt -q
+          chown -R lepramg-store:lepramg-store /home/lepramg-store/lepra-api
+          systemctl restart lepra-api
+          systemctl is-active --quiet lepra-api
+          echo "lepra-api is active"
+          REMOTE

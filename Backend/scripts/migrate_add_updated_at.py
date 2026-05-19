@@ -1,9 +1,7 @@
 """
 Migración simple (sin Alembic) para agregar updated_at a tablas existentes.
 
-Uso:
-  - Local: DATABASE_URL=... python scripts/migrate_add_updated_at.py
-  - Render Shell: python scripts/migrate_add_updated_at.py
+Uso: cargar .env (DATABASE_URL) y python scripts/migrate_add_updated_at.py
 
 NOTA: Este script está pensado para PostgreSQL.
 """

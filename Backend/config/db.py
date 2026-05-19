@@ -1,7 +1,7 @@
 """
 Configuración de base de datos.
-- En producción (Render): usar DATABASE_URL o INTERNAL_DATABASE_URL si está definida.
-- En desarrollo: variables DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME o .env.
+- Producción / desarrollo con URL completa: DATABASE_URL (o INTERNAL_DATABASE_URL si está definida).
+- Desarrollo sin URL: DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME.
 """
 import os
 from sqlalchemy import create_engine
@@ -9,14 +9,14 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-# Render (y otros PaaS) inyectan DATABASE_URL o INTERNAL_DATABASE_URL al enlazar Postgres
+# Prioridad: INTERNAL_DATABASE_URL, luego DATABASE_URL; si no hay, variables DB_* locales
 _url = os.getenv("INTERNAL_DATABASE_URL") or os.getenv("DATABASE_URL")
 if _url:
     SYNC_DATABASE_URL = _url
     ASYNC_DATABASE_URL = _url.replace("postgresql://", "postgresql+asyncpg://", 1)
 else:
     DB_USER = os.getenv("DB_USER", "postgres")
-    DB_PASSWORD = os.getenv("DB_PASSWORD", "123")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_PORT = os.getenv("DB_PORT", "5432")
     DB_NAME = os.getenv("DB_NAME", "lepra")

@@ -6,7 +6,7 @@ Para producción, usar variables de entorno:
   ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME
 
 Ejecutar desde Backend: python scripts/create_admin.py
-En Render: Shell del servicio → python scripts/create_admin.py
+En producción (VPS): ver DEPLOY_CLOUDPANEL.md — cargar .env y ejecutar en el servidor.
 """
 
 import sys
