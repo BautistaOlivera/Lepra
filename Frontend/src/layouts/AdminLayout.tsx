@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { Container, Navbar, Nav, Button, Badge } from 'react-bootstrap'
-import { LayoutDashboard, LogOut, RefreshCw } from 'lucide-react'
+import { Container, Nav, Button, Badge } from 'react-bootstrap'
+import { LogOut, RefreshCw } from 'lucide-react'
 import { useOnlineStatus } from '@/offline/network'
 import { useEffect, useState } from 'react'
 import { getAdminLastSync, runAdminIncrementalSync } from '@/offline/sync'
@@ -8,6 +8,7 @@ import { getPendingCount, processOutbox } from '@/offline/outbox'
 import toast from 'react-hot-toast'
 import { OutboxModal } from '@/components/modals/OutboxModal'
 import { isAuthRequiredFlagSet } from '@/offline/authGrace'
+import { LepraNavbar } from '@/components/LepraNavbar'
 
 export function AdminLayout() {
   const navigate = useNavigate()
@@ -39,11 +40,7 @@ export function AdminLayout() {
     if (authRequired) return
     ;(async () => {
       try {
-        // 1) primero aplicar cambios locales pendientes en server
         await processOutbox({ max: 100 })
-        // sin toasts aquí para evitar spam en auto-sync
-
-        // 2) luego traer lo que el server terminó guardando (ids reales, updated_at, etc.)
         const res = await runAdminIncrementalSync({ force: true })
         if (res.ran) setLastSync(res.serverTime)
       } catch {
@@ -60,7 +57,6 @@ export function AdminLayout() {
     if (authRequired) return
 
     const id = window.setInterval(() => {
-      // Intento suave en background
       processOutbox({ max: 25 })
         .finally(() => getPendingCount().then(setPendingOutbox).catch(() => {}))
     }, 15000)
@@ -115,23 +111,12 @@ export function AdminLayout() {
 
   return (
     <>
-      <Navbar expand="lg" className="navbar-lepra">
-        <Container>
-          <Navbar.Brand
-            as={Link}
-            to="/admin"
-            onPointerUp={(e) => window.setTimeout(() => e.currentTarget.blur(), 0)}
-          >
-            El Lepra
-          </Navbar.Brand>
-          <Navbar.Toggle aria-controls="admin-nav" />
-          <Navbar.Collapse id="admin-nav">
-            <Nav className="me-auto">
-              <Nav.Link as={Link} to="/admin">
-                <LayoutDashboard size={18} className="me-1" /> Dashboard
-              </Nav.Link>
-            </Nav>
-            <div className="d-flex align-items-center gap-2 me-2">
+      <LepraNavbar
+        collapseId="admin-nav"
+        showAdminLink
+        endNav={() => (
+          <>
+            <div className="lepra-navbar-tools lepra-navbar-tools-divided d-flex flex-wrap align-items-center justify-content-center justify-content-lg-end gap-2">
               <Badge bg={online ? 'success' : 'secondary'}>
                 {online ? 'Online' : 'Offline'}
               </Badge>
@@ -157,7 +142,7 @@ export function AdminLayout() {
                   ].filter(Boolean).join(' · ')
                 }
               >
-                <RefreshCw size={16} className={syncing ? 'me-1' : 'me-1'} />
+                <RefreshCw size={16} className="me-1" />
                 {syncing ? 'Sincronizando…' : `Sincronizar${pendingOutbox ? ` (${pendingOutbox})` : ''}`}
               </Button>
               <Button
@@ -170,13 +155,13 @@ export function AdminLayout() {
                 {pendingOutbox ? ` (${pendingOutbox})` : ''}
               </Button>
             </div>
-            <Button variant="outline-light" size="sm" onClick={handleLogout}>
-              <LogOut size={16} className="me-1" /> Salir
+            <Button variant="outline-light" size="sm" className="lepra-nav-logout" onClick={handleLogout}>
+              <LogOut size={16} className="me-1" /> Cerrar sesión
             </Button>
-          </Navbar.Collapse>
-        </Container>
-      </Navbar>
-      <Container className="py-4">
+          </>
+        )}
+      />
+      <Container fluid="sm" className="px-3 px-sm-4 py-4">
         <Outlet />
       </Container>
       <OutboxModal show={outboxOpen} onClose={() => setOutboxOpen(false)} />

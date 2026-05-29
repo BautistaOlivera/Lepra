@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Container, Card, Form, Button } from 'react-bootstrap'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { login } from '@/api/auth'
 import toast from 'react-hot-toast'
@@ -13,6 +13,7 @@ export function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -28,7 +29,10 @@ export function Login() {
       localStorage.setItem('lepra_user', JSON.stringify(data.user))
       markOnlineAuth()
       toast.success('¡Bienvenido!')
-      navigate(data.user.rol === 'ADMIN' ? '/admin' : '/', { replace: true })
+      const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+      const defaultPath = data.user.rol === 'ADMIN' ? '/admin' : '/'
+      const target = from && from !== '/login' ? from : defaultPath
+      navigate(target, { replace: true })
     }
   }
 
