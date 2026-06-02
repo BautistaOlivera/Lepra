@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useMatch } from 'react-router-dom'
 import { Container, Navbar } from 'react-bootstrap'
 import { LayoutDashboard, Users, Package, ShoppingCart } from 'lucide-react'
 
@@ -41,6 +41,7 @@ export function LepraNavbar({
 }: LepraNavbarProps) {
   const [expanded, setExpanded] = useState(false)
   const closeNav = () => setExpanded(false)
+  const isCatalogHome = !!useMatch({ path: '/', end: true })
 
   return (
     <Navbar
@@ -50,17 +51,14 @@ export function LepraNavbar({
       className="navbar-lepra sticky-top"
     >
       <Container fluid="sm" className="px-3 px-sm-4 lepra-navbar-container">
-        <Navbar.Brand
-          as={NavLink}
+        <NavLink
           to="/"
           end
-          className={({ isActive }) =>
-            `fw-bold lepra-navbar-brand lepra-navbar-brand-slot${isActive ? ' active' : ''}`
-          }
+          className={`navbar-brand fw-bold lepra-navbar-brand lepra-navbar-brand-slot${isCatalogHome ? ' active' : ''}`}
           onPointerUp={(e) => window.setTimeout(() => e.currentTarget.blur(), 0)}
         >
           El Lepra
-        </Navbar.Brand>
+        </NavLink>
 
         <div className="lepra-navbar-actions d-flex align-items-center gap-1">
           {toolbarActions}
