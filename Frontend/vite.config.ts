@@ -74,7 +74,7 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,svg,png,webp,pdf,mjs,woff2,woff,ttf}'],
+          globPatterns: ['**/*.{js,css,html,ico,svg,png,webp,pdf,woff2,woff,ttf}'],
           navigateFallback: 'index.html',
           runtimeCaching: [
             {

@@ -337,20 +337,6 @@ location / {
 | Login web | `https://store.lepramg.com` con admin |
 | Imagen | Subir producto; URL `/uploads/....webp` |
 
-### Prueba de carga ligera (opcional)
-
-En tu PC, desde la raíz del repo:
-
-```powershell
-powershell -File scripts/load-test.ps1
-```
-
-Más peticiones:
-
-```powershell
-powershell -File scripts/load-test.ps1 -Requests 50
-```
-
 ---
 
 ## Parte 5 — Actualizar tras un cambio en `main`

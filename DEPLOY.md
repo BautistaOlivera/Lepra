@@ -47,12 +47,11 @@ Push a `main` → GitHub Actions despliega por SSH.
 
 ---
 
-## Tests y carga
+## Tests
 
 ```bash
 cd Backend && pytest
 cd Frontend && npm test
-powershell -File scripts/load-test.ps1
 ```
 
 ---

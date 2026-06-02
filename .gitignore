@@ -10,3 +10,12 @@ Frontend/.env
 
 # Imágenes subidas (Backend/uploads/): locales, no versionar
 Backend/uploads/
+
+# pdf.js worker (ya no se usa; logo en PNG)
+Frontend/public/pdf.worker.min.mjs
+
+# Copia para API (generada en build/CI desde Frontend)
+Backend/branding/lepra-logo-watermark.png
+
+# Emitido por tsc (tsconfig.node composite)
+Frontend/vitest.config.d.ts

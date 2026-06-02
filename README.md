@@ -112,12 +112,6 @@ cd Backend && pip install -r requirements-dev.txt && pytest
 cd Frontend && npm install && npm test
 ```
 
-Prueba de carga ligera contra producción (PowerShell):
-
-```powershell
-powershell -File scripts/load-test.ps1
-```
-
 ---
 
 ## Documentación
