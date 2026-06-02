@@ -252,6 +252,15 @@ Las imágenes se optimizan al subir (WebP, máx. 1200 px, calidad 80). En el VPS
 
 URLs públicas: `https://api.lepramg.com/uploads/nombre.webp`
 
+**Logo en comprobantes PDF:** el repo incluye `Backend/branding/lepra-logo.pdf`. En cada deploy (o a mano) se copia a `uploads/lepra-logo.pdf`:
+
+```bash
+cd /home/lepramg-store/lepra-api/Backend
+python3 scripts/sync_branding_logo.py
+```
+
+El frontend usa `VITE_PDF_LOGO_URL=/uploads/lepra-logo.pdf` (ya va en `.env.example` y en el workflow de GitHub).
+
 ---
 
 ## Parte 3 — Frontend (estático)
@@ -264,6 +273,7 @@ Creá o editá `Frontend/.env`:
 
 ```env
 VITE_API_URL=https://api.lepramg.com
+VITE_PDF_LOGO_URL=/uploads/lepra-logo.pdf
 ```
 
 Sin barra final. Vite la embebe en el build (no se lee en runtime en el servidor).

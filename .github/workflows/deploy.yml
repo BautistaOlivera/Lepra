@@ -36,6 +36,7 @@ jobs:
         working-directory: Frontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_PDF_LOGO_URL: /uploads/lepra-logo.pdf
         run: |
           npm ci
           npm run build
@@ -83,7 +84,9 @@ jobs:
           fi
           source venv/bin/activate
           pip install -r requirements.txt -q
+          python3 scripts/sync_branding_logo.py
           chown -R lepramg-store:lepramg-store /home/lepramg-store/lepra-api
+          chown lepramg-store:lepramg-store "$BACKEND/uploads/lepra-logo.pdf" 2>/dev/null || true
           systemctl restart lepra-api
           systemctl is-active --quiet lepra-api
           echo "lepra-api is active"
