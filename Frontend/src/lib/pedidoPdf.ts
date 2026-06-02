@@ -43,12 +43,23 @@ type LogoWatermark = {
   heightMm: number
 }
 
-function resolvePdfLogoUrl(): string {
-  const configured = import.meta.env.VITE_PDF_LOGO_URL?.trim()
-  if (configured) return getImageUrl(configured)
+/** Logo incluido en el build (mismo origen que la tienda). */
+function bundledLogoUrl(): string {
   const rawBase = import.meta.env.BASE_URL || '/'
   const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`
   return `${base}branding/lepra-logo.pdf`
+}
+
+function resolvePdfLogoSources(): string[] {
+  const sources: string[] = []
+  const configured = import.meta.env.VITE_PDF_LOGO_URL?.trim()
+  if (configured) {
+    const remote = getImageUrl(configured)
+    if (!sources.includes(remote)) sources.push(remote)
+  }
+  const local = bundledLogoUrl()
+  if (!sources.includes(local)) sources.push(local)
+  return sources
 }
 
 function canvasToFadedWatermark(
@@ -75,11 +86,21 @@ function canvasToFadedWatermark(
 async function loadLogoWatermarkFromPdf(url: string): Promise<LogoWatermark | null> {
   await ensurePdfJsWorker()
   const { getDocument } = await import('pdfjs-dist')
-  const res = await fetch(url)
-  if (!res.ok) return null
-  const buf = await res.arrayBuffer()
-  const data = new Uint8Array(buf.slice(0))
-  const pdf = await getDocument({ data }).promise
+
+  let data: Uint8Array | undefined
+  try {
+    const res = await fetch(url, { mode: 'cors', cache: 'no-store', credentials: 'omit' })
+    if (res.ok) {
+      const buf = await res.arrayBuffer()
+      data = new Uint8Array(buf)
+    }
+  } catch {
+    /* intentar apertura directa por URL en pdf.js */
+  }
+
+  const pdf = await getDocument(
+    data && data.length > 0 ? { data } : { url, withCredentials: false, disableRange: true },
+  ).promise
   const page = await pdf.getPage(1)
 
   const vp1 = page.getViewport({ scale: 1 })
@@ -133,25 +154,27 @@ function loadLogoWatermarkFromImage(url: string): Promise<LogoWatermark | null> 
   })
 }
 
+async function loadLogoWatermarkFromUrl(url: string): Promise<LogoWatermark | null> {
+  const path = url.split('?')[0].toLowerCase()
+  if (path.endsWith('.pdf')) return loadLogoWatermarkFromPdf(url)
+  if (/\.(png|jpe?g|gif|webp)$/i.test(path)) return loadLogoWatermarkFromImage(url)
+  return loadLogoWatermarkFromPdf(url)
+}
+
 /**
- * Logo de marca de agua: URL en VITE_PDF_LOGO_URL (servidor /uploads/…) o fallback local.
+ * Logo de marca de agua: primero VITE_PDF_LOGO_URL (API), si falla el PDF del build (mismo origen).
  */
 async function loadCompanyLogoWatermark(): Promise<LogoWatermark | null> {
   if (typeof window === 'undefined') return null
-  const url = resolvePdfLogoUrl()
-  try {
-    const path = url.split('?')[0].toLowerCase()
-    if (path.endsWith('.pdf')) {
-      return await loadLogoWatermarkFromPdf(url)
+  for (const url of resolvePdfLogoSources()) {
+    try {
+      const wm = await loadLogoWatermarkFromUrl(url)
+      if (wm) return wm
+    } catch (e) {
+      console.warn('No se pudo cargar el logo del comprobante:', url, e)
     }
-    if (/\.(png|jpe?g|gif|webp)$/i.test(path)) {
-      return await loadLogoWatermarkFromImage(url)
-    }
-    return await loadLogoWatermarkFromPdf(url)
-  } catch (e) {
-    console.warn('No se pudo cargar el logo del comprobante:', url, e)
-    return null
   }
+  return null
 }
 
 function drawWatermarkBehind(

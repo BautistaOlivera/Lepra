@@ -29,6 +29,14 @@ function devHttpsEnabled(env: Record<string, string>): boolean {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const uploads = uploadsUrlPattern(env.VITE_API_URL || 'http://localhost:8000')
+  const apiBase = (env.VITE_API_URL || 'http://localhost:8000').trim()
+  let apiOrigin = 'http://localhost:8000'
+  try {
+    apiOrigin = new URL(apiBase.startsWith('http') ? apiBase : `http://${apiBase}`).origin
+  } catch {
+    /* keep fallback */
+  }
+  const pdfLogoPattern = new RegExp(`^${escapeRegExp(apiOrigin)}\\/uploads\\/lepra-logo\\.pdf$`)
   const devHttps = mode === 'development' && devHttpsEnabled(env)
 
   return {
@@ -66,9 +74,13 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,svg,png,webp,woff2,woff,ttf}'],
+          globPatterns: ['**/*.{js,css,html,ico,svg,png,webp,pdf,woff2,woff,ttf}'],
           navigateFallback: 'index.html',
           runtimeCaching: [
+            {
+              urlPattern: pdfLogoPattern,
+              handler: 'NetworkOnly',
+            },
             {
               urlPattern: uploads,
               handler: 'NetworkFirst',
