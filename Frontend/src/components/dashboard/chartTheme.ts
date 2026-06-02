@@ -11,13 +11,7 @@ export const CHART = {
 
 export { formatMoneyCurrency as formatMoney, formatMoneyAxis } from '@/lib/formatMoney'
 
-export function formatShortDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('es-AR', {
-    day: 'numeric',
-    month: 'short',
-  })
-}
+export { formatShortDateFromIso as formatShortDate } from '@/lib/formatDate'
 
 export function pctChange(current: number, previous: number): number | null {
   if (previous === 0) return current > 0 ? 100 : null

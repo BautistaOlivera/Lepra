@@ -3,6 +3,7 @@ import { Container, Button, Badge } from 'react-bootstrap'
 import { LogOut, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { useOnlineStatus } from '@/offline/network'
 import { useEffect, useState } from 'react'
+import { formatDateTimeAR } from '@/lib/formatDate'
 import { getAdminLastSync, runAdminIncrementalSync } from '@/offline/sync'
 import { getPendingCount, processOutbox } from '@/offline/outbox'
 import toast from 'react-hot-toast'
@@ -148,10 +149,10 @@ export function AdminLayout() {
                   [
                     isFullySynced
                       ? lastSync
-                        ? `Sincronizado · ${new Date(lastSync).toLocaleString()}`
+                        ? `Sincronizado · ${formatDateTimeAR(new Date(lastSync))}`
                         : 'Sincronizado'
                       : lastSync
-                        ? `Última sync: ${new Date(lastSync).toLocaleString()}`
+                        ? `Última sync: ${formatDateTimeAR(new Date(lastSync))}`
                         : 'Nunca sincronizado',
                     hasPendingSync ? `${pendingOutbox} cambio(s) por enviar` : null,
                   ]

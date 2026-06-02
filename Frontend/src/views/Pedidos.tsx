@@ -16,8 +16,9 @@ import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
-import { parseUtcFromApi } from '@/lib/dateApi'
+import { formatDateFromApi } from '@/lib/formatDate'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import { DateInputAr } from '@/components/DateInputAr'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -30,11 +31,6 @@ const STATUS_BG: Record<string, string> = {
   CANCELED: 'secondary',
 }
 const columnHelper = createColumnHelper<Order>()
-
-function formatOrderDate(order: Order): string {
-  const d = parseUtcFromApi(order.created_at || order.date || '')
-  return d ? d.toLocaleDateString('es-AR') : '-'
-}
 
 function PedidoSyncBadge({ order, pending }: { order: Order; pending: boolean }) {
   if (order.id < 0 || pending) {
@@ -152,7 +148,7 @@ export function Pedidos() {
     }),
     columnHelper.accessor('created_at', {
       header: 'Fecha',
-      cell: (info) => formatOrderDate(info.row.original),
+      cell: (info) => formatDateFromApi(info.row.original.created_at || info.row.original.date),
     }),
     columnHelper.accessor('status', {
       header: 'Estado',
@@ -243,10 +239,9 @@ export function Pedidos() {
             <InputGroup.Text>
               <Calendar size={16} aria-hidden />
             </InputGroup.Text>
-            <Form.Control
-              type="date"
+            <DateInputAr
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={setDateFrom}
               aria-label="Fecha desde"
             />
           </InputGroup>
@@ -255,10 +250,9 @@ export function Pedidos() {
             <InputGroup.Text>
               <Calendar size={16} aria-hidden />
             </InputGroup.Text>
-            <Form.Control
-              type="date"
+            <DateInputAr
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={setDateTo}
               aria-label="Fecha hasta"
             />
           </InputGroup>
@@ -305,7 +299,9 @@ export function Pedidos() {
                           <div className="fw-semibold text-dark text-truncate">
                             {o.user_name || `Cliente #${o.id_user}`}
                           </div>
-                          <div className="text-muted small mt-1">{formatOrderDate(o)}</div>
+                          <div className="text-muted small mt-1">
+                            {formatDateFromApi(o.created_at || o.date)}
+                          </div>
                         </div>
                         <div className="fw-bold text-dark flex-shrink-0">
                           {formatMoneyWithSymbol(o.total)}

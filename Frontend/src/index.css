@@ -114,7 +114,12 @@ body {
 }
 
 .navbar-lepra .nav-link.active,
-.navbar-lepra .nav-link:hover {
+.navbar-lepra .nav-link:hover,
+.navbar-lepra .navbar-brand.active {
+  color: var(--lepra-yellow) !important;
+}
+
+.navbar-lepra .navbar-brand.active:focus:not(:focus-visible) {
   color: var(--lepra-yellow) !important;
 }
 

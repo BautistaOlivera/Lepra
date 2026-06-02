@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import { Container, Navbar } from 'react-bootstrap'
 import { LayoutDashboard, Users, Package, ShoppingCart } from 'lucide-react'
 
@@ -51,9 +51,12 @@ export function LepraNavbar({
     >
       <Container fluid="sm" className="px-3 px-sm-4 lepra-navbar-container">
         <Navbar.Brand
-          as={Link}
+          as={NavLink}
           to="/"
-          className="fw-bold lepra-navbar-brand lepra-navbar-brand-slot"
+          end
+          className={({ isActive }) =>
+            `fw-bold lepra-navbar-brand lepra-navbar-brand-slot${isActive ? ' active' : ''}`
+          }
           onPointerUp={(e) => window.setTimeout(() => e.currentTarget.blur(), 0)}
         >
           El Lepra

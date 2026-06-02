@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Modal, Button, Table, Badge } from 'react-bootstrap'
 import type { OutboxRow } from '@/offline/db'
 import { clearDone, deleteOne, listOutbox, processOutbox, retryFailed, retryOne } from '@/offline/outbox'
+import { formatDateTimeAR } from '@/lib/formatDate'
 
 interface OutboxModalProps {
   show: boolean
@@ -158,7 +159,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}>{new Date(r.createdAt).toLocaleString()}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{formatDateTimeAR(new Date(r.createdAt))}</td>
                     <td><code>{r.type}</code></td>
                     <td className="text-muted small">{payloadSummary(r)}</td>
                     <td>{statusBadgeEnhanced(r)}</td>

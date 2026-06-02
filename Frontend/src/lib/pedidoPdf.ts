@@ -3,6 +3,7 @@ import { __createTable, __drawTable } from 'jspdf-autotable'
 import type { Order } from '@/types'
 import { getImageUrl } from '@/api/client'
 import { parseUtcFromApi } from '@/lib/dateApi'
+import { formatDateTimeAR } from '@/lib/formatDate'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 const STATUS_ES: Record<string, string> = {
@@ -176,7 +177,7 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
     : order.date
       ? parseUtcFromApi(order.date)
       : null
-  metaLine('Fecha', when ? when.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '—')
+  metaLine('Fecha', when ? formatDateTimeAR(when) : '—')
   metaLine('Estado', STATUS_ES[order.status] || order.status)
   if (order.payment?.trim()) metaLine('Notas de pago', String(order.payment).trim())
 
