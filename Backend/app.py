@@ -39,21 +39,21 @@ lepra.include_router(stats_router)
 
 # Servir imágenes subidas (uploads)
 uploads_path = os.path.join(os.path.dirname(__file__), "uploads")
-branding_logo_src = os.path.join(os.path.dirname(__file__), "branding", "lepra-logo.pdf")
 os.makedirs(uploads_path, exist_ok=True)
 
 
-@lepra.get("/uploads/lepra-logo.pdf")
-async def branding_logo_pdf():
-    """Logo del comprobante; ruta explícita con CORS (antes del mount estático)."""
-    path = os.path.join(uploads_path, "lepra-logo.pdf")
-    if not os.path.isfile(path) and os.path.isfile(branding_logo_src):
-        path = branding_logo_src
+@lepra.get("/uploads/lepra-logo-watermark.png")
+async def branding_logo_png():
+    """Logo del comprobante (PNG); ruta explícita antes del mount estático."""
+    path = os.path.join(uploads_path, "lepra-logo-watermark.png")
+    branding_png_src = os.path.join(os.path.dirname(__file__), "branding", "lepra-logo-watermark.png")
+    if not os.path.isfile(path) and os.path.isfile(branding_png_src):
+        path = branding_png_src
     if not os.path.isfile(path):
         return JSONResponse(status_code=404, content={"message": "Logo no encontrado"})
     return FileResponse(
         path,
-        media_type="application/pdf",
+        media_type="image/png",
         headers={"Cache-Control": "public, max-age=86400"},
     )
 

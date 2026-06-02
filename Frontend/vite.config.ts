@@ -36,7 +36,7 @@ export default defineConfig(({ mode }) => {
   } catch {
     /* keep fallback */
   }
-  const pdfLogoPattern = new RegExp(`^${escapeRegExp(apiOrigin)}\\/uploads\\/lepra-logo\\.pdf$`)
+  const pdfLogoPattern = new RegExp(`^${escapeRegExp(apiOrigin)}\\/uploads\\/lepra-logo-watermark\\.png$`)
   const devHttps = mode === 'development' && devHttpsEnabled(env)
 
   return {

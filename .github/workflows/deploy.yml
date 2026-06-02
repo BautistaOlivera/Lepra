@@ -37,8 +37,10 @@ jobs:
         working-directory: Frontend
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          VITE_PDF_LOGO_URL: /uploads/lepra-logo.pdf
+          VITE_PDF_LOGO_URL: /uploads/lepra-logo-watermark.png
         run: |
+          pip install pymupdf
+          python scripts/rasterize_branding_logo.py
           npm ci
           npm run build
 

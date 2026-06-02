@@ -252,14 +252,14 @@ Las imágenes se optimizan al subir (WebP, máx. 1200 px, calidad 80). En el VPS
 
 URLs públicas: `https://api.lepramg.com/uploads/nombre.webp`
 
-**Logo en comprobantes PDF:** el repo incluye `Backend/branding/lepra-logo.pdf`. En cada deploy (o a mano) se copia a `uploads/lepra-logo.pdf`:
+**Logo en comprobantes PDF:** PNG `lepra-logo-watermark.png` (generado desde el PDF de marca en el build). En cada deploy:
 
 ```bash
 cd /home/lepramg-store/lepra-api/Backend
 python3 scripts/sync_branding_logo.py
 ```
 
-El frontend usa `VITE_PDF_LOGO_URL=/uploads/lepra-logo.pdf` (ya va en `.env.example` y en el workflow de GitHub).
+El frontend usa `VITE_PDF_LOGO_URL=/uploads/lepra-logo-watermark.png` (sin pdf.js en el navegador).
 
 ---
 
@@ -273,7 +273,7 @@ Creá o editá `Frontend/.env`:
 
 ```env
 VITE_API_URL=https://api.lepramg.com
-VITE_PDF_LOGO_URL=/uploads/lepra-logo.pdf
+VITE_PDF_LOGO_URL=/uploads/lepra-logo-watermark.png
 ```
 
 Sin barra final. Vite la embebe en el build (no se lee en runtime en el servidor).
@@ -322,16 +322,6 @@ location / {
     try_files $uri $uri/ /index.html;
 }
 ```
-
-Si el logo del comprobante PDF no aparece y en consola falla `pdf.worker.min.mjs`, añadí el tipo MIME (CloudPanel → Vhost):
-
-```nginx
-types {
-    application/javascript mjs;
-}
-```
-
-El build copia `public/pdf.worker.min.mjs` (script `copy-pdf-worker.mjs`); debe existir en la raíz del sitio junto a `index.html`.
 
 ---
 
