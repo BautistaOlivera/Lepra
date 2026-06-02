@@ -24,13 +24,30 @@ export function pedidoPdfFilename(order: Order): string {
 
 let pdfWorkerSetup: Promise<void> | null = null
 
+/** Worker en /public (nombre fijo) para evitar fallos con .mjs hasheado en Nginx/PWA. */
+function pdfWorkerPublicUrl(): string {
+  const rawBase = import.meta.env.BASE_URL || '/'
+  const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`
+  return `${base}pdf.worker.min.mjs`
+}
+
 function ensurePdfJsWorker(): Promise<void> {
   if (typeof window === 'undefined') return Promise.resolve()
   if (!pdfWorkerSetup) {
     pdfWorkerSetup = (async () => {
       const pdfjs = await import('pdfjs-dist')
-      const workerMod = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
-      pdfjs.GlobalWorkerOptions.workerSrc = workerMod.default
+      const local = pdfWorkerPublicUrl()
+      try {
+        const head = await fetch(local, { method: 'HEAD', cache: 'no-store' })
+        if (head.ok) {
+          pdfjs.GlobalWorkerOptions.workerSrc = local
+          return
+        }
+      } catch {
+        /* CDN abajo */
+      }
+      const version = (pdfjs as { version?: string }).version || '5.7.284'
+      pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`
     })()
   }
   return pdfWorkerSetup

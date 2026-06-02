@@ -323,6 +323,16 @@ location / {
 }
 ```
 
+Si el logo del comprobante PDF no aparece y en consola falla `pdf.worker.min.mjs`, añadí el tipo MIME (CloudPanel → Vhost):
+
+```nginx
+types {
+    application/javascript mjs;
+}
+```
+
+El build copia `public/pdf.worker.min.mjs` (script `copy-pdf-worker.mjs`); debe existir en la raíz del sitio junto a `index.html`.
+
 ---
 
 ## Parte 4 — Verificación final
