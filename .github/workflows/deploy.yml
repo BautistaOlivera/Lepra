@@ -14,9 +14,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
   REMOTE_BACKEND: /home/lepramg-store/lepra-api/Backend
   REMOTE_FRONTEND: /home/lepramg-store/htdocs/store.lepramg.com
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:

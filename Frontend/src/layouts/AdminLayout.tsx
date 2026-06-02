@@ -1,5 +1,5 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { Container, Nav, Button, Badge } from 'react-bootstrap'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Container, Button, Badge } from 'react-bootstrap'
 import { LogOut, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { useOnlineStatus } from '@/offline/network'
 import { useEffect, useState } from 'react'
