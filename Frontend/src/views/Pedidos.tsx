@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Spinner, Form, InputGroup, Card } from 'react-bootstrap'
-import { Plus, FileText, Search, Calendar, NotebookPen } from 'lucide-react'
+import { Plus, FileText, Search, Calendar, NotebookPen, CheckCircle2 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { setOrderStatus } from '@/api/order'
 import { getOrdersPaginatedOfflineFirst } from '@/repositories/ordersRepo'
@@ -36,8 +36,11 @@ function formatOrderDate(order: Order): string {
   return d ? d.toLocaleDateString('es-AR') : '-'
 }
 
-function isOrderPending(order: Order, pendingIds: Set<number>): boolean {
-  return order.id < 0 || pendingIds.has(order.id)
+function PedidoSyncBadge({ order, pending }: { order: Order; pending: boolean }) {
+  if (order.id < 0 || pending) {
+    return <Badge bg="warning" className="text-dark">Pendiente</Badge>
+  }
+  return <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado" />
 }
 
 export function Pedidos() {
@@ -154,14 +157,19 @@ export function Pedidos() {
     columnHelper.accessor('status', {
       header: 'Estado',
       cell: (info) => (
-        <div className="d-flex align-items-center gap-2">
-          <Badge bg={STATUS_BG[info.getValue()] || 'secondary'}>
-            {STATUS_LABELS[info.getValue()] || info.getValue()}
-          </Badge>
-          {isOrderPending(info.row.original, pendingOrders) && (
-            <Badge bg="warning" className="text-dark">Pendiente</Badge>
-          )}
-        </div>
+        <Badge bg={STATUS_BG[info.getValue()] || 'secondary'}>
+          {STATUS_LABELS[info.getValue()] || info.getValue()}
+        </Badge>
+      ),
+    }),
+    columnHelper.display({
+      id: 'sync',
+      header: 'Sync',
+      cell: ({ row }) => (
+        <PedidoSyncBadge
+          order={row.original}
+          pending={pendingOrders.has(row.original.id)}
+        />
       ),
     }),
     columnHelper.display({
@@ -289,9 +297,7 @@ export function Pedidos() {
             {orders.length === 0 ? (
               <p className="text-muted text-center py-4 mb-0">No hay pedidos con estos filtros.</p>
             ) : (
-              orders.map((o) => {
-                const pending = isOrderPending(o, pendingOrders)
-                return (
+              orders.map((o) => (
                   <Card key={o.id} className="card-lepra admin-list-card mb-3">
                     <Card.Body className="p-3">
                       <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
@@ -310,9 +316,7 @@ export function Pedidos() {
                         <Badge bg={STATUS_BG[o.status] || 'secondary'}>
                           {STATUS_LABELS[o.status] || o.status}
                         </Badge>
-                        {pending && (
-                          <Badge bg="warning" className="text-dark">Sync pendiente</Badge>
-                        )}
+                        <PedidoSyncBadge order={o} pending={pendingOrders.has(o.id)} />
                       </div>
 
                       <div className="d-flex flex-column gap-2">
@@ -354,8 +358,7 @@ export function Pedidos() {
                       </div>
                     </Card.Body>
                   </Card>
-                )
-              })
+              ))
             )}
           </div>
 
