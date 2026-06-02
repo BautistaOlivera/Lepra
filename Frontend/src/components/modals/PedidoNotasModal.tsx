@@ -6,6 +6,7 @@ import { Order } from '@/types'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
+import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 interface PedidoNotasModalProps {
   show: boolean
@@ -66,7 +67,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
       <Form onSubmit={handleSave}>
         <Modal.Body>
           <p className="text-muted small mb-3">
-            {clientLabel} · Total ${order.total.toFixed(2)}
+            {clientLabel} · Total {formatMoneyWithSymbol(order.total)}
           </p>
           <p className="small mb-2">
             Anotá cómo va pagando el pedido (montos, medios, pagos parciales). El cliente verá este texto en el

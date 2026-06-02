@@ -1,7 +1,30 @@
 import { useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { Container, Navbar, Nav } from 'react-bootstrap'
-import { LayoutDashboard } from 'lucide-react'
+import { Link, NavLink } from 'react-router-dom'
+import { Container, Navbar } from 'react-bootstrap'
+import { LayoutDashboard, Users, Package, ShoppingCart } from 'lucide-react'
+
+function AdminNavItem({
+  to,
+  end,
+  onNavigate,
+  children,
+}: {
+  to: string
+  end?: boolean
+  onNavigate: () => void
+  children: ReactNode
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onNavigate}
+      className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+    >
+      {children}
+    </NavLink>
+  )
+}
 
 type LepraNavbarProps = {
   collapseId: string
@@ -47,10 +70,19 @@ export function LepraNavbar({
 
         <Navbar.Collapse id={collapseId} className="lepra-navbar-collapse flex-lg-grow-1">
           {showAdminLink && (
-            <div className="navbar-nav lepra-navbar-primary me-auto">
-              <Nav.Link as={Link} to="/admin" onClick={closeNav}>
-                <LayoutDashboard size={18} className="me-1" /> Admin
-              </Nav.Link>
+            <div className="navbar-nav lepra-navbar-primary me-auto flex-wrap">
+              <AdminNavItem to="/admin" end onNavigate={closeNav}>
+                <LayoutDashboard size={18} className="me-1" aria-hidden /> Admin
+              </AdminNavItem>
+              <AdminNavItem to="/admin/clientes" onNavigate={closeNav}>
+                <Users size={18} className="me-1" aria-hidden /> Clientes
+              </AdminNavItem>
+              <AdminNavItem to="/admin/productos" onNavigate={closeNav}>
+                <Package size={18} className="me-1" aria-hidden /> Productos
+              </AdminNavItem>
+              <AdminNavItem to="/admin/pedidos" onNavigate={closeNav}>
+                <ShoppingCart size={18} className="me-1" aria-hidden /> Pedidos
+              </AdminNavItem>
             </div>
           )}
           <div className="navbar-nav lepra-navbar-nav ms-lg-auto align-items-lg-center gap-lg-2">

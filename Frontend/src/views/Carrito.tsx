@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { useCart } from '@/context/CartContext'
+import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { createOrderClient, createOrder } from '@/api/order'
 import { getImageUrl } from '@/api/product'
 import { Product } from '@/types'
@@ -68,11 +69,11 @@ export function Carrito() {
     }),
     columnHelper.accessor('unitPrice', {
       header: 'Precio u.',
-      cell: (info) => `$${info.getValue().toFixed(2)}`,
+      cell: (info) => formatMoneyWithSymbol(info.getValue()),
     }),
     columnHelper.accessor('subtotal', {
       header: 'Subtotal',
-      cell: (info) => `$${info.getValue().toFixed(2)}`,
+      cell: (info) => formatMoneyWithSymbol(info.getValue()),
     }),
     columnHelper.display({
       id: 'remove',
@@ -173,7 +174,7 @@ export function Carrito() {
                       {row.product.name}
                     </Link>
                     <p className="small text-muted mb-0 mt-1">
-                      ${row.unitPrice.toFixed(2)} c/u
+                      {formatMoneyWithSymbol(row.unitPrice)} c/u
                     </p>
                   </div>
                   <Button
@@ -195,7 +196,7 @@ export function Carrito() {
                     className="cart-item-stepper"
                   />
                   <span className="cart-item-subtotal fw-bold text-dark">
-                    ${row.subtotal.toFixed(2)}
+                    {formatMoneyWithSymbol(row.subtotal)}
                   </span>
                 </div>
               </Card.Body>
@@ -212,7 +213,7 @@ export function Carrito() {
             <span className="cart-footer-total-label text-muted d-block d-lg-inline me-lg-2">
               Total
             </span>
-            <span className="cart-footer-total-value fw-bold">${total.toFixed(2)}</span>
+            <span className="cart-footer-total-value fw-bold">{formatMoneyWithSymbol(total)}</span>
           </div>
 
           <div className="cart-footer-actions d-flex flex-column flex-lg-row justify-content-lg-between align-items-stretch gap-2">

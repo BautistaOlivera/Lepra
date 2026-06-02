@@ -7,6 +7,7 @@ import { deactivateProduct, getImageUrl } from '@/api/product'
 import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
+import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { ProductoModal } from '@/components/modals/ProductoModal'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
@@ -126,7 +127,7 @@ export function Productos() {
     columnHelper.accessor('category', { header: 'Categoría', cell: (info) => info.getValue() || '-' }),
     columnHelper.accessor('price', {
       header: 'Precio',
-      cell: (info) => `$${info.getValue().toFixed(2)}`,
+      cell: (info) => formatMoneyWithSymbol(info.getValue()),
     }),
     columnHelper.accessor('has_tiered_pricing', {
       header: 'Tramos',
@@ -258,7 +259,7 @@ export function Productos() {
                             {p.brand && (
                               <div className="text-muted small mt-1">{p.brand}</div>
                             )}
-                            <div className="fw-bold text-dark mt-1">${p.price.toFixed(2)}</div>
+                            <div className="fw-bold text-dark mt-1">{formatMoneyWithSymbol(p.price)}</div>
                           </div>
                           {p.active && (
                             <div className="admin-list-card-actions d-flex gap-1 flex-shrink-0">

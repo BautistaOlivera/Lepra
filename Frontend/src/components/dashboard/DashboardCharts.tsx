@@ -17,7 +17,7 @@ import {
 } from 'recharts'
 import type { DashboardPeriodKey, DashboardStats } from '@/types/dashboard'
 import { mergeStatusBreakdown, ORDER_STATUS_LABELS, type OrderStatusKey } from '@/lib/orderStatus'
-import { CHART, formatMoney, formatShortDate, pctChange } from './chartTheme'
+import { CHART, formatMoney, formatMoneyAxis, formatShortDate, pctChange } from './chartTheme'
 
 const PERIOD_LABELS: Record<DashboardPeriodKey, string> = {
   day: 'Hoy',
@@ -149,7 +149,7 @@ export function DashboardCharts({ stats }: Props) {
                       yAxisId="revenue"
                       orientation="right"
                       tick={{ fill: CHART.gray, fontSize: 11 }}
-                      tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`}
+                      tickFormatter={(v: number) => formatMoneyAxis(v)}
                       width={44}
                     />
                     <Tooltip

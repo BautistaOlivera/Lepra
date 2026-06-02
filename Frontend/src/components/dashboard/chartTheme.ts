@@ -9,13 +9,7 @@ export const CHART = {
   canceled: '#adb5bd',
 } as const
 
-export function formatMoney(value: number): string {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS',
-    maximumFractionDigits: 0,
-  }).format(value)
-}
+export { formatMoneyCurrency as formatMoney, formatMoneyAxis } from '@/lib/formatMoney'
 
 export function formatShortDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)

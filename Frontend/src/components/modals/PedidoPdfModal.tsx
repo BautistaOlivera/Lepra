@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { Order } from '@/types'
 import { buildPedidoPdfBlob, pedidoPdfFilename } from '@/lib/pedidoPdf'
 import { lepraDb } from '@/offline/db'
+import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 interface PedidoPdfModalProps {
   show: boolean
@@ -119,7 +120,7 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
         await navigator.share({
           files: [file],
           title: `Pedido #${order.id}`,
-          text: `Pedido #${order.id} — Total $${order.total.toFixed(2)}`,
+          text: `Pedido #${order.id} — Total ${formatMoneyWithSymbol(order.total)}`,
         })
         return
       }

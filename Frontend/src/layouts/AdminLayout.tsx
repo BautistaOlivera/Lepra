@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { Container, Nav, Button, Badge } from 'react-bootstrap'
-import { LogOut, RefreshCw } from 'lucide-react'
+import { LogOut, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { useOnlineStatus } from '@/offline/network'
 import { useEffect, useState } from 'react'
 import { getAdminLastSync, runAdminIncrementalSync } from '@/offline/sync'
@@ -109,6 +109,14 @@ export function AdminLayout() {
     navigate('/')
   }
 
+  const hasPendingSync = pendingOutbox > 0
+  const isFullySynced = !syncing && !hasPendingSync && !authRequired
+
+  function handleOutboxClose() {
+    setOutboxOpen(false)
+    getPendingCount().then(setPendingOutbox).catch(() => {})
+  }
+
   return (
     <>
       <LepraNavbar
@@ -131,19 +139,42 @@ export function AdminLayout() {
                 </Button>
               )}
               <Button
-                variant="outline-light"
+                variant={hasPendingSync ? 'warning' : 'outline-light'}
                 size="sm"
+                className={hasPendingSync ? 'text-dark' : undefined}
                 onClick={handleSync}
-                disabled={!online || syncing}
+                disabled={!online || syncing || isFullySynced}
                 title={
                   [
-                    lastSync ? `Última sync: ${new Date(lastSync).toLocaleString()}` : 'Nunca sincronizado',
-                    pendingOutbox ? `Pendientes: ${pendingOutbox}` : null,
-                  ].filter(Boolean).join(' · ')
+                    isFullySynced
+                      ? lastSync
+                        ? `Sincronizado · ${new Date(lastSync).toLocaleString()}`
+                        : 'Sincronizado'
+                      : lastSync
+                        ? `Última sync: ${new Date(lastSync).toLocaleString()}`
+                        : 'Nunca sincronizado',
+                    hasPendingSync ? `${pendingOutbox} cambio(s) por enviar` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
                 }
               >
-                <RefreshCw size={16} className="me-1" />
-                {syncing ? 'Sincronizando…' : `Sincronizar${pendingOutbox ? ` (${pendingOutbox})` : ''}`}
+                {syncing ? (
+                  <>
+                    <RefreshCw size={16} className="me-1 lepra-icon-spin" aria-hidden />
+                    Sincronizando…
+                  </>
+                ) : isFullySynced ? (
+                  <>
+                    <CheckCircle2 size={16} className="me-1 text-success" aria-hidden />
+                    Sincronizado
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={16} className="me-1" aria-hidden />
+                    Sincronizar{hasPendingSync ? ` (${pendingOutbox})` : ''}
+                  </>
+                )}
               </Button>
               <Button
                 variant="outline-light"
@@ -164,7 +195,7 @@ export function AdminLayout() {
       <Container fluid="sm" className="px-3 px-sm-4 py-4">
         <Outlet />
       </Container>
-      <OutboxModal show={outboxOpen} onClose={() => setOutboxOpen(false)} />
+      <OutboxModal show={outboxOpen} onClose={handleOutboxClose} />
     </>
   )
 }

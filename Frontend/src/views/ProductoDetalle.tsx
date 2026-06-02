@@ -6,6 +6,7 @@ import { getProduct } from '@/api/product'
 import { Product } from '@/types'
 import { useCart } from '@/context/CartContext'
 import { getImageUrl } from '@/api/product'
+import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=600&q=80'
 
@@ -100,7 +101,7 @@ export function ProductoDetalle() {
               {product.brand && <p className="text-muted mb-1">{product.brand}</p>}
               {product.category && <p className="small text-muted mb-0">{product.category}</p>}
               <p className="product-detail-price fw-bold text-dark mt-3 mb-0">
-                ${product.price.toFixed(2)}
+                {formatMoneyWithSymbol(product.price)}
               </p>
 
               <div className="product-detail-actions mt-3">
@@ -159,7 +160,7 @@ export function ProductoDetalle() {
                       .sort((a, b) => a.min_quantity - b.min_quantity)
                       .map((t) => (
                         <li key={t.id} className="py-1">
-                          Desde {t.min_quantity} u: ${t.unit_price.toFixed(2)}/u
+                          Desde {t.min_quantity} u: {formatMoneyWithSymbol(t.unit_price)}/u
                         </li>
                       ))}
                   </ul>

@@ -6,6 +6,7 @@ import { getProductsPaginated } from '@/api/product'
 import { Product } from '@/types'
 import { useCart } from '@/context/CartContext'
 import { getImageUrl } from '@/api/product'
+import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 const CHEESE_HERO = 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=1200&q=80'
 
@@ -90,7 +91,7 @@ export function Catalogo() {
                     <Card.Title className="text-truncate mb-1">{p.name}</Card.Title>
                     {p.brand && <Card.Text className="small text-muted mb-0">{p.brand}</Card.Text>}
                     <div className="d-flex justify-content-between align-items-center gap-2 mt-auto pt-2 flex-wrap catalog-card-actions">
-                      <span className="fw-bold text-dark catalog-card-price">${p.price.toFixed(2)}</span>
+                      <span className="fw-bold text-dark catalog-card-price">{formatMoneyWithSymbol(p.price)}</span>
                       <div className="d-flex gap-2 catalog-card-buttons">
                         <Link to={`/producto/${p.id}`} className="btn btn-sm btn-outline-dark">
                           Ver

@@ -31,12 +31,41 @@ const CATEGORIAS = [
     { value: 'Embutidos', label: 'Embutidos' },
   ]
 
+  const PRICE_DECIMALS_MSG = 'Solo 2 números después del punto'
+
   const isEditing = !!editingProduct
   const imgDisplayUrl = img ? getImageUrl(img) : 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&q=80'
 
-  const priceNum = parseFloat(price)
-  const isPriceValid = !isNaN(priceNum) && priceNum >= 0
+  function parsePriceInput(raw: string): { ok: true; value: number } | { ok: false; message: string } {
+    const trimmed = raw.trim().replace(',', '.')
+    if (!trimmed) return { ok: false, message: 'Precio inválido' }
+    if (!/^\d+(\.\d+)?$/.test(trimmed)) return { ok: false, message: 'Precio inválido' }
+    const [, decimals] = trimmed.split('.')
+    if (decimals && decimals.length > 2) return { ok: false, message: PRICE_DECIMALS_MSG }
+    const value = parseFloat(trimmed)
+    if (!Number.isFinite(value) || value < 0) return { ok: false, message: 'Precio inválido' }
+    return { ok: true, value }
+  }
+
+  const priceNumPreview = parseFloat(price.trim().replace(',', '.'))
+  const isPriceValid = price.trim() !== '' && !isNaN(priceNumPreview) && priceNumPreview >= 0
   const isFormValid = name.trim() !== '' && isPriceValid
+
+  function handlePriceInvalid(e: React.FormEvent<HTMLInputElement>) {
+    e.preventDefault()
+    const input = e.currentTarget
+    if (input.validity.stepMismatch) {
+      toast.error(PRICE_DECIMALS_MSG)
+      return
+    }
+    if (input.validity.badInput || input.validity.typeMismatch) {
+      toast.error('Precio inválido')
+      return
+    }
+    if (input.validity.rangeUnderflow) {
+      toast.error('El precio no puede ser negativo')
+    }
+  }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (!isOnlineNow()) {
@@ -86,11 +115,12 @@ const CATEGORIAS = [
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const priceNum = parseFloat(price)
-    if (isNaN(priceNum) || priceNum < 0) {
-      toast.error('Precio inválido')
+    const parsed = parsePriceInput(price)
+    if (!parsed.ok) {
+      toast.error(parsed.message)
       return
     }
+    const priceNum = parsed.value
     setLoading(true)
     if (isEditing) {
       if (!isOnlineNow()) {
@@ -186,7 +216,7 @@ const CATEGORIAS = [
         <Modal.Title>{isEditing ? 'Editar producto' : 'Agregar producto'}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <Form onSubmit={handleSubmit}>
+        <Form onSubmit={handleSubmit} noValidate>
           <Form.Group className="mb-3">
             <Form.Label>Nombre</Form.Label>
             <Form.Control value={name} onChange={(e) => setName(e.target.value)} required />
@@ -199,6 +229,7 @@ const CATEGORIAS = [
               min="0"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
+              onInvalid={handlePriceInvalid}
               required
             />
           </Form.Group>

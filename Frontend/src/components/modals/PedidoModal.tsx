@@ -10,6 +10,7 @@ import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { nextTempId } from '@/offline/ids'
+import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 interface PedidoModalProps {
   show: boolean
@@ -219,8 +220,8 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                       onChange={(e) => updateLine(i, 'quantity', parseInt(e.target.value) || 1)}
                     />
                   </td>
-                  <td className="text-end align-middle">${l.unit_price.toFixed(2)}</td>
-                  <td className="text-end align-middle">${(l.quantity * l.unit_price).toFixed(2)}</td>
+                  <td className="text-end align-middle">{formatMoneyWithSymbol(l.unit_price)}</td>
+                  <td className="text-end align-middle">{formatMoneyWithSymbol(l.quantity * l.unit_price)}</td>
                   <td className="align-middle">
                     <Button variant="link" size="sm" className="text-danger p-0" onClick={() => removeLine(i)}>
                       ✕
@@ -231,7 +232,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
             </tbody>
           </Table>
 
-          <p className="fw-bold">Total: ${total.toFixed(2)}</p>
+          <p className="fw-bold">Total: {formatMoneyWithSymbol(total)}</p>
 
           <div className="d-flex justify-content-end gap-2">
             <Button variant="outline-dark" onClick={() => onClose()}>Cancelar</Button>

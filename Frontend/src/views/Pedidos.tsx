@@ -17,6 +17,7 @@ import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 import { parseUtcFromApi } from '@/lib/dateApi'
+import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -144,7 +145,7 @@ export function Pedidos() {
     }),
     columnHelper.accessor('total', {
       header: 'Total',
-      cell: (info) => `$${info.getValue().toFixed(2)}`,
+      cell: (info) => formatMoneyWithSymbol(info.getValue()),
     }),
     columnHelper.accessor('created_at', {
       header: 'Fecha',
@@ -301,7 +302,7 @@ export function Pedidos() {
                           <div className="text-muted small mt-1">{formatOrderDate(o)}</div>
                         </div>
                         <div className="fw-bold text-dark flex-shrink-0">
-                          ${o.total.toFixed(2)}
+                          {formatMoneyWithSymbol(o.total)}
                         </div>
                       </div>
 

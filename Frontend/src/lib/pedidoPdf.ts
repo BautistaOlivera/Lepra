@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 import { __createTable, __drawTable } from 'jspdf-autotable'
 import type { Order } from '@/types'
 import { parseUtcFromApi } from '@/lib/dateApi'
+import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 const STATUS_ES: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -169,7 +170,7 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
   const body = lines.map((l) => {
     const nm = (productNameById[l.id_product] && productNameById[l.id_product].trim()) || `Producto #${l.id_product}`
     const sub = l.quantity * l.unit_price
-    return [nm, String(l.quantity), `$${l.unit_price.toFixed(2)}`, `$${sub.toFixed(2)}`]
+    return [nm, String(l.quantity), formatMoneyWithSymbol(l.unit_price), formatMoneyWithSymbol(sub)]
   })
 
   const tableW = pageW - margin * 2
@@ -223,7 +224,7 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
   doc.setTextColor(26, 26, 26)
   const textBaseline = totalBoxY + totalBoxH - 2.8
   doc.text('Total', margin + padX, textBaseline)
-  doc.text(`$${order.total.toFixed(2)}`, margin + tableW - padX, textBaseline, { align: 'right' })
+  doc.text(formatMoneyWithSymbol(order.total), margin + tableW - padX, textBaseline, { align: 'right' })
 
   return doc.output('blob')
 }
