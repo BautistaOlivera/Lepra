@@ -53,6 +53,8 @@ function payloadSummary(r: OutboxRow): string {
       return p?.data?.id_user ? `user=${p.data.id_user} lines=${p?.data?.lines?.length || 0}` : ''
     case 'ORDER_STATUS_SET':
       return p?.id ? `id=${p.id} → ${p.status}` : ''
+    case 'ORDER_PAYMENT_UPDATE':
+      return p?.id ? `id=${p.id} (notas de pago)` : ''
     default:
       return ''
   }

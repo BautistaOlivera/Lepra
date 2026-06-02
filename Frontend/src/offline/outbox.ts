@@ -3,7 +3,7 @@ import { isAdminUser } from './admin'
 import { isOnlineNow } from './network'
 import { createUser, updateUser, deactivateUser } from '@/api/user'
 import { createProduct, updateProduct, deactivateProduct } from '@/api/product'
-import { createOrder, setOrderStatus } from '@/api/order'
+import { createOrder, setOrderStatus, updateOrder } from '@/api/order'
 
 function uuid(): string {
   // Suficiente para cola local (no criptográfico)
@@ -156,6 +156,12 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
       const { id, status } = row.payload as any
       const realId = await resolveId('order', Number(id))
       const res = await setOrderStatus(realId, String(status))
+      return res.error ? { ok: false, status: res.error.status, message: res.error.message } : { ok: true }
+    }
+    case 'ORDER_PAYMENT_UPDATE': {
+      const { id, payment } = row.payload as any
+      const realId = await resolveId('order', Number(id))
+      const res = await updateOrder({ id: realId, payment: payment ?? '' })
       return res.error ? { ok: false, status: res.error.status, message: res.error.message } : { ok: true }
     }
     case 'ORDER_CREATE_ADMIN': {

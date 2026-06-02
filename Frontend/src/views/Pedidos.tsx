@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Spinner, Form, InputGroup, Card } from 'react-bootstrap'
-import { Plus, FileText, Search, Calendar } from 'lucide-react'
+import { Plus, FileText, Search, Calendar, NotebookPen } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { setOrderStatus } from '@/api/order'
 import { getOrdersPaginatedOfflineFirst } from '@/repositories/ordersRepo'
@@ -8,6 +8,7 @@ import { Order } from '@/types'
 import toast from 'react-hot-toast'
 import { PedidoModal } from '@/components/modals/PedidoModal'
 import { PedidoPdfModal } from '@/components/modals/PedidoPdfModal'
+import { PedidoNotasModal } from '@/components/modals/PedidoNotasModal'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
 import { AdminFilterResetButton } from '@/components/AdminFilterResetButton'
@@ -44,6 +45,7 @@ export function Pedidos() {
   const [nextCursor, setNextCursor] = useState<number | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [pdfOrder, setPdfOrder] = useState<Order | null>(null)
+  const [notasOrder, setNotasOrder] = useState<Order | null>(null)
   const [search, setSearch] = useState('')
   const [searchDebounced, setSearchDebounced] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -112,6 +114,22 @@ export function Pedidos() {
     setPdfOrder(null)
   }
 
+  function onNotasClose() {
+    setNotasOrder(null)
+  }
+
+  function applyOrderPayment(orderId: number, payment: string) {
+    const value = payment.trim() || null
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, payment: value } : o)))
+    setPdfOrder((prev) => (prev?.id === orderId ? { ...prev, payment: value } : prev))
+    setNotasOrder((prev) => (prev?.id === orderId ? { ...prev, payment: value } : prev))
+  }
+
+  function onNotasSaved(orderId: number, payment: string) {
+    applyOrderPayment(orderId, payment)
+    refreshPending().catch(() => {})
+  }
+
   function clearFilters() {
     setSearch('')
     setDateFrom('')
@@ -150,6 +168,15 @@ export function Pedidos() {
       header: '',
       cell: ({ row }) => (
         <>
+          <Button
+            variant="link"
+            size="sm"
+            className="text-dark p-0 me-2"
+            onClick={() => setNotasOrder(row.original)}
+            title={row.original.payment?.trim() ? 'Editar notas de pago' : 'Agregar notas de pago'}
+          >
+            <NotebookPen size={16} /> Notas
+          </Button>
           <Button
             variant="link"
             size="sm"
@@ -291,6 +318,14 @@ export function Pedidos() {
                         <Button
                           variant="outline-dark"
                           className="admin-list-action-btn"
+                          onClick={() => setNotasOrder(o)}
+                        >
+                          <NotebookPen size={16} className="me-1" aria-hidden />
+                          {o.payment?.trim() ? 'Editar notas' : 'Notas de pago'}
+                        </Button>
+                        <Button
+                          variant="outline-dark"
+                          className="admin-list-action-btn"
                           onClick={() => setPdfOrder(o)}
                         >
                           <FileText size={16} className="me-1" aria-hidden /> Ver / Imprimir
@@ -343,6 +378,14 @@ export function Pedidos() {
       )}
 
       <PedidoModal show={addModalOpen} onClose={onAddModalClose} />
+      {notasOrder && (
+        <PedidoNotasModal
+          show
+          order={notasOrder}
+          onClose={onNotasClose}
+          onSaved={(payment) => onNotasSaved(notasOrder.id, payment)}
+        />
+      )}
       {pdfOrder && <PedidoPdfModal order={pdfOrder} show onClose={onPdfClose} />}
     </div>
   )

@@ -163,7 +163,7 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
       : null
   metaLine('Fecha', when ? when.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '—')
   metaLine('Estado', STATUS_ES[order.status] || order.status)
-  if (order.payment) metaLine('Pago', String(order.payment))
+  if (order.payment?.trim()) metaLine('Notas de pago', String(order.payment).trim())
 
   const lines = order.lines || []
   const body = lines.map((l) => {

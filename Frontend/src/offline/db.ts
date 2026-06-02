@@ -15,6 +15,7 @@ export type OutboxCommandType =
   | 'PRODUCT_DEACTIVATE'
   | 'ORDER_CREATE_ADMIN'
   | 'ORDER_STATUS_SET'
+  | 'ORDER_PAYMENT_UPDATE'
 
 export type OutboxRow = {
   id: string
