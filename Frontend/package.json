@@ -20,6 +20,7 @@
     "jspdf-autotable": "^5.0.7",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.575.0",
+    "overlayscrollbars": "^2.16.0",
     "pdfjs-dist": "^5.7.284",
     "react": "^18.2.0",
     "react-bootstrap": "^2.10.0",

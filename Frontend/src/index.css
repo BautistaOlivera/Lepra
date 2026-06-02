@@ -990,3 +990,33 @@ body {
 .lepra-icon-spin {
   animation: lepra-icon-spin 1s linear infinite;
 }
+
+/* Scrollbar overlay (desktop) — tema El Lepra */
+@media (min-width: 992px) {
+  .os-theme-lepra {
+    box-sizing: border-box;
+    --os-size: 10px;
+    --os-padding-perpendicular: 2px;
+    --os-padding-axis: 2px;
+    --os-track-border-radius: 6px;
+    --os-handle-border-radius: 6px;
+    --os-handle-interactive-area-offset: 4px;
+    --os-handle-bg: rgba(230, 184, 0, 0.82);
+    --os-handle-bg-hover: var(--lepra-yellow-light);
+    --os-handle-bg-active: var(--lepra-yellow-dark);
+  }
+
+  .os-theme-lepra .os-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Debajo del navbar (1030); empieza bajo su borde inferior */
+  html.lepra-overlay-scroll body > .os-scrollbar {
+    z-index: 1020;
+  }
+
+  html.lepra-overlay-scroll body > .os-scrollbar.os-scrollbar-vertical {
+    top: var(--lepra-navbar-offset, 3.5rem);
+    bottom: 0;
+  }
+}

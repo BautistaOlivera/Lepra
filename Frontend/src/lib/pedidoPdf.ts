@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { __createTable, __drawTable } from 'jspdf-autotable'
 import type { Order } from '@/types'
+import { getImageUrl } from '@/api/client'
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
@@ -42,59 +43,113 @@ type LogoWatermark = {
   heightMm: number
 }
 
+function resolvePdfLogoUrl(): string {
+  const configured = import.meta.env.VITE_PDF_LOGO_URL?.trim()
+  if (configured) return getImageUrl(configured)
+  const rawBase = import.meta.env.BASE_URL || '/'
+  const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`
+  return `${base}branding/lepra-logo.pdf`
+}
+
+function canvasToFadedWatermark(
+  src: HTMLCanvasElement,
+  widthMm: number,
+  heightMm: number,
+): LogoWatermark | null {
+  const faded = document.createElement('canvas')
+  faded.width = src.width
+  faded.height = src.height
+  const fctx = faded.getContext('2d', { alpha: true })
+  if (!fctx) return null
+  fctx.clearRect(0, 0, faded.width, faded.height)
+  fctx.globalAlpha = LOGO_WATERMARK_ALPHA
+  fctx.drawImage(src, 0, 0)
+  fctx.globalAlpha = 1
+  return {
+    dataUrl: faded.toDataURL('image/png'),
+    widthMm,
+    heightMm,
+  }
+}
+
+async function loadLogoWatermarkFromPdf(url: string): Promise<LogoWatermark | null> {
+  await ensurePdfJsWorker()
+  const { getDocument } = await import('pdfjs-dist')
+  const res = await fetch(url)
+  if (!res.ok) return null
+  const buf = await res.arrayBuffer()
+  const data = new Uint8Array(buf.slice(0))
+  const pdf = await getDocument({ data }).promise
+  const page = await pdf.getPage(1)
+
+  const vp1 = page.getViewport({ scale: 1 })
+  const widthMm = vp1.width * PDF_PT_TO_MM
+  const heightMm = vp1.height * PDF_PT_TO_MM
+
+  const renderScale = Math.min(3, Math.max(2, 900 / Math.max(vp1.width, vp1.height, 1)))
+  const viewport = page.getViewport({ scale: renderScale })
+  const w = Math.floor(viewport.width)
+  const h = Math.floor(viewport.height)
+
+  const src = document.createElement('canvas')
+  src.width = w
+  src.height = h
+  const sctx = src.getContext('2d', { alpha: true })
+  if (!sctx) return null
+  sctx.clearRect(0, 0, w, h)
+  const task = page.render({ canvas: src, canvasContext: sctx, viewport })
+  await task.promise
+
+  return canvasToFadedWatermark(src, widthMm, heightMm)
+}
+
+function loadLogoWatermarkFromImage(url: string): Promise<LogoWatermark | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const w = img.naturalWidth
+      const h = img.naturalHeight
+      if (!w || !h) {
+        resolve(null)
+        return
+      }
+      const widthMm = w * PDF_PT_TO_MM
+      const heightMm = h * PDF_PT_TO_MM
+      const src = document.createElement('canvas')
+      src.width = w
+      src.height = h
+      const ctx = src.getContext('2d', { alpha: true })
+      if (!ctx) {
+        resolve(null)
+        return
+      }
+      ctx.clearRect(0, 0, w, h)
+      ctx.drawImage(img, 0, 0)
+      resolve(canvasToFadedWatermark(src, widthMm, heightMm))
+    }
+    img.onerror = () => resolve(null)
+    img.src = url
+  })
+}
+
 /**
- * Primera página del PDF de marca → PNG semitransparente + medidas en mm
- * (misma escala física que el PDF origen).
+ * Logo de marca de agua: URL en VITE_PDF_LOGO_URL (servidor /uploads/…) o fallback local.
  */
 async function loadCompanyLogoWatermark(): Promise<LogoWatermark | null> {
   if (typeof window === 'undefined') return null
+  const url = resolvePdfLogoUrl()
   try {
-    await ensurePdfJsWorker()
-    const { getDocument } = await import('pdfjs-dist')
-    const rawBase = import.meta.env.BASE_URL || '/'
-    const base = rawBase.endsWith('/') ? rawBase : `${rawBase}/`
-    const res = await fetch(`${base}branding/lepra-logo.pdf`)
-    if (!res.ok) return null
-    const buf = await res.arrayBuffer()
-    const data = new Uint8Array(buf.slice(0))
-    const pdf = await getDocument({ data }).promise
-    const page = await pdf.getPage(1)
-
-    const vp1 = page.getViewport({ scale: 1 })
-    const widthMm = vp1.width * PDF_PT_TO_MM
-    const heightMm = vp1.height * PDF_PT_TO_MM
-
-    const renderScale = Math.min(3, Math.max(2, 900 / Math.max(vp1.width, vp1.height, 1)))
-    const viewport = page.getViewport({ scale: renderScale })
-    const w = Math.floor(viewport.width)
-    const h = Math.floor(viewport.height)
-
-    const src = document.createElement('canvas')
-    src.width = w
-    src.height = h
-    const sctx = src.getContext('2d', { alpha: true })
-    if (!sctx) return null
-    sctx.clearRect(0, 0, w, h)
-    const task = page.render({ canvas: src, canvasContext: sctx, viewport })
-    await task.promise
-
-    const faded = document.createElement('canvas')
-    faded.width = w
-    faded.height = h
-    const fctx = faded.getContext('2d', { alpha: true })
-    if (!fctx) return null
-    fctx.clearRect(0, 0, w, h)
-    fctx.globalAlpha = LOGO_WATERMARK_ALPHA
-    fctx.drawImage(src, 0, 0)
-    fctx.globalAlpha = 1
-
-    return {
-      dataUrl: faded.toDataURL('image/png'),
-      widthMm,
-      heightMm,
+    const path = url.split('?')[0].toLowerCase()
+    if (path.endsWith('.pdf')) {
+      return await loadLogoWatermarkFromPdf(url)
     }
+    if (/\.(png|jpe?g|gif|webp)$/i.test(path)) {
+      return await loadLogoWatermarkFromImage(url)
+    }
+    return await loadLogoWatermarkFromPdf(url)
   } catch (e) {
-    console.warn('No se pudo cargar el logo (branding/lepra-logo.pdf):', e)
+    console.warn('No se pudo cargar el logo del comprobante:', url, e)
     return null
   }
 }
