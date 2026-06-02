@@ -15,9 +15,9 @@ concurrency:
 
 env:
   NODE_VERSION: "22"
+  PYTHON_VERSION: "3.12"
   REMOTE_BACKEND: /home/lepramg-store/lepra-api/Backend
   REMOTE_FRONTEND: /home/lepramg-store/htdocs/store.lepramg.com
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:
@@ -25,6 +25,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -39,12 +44,14 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_PDF_LOGO_URL: /uploads/lepra-logo-watermark.png
         run: |
-          pip install pymupdf
+          python -m pip install pymupdf
           npm ci
           npm run build
 
       - name: Stage branding PNG for API
-        run: cp Frontend/public/branding/lepra-logo-watermark.png Backend/branding/
+        run: |
+          mkdir -p Backend/branding
+          cp Frontend/public/branding/lepra-logo-watermark.png Backend/branding/
 
       - name: Configure SSH
         run: |
