@@ -47,10 +47,6 @@ jobs:
           python -m pip install pymupdf
           npm ci
           npm run build
-          if grep -qE 'modulepreload|rel="preload".*/assets/' dist/index.html; then
-            echo "::error::index.html still contains asset preloads — check vite-html-assets.plugin.ts"
-            exit 1
-          fi
 
       - name: Stage branding PNG for API
         run: |

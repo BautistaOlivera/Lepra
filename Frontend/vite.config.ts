@@ -3,7 +3,6 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
-import { cleanHtmlAssets } from './vite-html-assets.plugin'
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -47,8 +46,6 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'auto',
-        // Nuevo nombre: el SW viejo (sw.js) queda huérfano tras rsync --delete.
-        filename: 'sw-v2.js',
         includeAssets: ['favicon.svg', 'pwa-maskable.svg', 'apple-touch-icon.png'],
         manifest: {
           name: 'El Lepra',
@@ -86,7 +83,6 @@ export default defineConfig(({ mode }) => {
             'pwa-maskable.svg',
             'apple-touch-icon.png',
           ],
-          globIgnores: ['**/assets/**', '**/workbox-*.js'],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
@@ -127,7 +123,6 @@ export default defineConfig(({ mode }) => {
           enabled: false,
         },
       }),
-      cleanHtmlAssets(),
     ],
     resolve: {
       alias: {
@@ -140,8 +135,6 @@ export default defineConfig(({ mode }) => {
         }
       : undefined,
     build: {
-      // Evita <link rel="modulepreload"> con credenciales distintas (warnings en consola).
-      modulePreload: false,
       rollupOptions: {
         output: {
           manualChunks(id) {

@@ -325,7 +325,7 @@ location / {
 
 ### 3.6 Caché del shell (PWA / deploy)
 
-Tras cada deploy cambian los hashes en `/assets/`. Si Nginx o el navegador guardan `index.html` o el service worker en caché, ves errores de Workbox (`bad-precaching-response`, CSS 404) y avisos de `modulepreload`.
+Tras cada deploy cambian los hashes en `/assets/`. Si Nginx o el navegador guardan `index.html` o el service worker en caché, ves errores de Workbox (`bad-precaching-response`, CSS 404).
 
 En el **Vhost** del front, además de la regla SPA:
 
@@ -333,12 +333,48 @@ En el **Vhost** del front, además de la regla SPA:
 location = /index.html {
     add_header Cache-Control "no-cache, no-store, must-revalidate";
 }
-location ~ ^/(sw\.js|sw-v2\.js|workbox-.*\.js|registerSW\.js)$ {
+location ~ ^/(sw\.js|workbox-.*\.js|registerSW\.js)$ {
     add_header Cache-Control "no-cache, no-store, must-revalidate";
 }
 ```
 
 Los archivos en `/assets/` pueden seguir con caché larga (tienen hash en el nombre).
+
+### 3.7 PageSpeed (ngx_pagespeed) y avisos de «preload» en consola
+
+Si en Chrome ves *«A preload for … is found, but is not used because the request credentials mode does not match»* en las líneas del `<script>` / `<link rel="stylesheet">` (no hace falta otro navegador ni borrar caché para reproducirlo), **no suele ser el HTML del build**: el sitio puede tener **ngx_pagespeed** activo (en CloudPanel aparece en URLs como `x….pagespeed.ic.….png`).
+
+PageSpeed añade cabeceras HTTP del estilo:
+
+```http
+Link: </assets/index-….js>; rel=preload; as=script; nopush, </assets/vendor-….css>; rel=preload; as=style; nopush, …
+```
+
+Esos preload **no llevan `crossorigin`**, pero Vite emite `<script type="module" crossorigin>` y hojas con `crossorigin` → Chrome avisa y no usa el preload.
+
+**Solución recomendada (SPA + PWA): desactivar PageSpeed en el front**
+
+En el Vhost de `store.lepramg.com`:
+
+```nginx
+pagespeed off;
+```
+
+Si no podés apagarlo del todo, al menos:
+
+```nginx
+pagespeed DisableFilters hint_preload_subresources;
+```
+
+El `index.html` del repo incluye `<!-- pagespeed off -->` para que mod_pagespeed no reescriba esa página; si el módulo ignora el comentario, usá `pagespeed off;` en Nginx.
+
+Comprobación (PowerShell):
+
+```powershell
+(Invoke-WebRequest "https://store.lepramg.com/" -UseBasicParsing).Headers["Link"]
+```
+
+Si devuelve varias líneas `rel=preload` hacia `/assets/…`, PageSpeed sigue activo.
 
 ---
 
