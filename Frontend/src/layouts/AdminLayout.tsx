@@ -1,14 +1,15 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Container, Button, Badge } from 'react-bootstrap'
-import { LogOut, RefreshCw, CheckCircle2 } from 'lucide-react'
+import { Container, Button } from 'react-bootstrap'
+import { LogOut } from 'lucide-react'
+import { AdminSyncToolbar } from '@/components/AdminSyncToolbar'
 import { useOnlineStatus } from '@/offline/network'
 import { useEffect, useState } from 'react'
-import { formatDateTimeAR } from '@/lib/formatDate'
 import { getAdminLastSync, runAdminIncrementalSync } from '@/offline/sync'
-import { getPendingCount, processOutbox } from '@/offline/outbox'
+import { getOutboxStats, processOutbox, OUTBOX_CHANGED_EVENT } from '@/offline/outbox'
 import toast from 'react-hot-toast'
 import { OutboxModal } from '@/components/modals/OutboxModal'
 import { isAuthRequiredFlagSet } from '@/offline/authGrace'
+import { MENSAJE_SIN_CONEXION } from '@/lib/connectionLabels'
 import { LepraNavbar } from '@/components/LepraNavbar'
 
 export function AdminLayout() {
@@ -18,22 +19,40 @@ export function AdminLayout() {
   const [syncing, setSyncing] = useState(false)
   const [lastSync, setLastSync] = useState<number>(0)
   const [pendingOutbox, setPendingOutbox] = useState<number>(0)
+  const [outboxActionable, setOutboxActionable] = useState<number>(0)
+  const [outboxFailed, setOutboxFailed] = useState<number>(0)
+  const [outboxTotal, setOutboxTotal] = useState<number>(0)
   const [outboxOpen, setOutboxOpen] = useState(false)
   const [authRequired, setAuthRequired] = useState<boolean>(isAuthRequiredFlagSet())
 
+  function refreshOutboxCounts() {
+    getOutboxStats()
+      .then((s) => {
+        setPendingOutbox(s.pending)
+        setOutboxFailed(s.failed)
+        setOutboxActionable(s.actionable)
+        setOutboxTotal(s.total)
+      })
+      .catch(() => {})
+  }
+
   useEffect(() => {
     getAdminLastSync()
-      .then((s) => setLastSync(Math.max(s.users, s.products, s.orders)))
+      .then((st) => setLastSync(Math.max(st.users, st.products, st.orders)))
       .catch(() => {})
-    getPendingCount()
-      .then(setPendingOutbox)
-      .catch(() => {})
+    refreshOutboxCounts()
   }, [online])
 
   useEffect(() => {
     const handler = () => setAuthRequired(isAuthRequiredFlagSet())
     window.addEventListener('lepra-auth-required', handler)
     return () => window.removeEventListener('lepra-auth-required', handler)
+  }, [])
+
+  useEffect(() => {
+    const onOutboxChanged = () => refreshOutboxCounts()
+    window.addEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged)
+    return () => window.removeEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged)
   }, [])
 
   useEffect(() => {
@@ -47,7 +66,7 @@ export function AdminLayout() {
       } catch {
         // noop
       } finally {
-        getPendingCount().then(setPendingOutbox).catch(() => {})
+        refreshOutboxCounts()
       }
     })()
   }, [online, authRequired])
@@ -59,7 +78,7 @@ export function AdminLayout() {
 
     const id = window.setInterval(() => {
       processOutbox({ max: 25 })
-        .finally(() => getPendingCount().then(setPendingOutbox).catch(() => {}))
+        .finally(() => refreshOutboxCounts())
     }, 15000)
 
     return () => window.clearInterval(id)
@@ -67,7 +86,7 @@ export function AdminLayout() {
 
   async function handleSync() {
     if (!online) {
-      toast.error('Estás offline')
+      toast.error(MENSAJE_SIN_CONEXION)
       return
     }
     if (authRequired) {
@@ -94,8 +113,7 @@ export function AdminLayout() {
         toast.success('Ya estás sincronizado')
       }
 
-      const pc = await getPendingCount()
-      setPendingOutbox(pc)
+      refreshOutboxCounts()
     } catch (e: any) {
       toast.error(e?.message || 'Error al sincronizar')
     } finally {
@@ -110,13 +128,12 @@ export function AdminLayout() {
     navigate('/')
   }
 
-  const hasPendingSync = pendingOutbox > 0
-  const isFullySynced = !syncing && !hasPendingSync && !authRequired
-
   function handleOutboxClose() {
     setOutboxOpen(false)
-    getPendingCount().then(setPendingOutbox).catch(() => {})
+    refreshOutboxCounts()
   }
+
+  const hasOutboxItems = outboxTotal > 0
 
   return (
     <>
@@ -126,9 +143,6 @@ export function AdminLayout() {
         endNav={() => (
           <>
             <div className="lepra-navbar-tools lepra-navbar-tools-divided d-flex flex-wrap align-items-center justify-content-center justify-content-lg-end gap-2">
-              <Badge bg={online ? 'success' : 'secondary'}>
-                {online ? 'Online' : 'Offline'}
-              </Badge>
               {online && authRequired && (
                 <Button
                   variant="danger"
@@ -139,53 +153,18 @@ export function AdminLayout() {
                   Re-login
                 </Button>
               )}
-              <Button
-                variant={hasPendingSync ? 'warning' : 'outline-light'}
-                size="sm"
-                className={hasPendingSync ? 'text-dark' : undefined}
-                onClick={handleSync}
-                disabled={!online || syncing || isFullySynced}
-                title={
-                  [
-                    isFullySynced
-                      ? lastSync
-                        ? `Sincronizado · ${formatDateTimeAR(new Date(lastSync))}`
-                        : 'Sincronizado'
-                      : lastSync
-                        ? `Última sync: ${formatDateTimeAR(new Date(lastSync))}`
-                        : 'Nunca sincronizado',
-                    hasPendingSync ? `${pendingOutbox} cambio(s) por enviar` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')
-                }
-              >
-                {syncing ? (
-                  <>
-                    <RefreshCw size={16} className="me-1 lepra-icon-spin" aria-hidden />
-                    Sincronizando…
-                  </>
-                ) : isFullySynced ? (
-                  <>
-                    <CheckCircle2 size={16} className="me-1 text-success" aria-hidden />
-                    Sincronizado
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw size={16} className="me-1" aria-hidden />
-                    Sincronizar{hasPendingSync ? ` (${pendingOutbox})` : ''}
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline-light"
-                size="sm"
-                onClick={() => setOutboxOpen(true)}
-                title="Ver cambios pendientes"
-              >
-                Pendientes
-                {pendingOutbox ? ` (${pendingOutbox})` : ''}
-              </Button>
+              <AdminSyncToolbar
+                online={online}
+                syncing={syncing}
+                authRequired={authRequired}
+                lastSync={lastSync}
+                pendingOutbox={pendingOutbox}
+                outboxFailed={outboxFailed}
+                outboxActionable={outboxActionable}
+                hasOutboxItems={hasOutboxItems}
+                onSync={handleSync}
+                onOpenOutbox={() => setOutboxOpen(true)}
+              />
             </div>
             <Button variant="outline-light" size="sm" className="lepra-nav-logout" onClick={handleLogout}>
               <LogOut size={16} className="me-1" /> Cerrar sesión

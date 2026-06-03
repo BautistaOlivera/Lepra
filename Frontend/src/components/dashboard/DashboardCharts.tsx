@@ -215,7 +215,7 @@ export function DashboardCharts({ stats }: Props) {
               <Card.Title className="h6 mb-3">Top productos (30 días)</Card.Title>
               {stats.top_products.length === 0 ? (
                 <p className="text-muted small mb-0">
-                  Sin datos de líneas de pedido. Sincronizá o abrí Pedidos online para completar el catálogo local.
+                  Sin datos de líneas de pedido. Sincronizá o abrí Pedidos con conexión para completar el catálogo local.
                 </p>
               ) : (
                 <div style={{ width: '100%', height: Math.max(160, stats.top_products.length * 48) }}>

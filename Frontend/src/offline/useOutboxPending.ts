@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { listOutbox } from '@/offline/outbox'
+import { listOutbox, OUTBOX_CHANGED_EVENT } from '@/offline/outbox'
 import type { OutboxRow } from '@/offline/db'
 
 type PendingSets = {
@@ -35,6 +35,7 @@ function computeSets(rows: OutboxRow[]): PendingSets {
         break
       case 'PRODUCT_UPDATE':
       case 'PRODUCT_DEACTIVATE':
+      case 'PRODUCT_TIERS_SYNC':
         if (Number.isFinite(Number(p?.id))) products.add(Number(p.id))
         break
 
@@ -63,6 +64,9 @@ export function useOutboxPending() {
 
   useEffect(() => {
     refresh().catch(() => {})
+    const onOutboxChanged = () => refresh().catch(() => {})
+    window.addEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged)
+    return () => window.removeEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged)
   }, [refresh])
 
   const sets = useMemo(() => computeSets(rows), [rows])

@@ -2,6 +2,8 @@ import { lepraDb } from './db'
 import { isAdminUser } from './admin'
 import { isOnlineNow } from './network'
 import { syncOrders, syncProducts, syncUsers } from '@/api/sync'
+import { mergeProductForCache } from '@/lib/productMerge'
+import type { Product } from '@/types'
 
 const TTL_MS = 5 * 60 * 1000
 
@@ -67,7 +69,11 @@ export async function runAdminIncrementalSync(opts?: { force?: boolean }): Promi
     serverTime = Math.max(serverTime, usersRes.data.serverTime)
   }
   if (productsRes.data) {
-    await lepraDb.products.bulkPut(productsRes.data.items)
+    for (const item of productsRes.data.items) {
+      const existing = await lepraDb.products.get(item.id)
+      const merged = mergeProductForCache(existing, item as Product)
+      await lepraDb.products.put(merged)
+    }
     await setLastSync('products_lastSync', productsRes.data.serverTime)
     productsUpserted = productsRes.data.items.length
     serverTime = Math.max(serverTime, productsRes.data.serverTime)

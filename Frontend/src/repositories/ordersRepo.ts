@@ -47,7 +47,7 @@ export async function getOrdersPaginatedOfflineFirst(
   }
 
   if (!isAdminUser()) {
-    return { error: { status: 0, message: 'Offline' } }
+    return { error: { status: 0, message: 'Sin conexión' } }
   }
 
   const all = await lepraDb.orders.toArray()

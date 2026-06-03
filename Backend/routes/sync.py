@@ -65,9 +65,13 @@ async def sync_products(req: Request, since: int | None = None):
 
     since_dt = _since_ms_to_dt(since)
     async with AsyncSessionLocal() as session:
-        stmt = select(Product).where(Product.updated_at > since_dt)
+        stmt = (
+            select(Product)
+            .where(Product.updated_at > since_dt)
+            .options(selectinload(Product.price_tiers))
+        )
         result = await session.execute(stmt)
-        items = result.scalars().all()
+        items = result.scalars().unique().all()
 
     server_time = int(datetime.now(timezone.utc).timestamp() * 1000)
     return JSONResponse(
@@ -85,6 +89,14 @@ async def sync_products(req: Request, since: int | None = None):
                     "img": p.img,
                     "active": p.active,
                     "updated_at": utc_naive_iso(p.updated_at),
+                    "price_tiers": [
+                        {
+                            "id": t.id,
+                            "min_quantity": t.min_quantity,
+                            "unit_price": t.unit_price,
+                        }
+                        for t in p.price_tiers
+                    ],
                 }
                 for p in items
             ],

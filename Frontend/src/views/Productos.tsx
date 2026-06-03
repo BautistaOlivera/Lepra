@@ -22,7 +22,7 @@ const columnHelper = createColumnHelper<Product>()
 
 function ProductoSyncBadge({ product, pending }: { product: Product; pending: boolean }) {
   if (product.id < 0 || pending) {
-    return <Badge bg="warning" className="text-dark">Pendiente</Badge>
+    return <Badge bg="warning">Pendiente</Badge>
   }
   return <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado" />
 }
@@ -130,9 +130,9 @@ export function Productos() {
       cell: (info) => formatMoneyWithSymbol(info.getValue()),
     }),
     columnHelper.accessor('has_tiered_pricing', {
-      header: 'Tramos',
+      header: 'Volumen',
       cell: (info) =>
-        info.getValue() ? <Badge bg="warning" className="text-dark">Sí</Badge> : '-',
+        info.getValue() ? <Badge bg="warning">Sí</Badge> : '-',
     }),
     columnHelper.accessor('active', {
       header: 'Estado',
@@ -141,7 +141,7 @@ export function Productos() {
     }),
     columnHelper.display({
       id: 'sync',
-      header: 'Sync',
+      header: 'Sincronización',
       cell: ({ row }) => (
         <ProductoSyncBadge product={row.original} pending={pendingProducts.has(row.original.id)} />
       ),
@@ -287,7 +287,7 @@ export function Productos() {
                             <Badge bg="secondary">{p.category}</Badge>
                           )}
                           {p.has_tiered_pricing && (
-                            <Badge bg="warning" className="text-dark">Tramos</Badge>
+                            <Badge bg="warning">Volumen</Badge>
                           )}
                           {p.active ? (
                             <Badge bg="success">Activo</Badge>

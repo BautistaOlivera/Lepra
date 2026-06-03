@@ -16,7 +16,7 @@ export async function getDashboardStatsHybrid(): Promise<{
   }
 
   if (!isAdminUser()) {
-    return { error: { status: 0, message: 'Sin datos offline' } }
+    return { error: { status: 0, message: 'Sin datos sin conexión' } }
   }
 
   const [orders, products, users] = await Promise.all([

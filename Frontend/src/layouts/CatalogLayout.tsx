@@ -25,7 +25,7 @@ function CartLink() {
       <ShoppingCart size={22} aria-hidden />
       <span className="d-none d-sm-inline ms-1">Carrito</span>
       {itemCount > 0 && (
-        <span className="badge bg-warning text-dark ms-1">{itemCount}</span>
+        <span className="badge bg-warning ms-1">{itemCount}</span>
       )}
     </Nav.Link>
   )

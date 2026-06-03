@@ -3,6 +3,9 @@ import { isAdminUser } from './admin'
 import { isOnlineNow } from './network'
 import { createUser, updateUser, deactivateUser } from '@/api/user'
 import { createProduct, updateProduct, deactivateProduct } from '@/api/product'
+import { applyTierDiffOnline } from '@/lib/productTiers'
+import { applyTierDiffToLocal } from '@/lib/productMerge'
+import type { PriceTier } from '@/types'
 import { createOrder, setOrderStatus, updateOrder } from '@/api/order'
 
 function uuid(): string {
@@ -17,6 +20,15 @@ class DependencyNotReadyError extends Error {
   }
 }
 
+/** Se dispara cuando la cola local cambia (offline u online). La navbar y badges escuchan esto. */
+export const OUTBOX_CHANGED_EVENT = 'lepra-outbox-changed'
+
+export function notifyOutboxChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(OUTBOX_CHANGED_EVENT))
+  }
+}
+
 export async function enqueueCommand(type: OutboxCommandType, payload: unknown): Promise<string> {
   const row: OutboxRow = {
     id: uuid(),
@@ -28,11 +40,29 @@ export async function enqueueCommand(type: OutboxCommandType, payload: unknown):
     nextAttemptAt: Date.now(),
   }
   await lepraDb.outbox.put(row)
+  notifyOutboxChanged()
   return row.id
 }
 
 export async function getPendingCount(): Promise<number> {
   return lepraDb.outbox.where('status').equals('pending').count()
+}
+
+export type OutboxStats = {
+  pending: number
+  failed: number
+  total: number
+  /** Pendientes + fallidos (lo que suele requerir revisión). */
+  actionable: number
+}
+
+export async function getOutboxStats(): Promise<OutboxStats> {
+  const [pending, failed, total] = await Promise.all([
+    lepraDb.outbox.where('status').equals('pending').count(),
+    lepraDb.outbox.where('status').equals('failed').count(),
+    lepraDb.outbox.count(),
+  ])
+  return { pending, failed, total, actionable: pending + failed }
 }
 
 export async function listOutbox(): Promise<OutboxRow[]> {
@@ -44,19 +74,23 @@ export async function retryFailed(): Promise<void> {
   await Promise.all(
     failed.map((r) => lepraDb.outbox.update(r.id, { status: 'pending', nextAttemptAt: Date.now(), lastError: undefined }))
   )
+  notifyOutboxChanged()
 }
 
 export async function retryOne(id: string): Promise<void> {
   await lepraDb.outbox.update(id, { status: 'pending', nextAttemptAt: Date.now(), lastError: undefined })
+  notifyOutboxChanged()
 }
 
 export async function clearDone(): Promise<void> {
   const done = await lepraDb.outbox.where('status').equals('done').toArray()
   await Promise.all(done.map((r) => lepraDb.outbox.delete(r.id)))
+  notifyOutboxChanged()
 }
 
 export async function deleteOne(id: string): Promise<void> {
   await lepraDb.outbox.delete(id)
+  notifyOutboxChanged()
 }
 
 type ProcessResult = {
@@ -72,7 +106,8 @@ async function mapTempId(entity: 'user' | 'product' | 'order', tempId: number, r
 async function resolveId(entity: 'user' | 'product' | 'order', id: number): Promise<number> {
   if (id >= 0) return id
   const row = await lepraDb.idmap.get([entity, id])
-  if (!row?.realId) throw new DependencyNotReadyError(`Esperando sync de ${entity} (${id})`)
+  const entityLabel = { user: 'cliente', product: 'producto', order: 'pedido' }[entity]
+  if (!row?.realId) throw new DependencyNotReadyError(`Esperando sincronización de ${entityLabel} (${id})`)
   return row.realId
 }
 
@@ -131,12 +166,65 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
       const payload = row.payload as any
       const tempId = Number(payload?.tempId)
       const data = payload?.data
+      const tiers = Array.isArray(payload?.tiers) ? payload.tiers : []
       const res = await createProduct(data)
       if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
       const newId = Number(res.data?.id)
       if (Number.isFinite(newId) && Number.isFinite(tempId)) {
-        await replaceRowId(lepraDb.products as any, tempId, newId, { ...data, id: newId } as any)
+        let price_tiers: PriceTier[] | undefined
+        if (tiers.length > 0) {
+          const { createProductPriceTier } = await import('@/api/productPriceTier')
+          const created: PriceTier[] = []
+          for (const row of tiers) {
+            const tierRes = await createProductPriceTier({
+              id_product: newId,
+              min_quantity: Number(row.min_quantity),
+              unit_price: Number(row.unit_price),
+            })
+            if (tierRes.error) {
+              return { ok: false, status: tierRes.error.status, message: tierRes.error.message }
+            }
+            const tierId = Number(tierRes.data?.id)
+            created.push({
+              id: tierId,
+              min_quantity: Number(row.min_quantity),
+              unit_price: Number(row.unit_price),
+            })
+          }
+          price_tiers = created
+        }
+        await replaceRowId(lepraDb.products as any, tempId, newId, {
+          ...data,
+          id: newId,
+          price_tiers,
+        } as any)
         await mapTempId('product', tempId, newId)
+      }
+      return { ok: true }
+    }
+    case 'PRODUCT_TIERS_SYNC': {
+      const p = row.payload as any
+      const localProductId = Number(p?.id)
+      const productId = await resolveId('product', localProductId)
+      const diff = {
+        create: Array.isArray(p?.create) ? p.create : [],
+        update: Array.isArray(p?.update) ? p.update : [],
+        delete: Array.isArray(p?.delete) ? p.delete : [],
+      }
+      const err = await applyTierDiffOnline(productId, diff)
+      if (err) return { ok: false, message: err }
+
+      const localKey = Number.isFinite(localProductId) ? localProductId : productId
+      const existing = await lepraDb.products.get(localKey)
+      if (existing) {
+        const price_tiers = applyTierDiffToLocal(existing.price_tiers, diff)
+        await lepraDb.products.put({ ...existing, price_tiers })
+      }
+      if (p?.has_tiered_pricing === false) {
+        const row = await lepraDb.products.get(localKey)
+        if (row) {
+          await lepraDb.products.put({ ...row, has_tiered_pricing: false, price_tiers: [] })
+        }
       }
       return { ok: true }
     }
@@ -252,6 +340,7 @@ export async function processOutbox(opts?: { max?: number }): Promise<ProcessRes
     }
   }
 
+  if (processed > 0) notifyOutboxChanged()
   return { processed, succeeded, failed }
 }
 
