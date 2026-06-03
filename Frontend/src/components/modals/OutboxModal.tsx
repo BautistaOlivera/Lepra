@@ -1,8 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Modal, Button, Table, Badge } from 'react-bootstrap'
 import type { OutboxRow } from '@/offline/db'
-import { clearDone, deleteOne, listOutbox, processOutbox, retryFailed, retryOne } from '@/offline/outbox'
+import {
+  clearDone,
+  deleteOne,
+  listOutbox,
+  OUTBOX_CHANGED_EVENT,
+  processOutbox,
+  retryFailed,
+  retryOne,
+} from '@/offline/outbox'
 import { formatDateTimeAR } from '@/lib/formatDate'
+import { outboxTypeLabel, outboxPayloadSummary } from '@/lib/outboxLabels'
+import { syncButtonProps } from '@/lib/syncButton'
+import { esErrorDependenciaSincronizacion, formatErrorParaUsuario } from '@/lib/connectionLabels'
 
 interface OutboxModalProps {
   show: boolean
@@ -12,7 +23,7 @@ interface OutboxModalProps {
 function statusBadge(status: OutboxRow['status']) {
   switch (status) {
     case 'pending':
-      return <Badge bg="warning" className="text-dark">Pendiente</Badge>
+      return <Badge bg="warning">Pendiente</Badge>
     case 'running':
       return <Badge bg="info">Enviando</Badge>
     case 'failed':
@@ -25,7 +36,7 @@ function statusBadge(status: OutboxRow['status']) {
 }
 
 function isBlockedByDependency(r: OutboxRow): boolean {
-  return r.status === 'pending' && (r.lastError || '').toLowerCase().startsWith('esperando sync')
+  return r.status === 'pending' && esErrorDependenciaSincronizacion(r.lastError)
 }
 
 function statusBadgeEnhanced(r: OutboxRow) {
@@ -33,32 +44,6 @@ function statusBadgeEnhanced(r: OutboxRow) {
     return <Badge bg="secondary">Bloqueado</Badge>
   }
   return statusBadge(r.status)
-}
-
-function payloadSummary(r: OutboxRow): string {
-  const p: any = r.payload
-  if (!p) return ''
-  switch (r.type) {
-    case 'USER_CREATE':
-      return p?.data?.email ? `email=${p.data.email}` : ''
-    case 'USER_UPDATE':
-      return p?.id ? `id=${p.id}` : ''
-    case 'USER_DEACTIVATE':
-      return p?.id ? `id=${p.id}` : ''
-    case 'PRODUCT_CREATE':
-      return p?.data?.name ? `name=${p.data.name}` : ''
-    case 'PRODUCT_UPDATE':
-    case 'PRODUCT_DEACTIVATE':
-      return p?.id ? `id=${p.id}` : ''
-    case 'ORDER_CREATE_ADMIN':
-      return p?.data?.id_user ? `user=${p.data.id_user} lines=${p?.data?.lines?.length || 0}` : ''
-    case 'ORDER_STATUS_SET':
-      return p?.id ? `id=${p.id} → ${p.status}` : ''
-    case 'ORDER_PAYMENT_UPDATE':
-      return p?.id ? `id=${p.id} (notas de pago)` : ''
-    default:
-      return ''
-  }
 }
 
 export function OutboxModal({ show, onClose }: OutboxModalProps) {
@@ -78,6 +63,9 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
   useEffect(() => {
     if (!show) return
     refresh().catch(() => {})
+    const onOutboxChanged = () => refresh().catch(() => {})
+    window.addEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged)
+    return () => window.removeEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged)
   }, [show])
 
   const counts = useMemo(() => {
@@ -125,17 +113,37 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
           <span className="text-muted small">
             Pendientes: {counts.pending} · Enviando: {counts.running} · Fallidos: {counts.failed} · OK: {counts.done}
           </span>
-          <div className="ms-auto d-flex gap-2">
-            <Button variant="dark" size="sm" onClick={onProcessQueue} disabled={loading}>
+          <div className="ms-auto d-flex flex-wrap gap-2 lepra-outbox-modal-actions">
+            <Button
+              size="sm"
+              onClick={onProcessQueue}
+              disabled={loading || counts.pending === 0}
+              {...syncButtonProps('pending')}
+            >
               Procesar cola
             </Button>
-            <Button variant="outline-dark" size="sm" onClick={refresh} disabled={loading}>
+            <Button
+              size="sm"
+              onClick={refresh}
+              disabled={loading || rows.length === 0}
+              {...syncButtonProps('ok')}
+            >
               Actualizar
             </Button>
-            <Button variant="outline-danger" size="sm" onClick={onRetryFailed} disabled={loading || counts.failed === 0}>
+            <Button
+              size="sm"
+              onClick={onRetryFailed}
+              disabled={loading || counts.failed === 0}
+              {...syncButtonProps('error')}
+            >
               Reintentar fallidos
             </Button>
-            <Button variant="outline-secondary" size="sm" onClick={onClearDone} disabled={loading || counts.done === 0}>
+            <Button
+              size="sm"
+              onClick={onClearDone}
+              disabled={loading || counts.done === 0}
+              {...syncButtonProps('ok')}
+            >
               Limpiar OK
             </Button>
           </div>
@@ -146,7 +154,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
             <thead>
               <tr>
                 <th>Fecha</th>
-                <th>Tipo</th>
+                <th>Tipo / acción</th>
                 <th>Resumen</th>
                 <th>Estado</th>
                 <th>Error</th>
@@ -160,17 +168,30 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
                 rows.map((r) => (
                   <tr key={r.id}>
                     <td style={{ whiteSpace: 'nowrap' }}>{formatDateTimeAR(new Date(r.createdAt))}</td>
-                    <td><code>{r.type}</code></td>
-                    <td className="text-muted small">{payloadSummary(r)}</td>
+                    <td className="small" style={{ maxWidth: 220 }}>
+                      <span className="fw-semibold d-block">{outboxTypeLabel(r.type)}</span>
+                      <span className="text-muted">{r.type}</span>
+                    </td>
+                    <td className="text-muted small">{outboxPayloadSummary(r)}</td>
                     <td>{statusBadgeEnhanced(r)}</td>
-                    <td className="text-muted small">{r.lastError || ''}</td>
+                    <td className="text-muted small">{formatErrorParaUsuario(r.lastError) || '—'}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {r.status === 'failed' && (
-                        <Button variant="outline-danger" size="sm" className="me-2" onClick={() => onRetryRow(r.id)} disabled={loading}>
+                        <Button
+                          size="sm"
+                          disabled={loading}
+                          onClick={() => onRetryRow(r.id)}
+                          {...syncButtonProps('error', 'me-2')}
+                        >
                           Reintentar
                         </Button>
                       )}
-                      <Button variant="outline-secondary" size="sm" onClick={() => onDeleteRow(r.id)} disabled={loading}>
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={() => onDeleteRow(r.id)}
+                        disabled={loading}
+                      >
                         Borrar
                       </Button>
                     </td>

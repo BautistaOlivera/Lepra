@@ -16,6 +16,10 @@
   --bs-link-hover-color: var(--lepra-black);
   --bs-link-hover-color-rgb: 26, 26, 26;
   --bs-focus-ring-color: rgba(230, 184, 0, 0.4);
+  --lepra-btn-label: #ffffff;
+  --lepra-btn-disabled-bg: #e9ecef;
+  --lepra-btn-disabled-border: #6c757d;
+  --lepra-btn-disabled-color: #5c636a;
 }
 
 /* btn-primary con btn-lepra: forzar El Lepra amarillo (evitar flash azul) */
@@ -177,6 +181,137 @@ body {
   border-inline-end: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Admin: estado sync + panel desplegable */
+.lepra-sync-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lepra-sync-toolbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  line-height: 1;
+  border-radius: 50%;
+}
+
+.lepra-sync-toolbar-toggle--ok,
+.lepra-sync-toolbar-toggle--pending,
+.lepra-sync-toolbar-toggle--error {
+  background: transparent;
+  box-shadow: none;
+}
+
+.lepra-sync-main-icon--ok {
+  color: #75d99a;
+}
+
+.lepra-sync-main-icon--pending {
+  color: #b8860b;
+}
+
+.lepra-sync-main-icon--error {
+  color: #ff6b7a;
+}
+
+.lepra-sync-toolbar-toggle--ok:hover,
+.lepra-sync-toolbar-toggle--ok:focus-visible,
+.lepra-sync-toolbar-toggle--ok:active {
+  background: rgba(25, 135, 84, 0.38);
+  box-shadow: 0 0 0 1px rgba(25, 135, 84, 0.55);
+}
+
+.lepra-sync-toolbar-toggle--pending:hover,
+.lepra-sync-toolbar-toggle--pending:focus-visible,
+.lepra-sync-toolbar-toggle--pending:active {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(255, 193, 7, 0.65);
+}
+
+.lepra-sync-toolbar-toggle--error:hover,
+.lepra-sync-toolbar-toggle--error:focus-visible,
+.lepra-sync-toolbar-toggle--error:active {
+  background: rgba(220, 53, 69, 0.38);
+  box-shadow: 0 0 0 1px rgba(220, 53, 69, 0.55);
+}
+
+.lepra-sync-toolbar-panel {
+  width: 100%;
+  flex-basis: 100%;
+  padding-top: 0.25rem;
+}
+
+/* Botones sólidos de estado: texto blanco en negrita */
+.btn-success:not(.btn-outline-success):not(.btn-link),
+.btn-warning:not(.btn-outline-warning):not(.btn-link),
+.btn-danger:not(.btn-outline-danger):not(.btn-link) {
+  font-weight: 600;
+  --bs-btn-color: var(--lepra-btn-label);
+  --bs-btn-hover-color: var(--lepra-btn-label);
+  --bs-btn-active-color: var(--lepra-btn-label);
+}
+
+.btn-success:not(.btn-outline-success):not(.btn-link):disabled,
+.btn-warning:not(.btn-outline-warning):not(.btn-link):disabled,
+.btn-danger:not(.btn-outline-danger):not(.btn-link):disabled,
+.btn-success:not(.btn-outline-success):not(.btn-link).disabled,
+.btn-warning:not(.btn-outline-warning):not(.btn-link).disabled,
+.btn-danger:not(.btn-outline-danger):not(.btn-link).disabled {
+  font-weight: 600;
+  --bs-btn-disabled-opacity: 1;
+  background-color: var(--lepra-btn-disabled-bg) !important;
+  border: 1px dashed var(--lepra-btn-disabled-border) !important;
+  color: var(--lepra-btn-disabled-color) !important;
+  opacity: 1;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: none;
+}
+
+/* Botones sync (navbar + modal pendientes): verde / amarillo / rojo */
+.lepra-sync-btn--ok.btn-success {
+  --bs-btn-bg: #198754;
+  --bs-btn-border-color: #198754;
+  --bs-btn-hover-bg: #157347;
+  --bs-btn-hover-border-color: #146c43;
+  --bs-btn-active-bg: #146c43;
+  --bs-btn-active-border-color: #13653f;
+}
+
+.lepra-sync-btn--pending.btn-warning {
+  --bs-btn-bg: #e0a800;
+  --bs-btn-border-color: #c69500;
+  --bs-btn-hover-bg: #c69500;
+  --bs-btn-hover-border-color: #b8860b;
+  --bs-btn-active-bg: #b8860b;
+  --bs-btn-active-border-color: #a67c00;
+}
+
+.lepra-sync-btn--error.btn-danger {
+  --bs-btn-bg: #dc3545;
+  --bs-btn-border-color: #dc3545;
+  --bs-btn-hover-bg: #bb2d3b;
+  --bs-btn-hover-border-color: #b02a37;
+  --bs-btn-active-bg: #b02a37;
+  --bs-btn-active-border-color: #a52834;
+}
+
+@media (min-width: 992px) {
+  .lepra-sync-toolbar-panel {
+    width: auto;
+    flex-basis: auto;
+    padding-top: 0;
+    padding-inline-start: 0.25rem;
+    border-inline-start: 1px solid rgba(255, 255, 255, 0.2);
+    margin-inline-start: 0.15rem;
+    padding-inline-start: 0.65rem;
+  }
+}
+
 .lepra-navbar-nav .lepra-nav-cart {
   margin-inline-start: 0.35rem;
 }
@@ -215,6 +350,7 @@ body {
 .btn-lepra {
   background-color: var(--lepra-yellow);
   color: var(--lepra-black);
+  font-weight: 600;
   border: none;
 }
 
@@ -230,10 +366,13 @@ body {
 
 .btn-lepra:disabled,
 .btn-lepra.disabled {
-  background-color: #adb5bd !important;
-  color: #6c757d !important;
-  border: none;
+  background-color: var(--lepra-btn-disabled-bg) !important;
+  border: 1px dashed var(--lepra-btn-disabled-border) !important;
+  color: var(--lepra-btn-disabled-color) !important;
+  font-weight: 600;
   opacity: 1;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .card-lepra {
@@ -261,7 +400,19 @@ body {
 }
 
 .badge.bg-warning {
-  color: var(--lepra-black) !important;
+  color: var(--lepra-white) !important;
+}
+
+/* Topbar negra: sync deshabilitado — fondo negro, borde punteado y texto gris */
+.navbar-lepra .lepra-sync-toolbar-panel .btn-success:disabled,
+.navbar-lepra .lepra-sync-toolbar-panel .btn-warning:disabled,
+.navbar-lepra .lepra-sync-toolbar-panel .btn-danger:disabled,
+.navbar-lepra .lepra-sync-toolbar-panel .btn-success.disabled,
+.navbar-lepra .lepra-sync-toolbar-panel .btn-warning.disabled,
+.navbar-lepra .lepra-sync-toolbar-panel .btn-danger.disabled {
+  background-color: var(--lepra-black) !important;
+  border: 1px dashed var(--lepra-btn-disabled-border) !important;
+  color: var(--lepra-btn-disabled-color) !important;
 }
 
 /* react-select unificado (Select.tsx) */
@@ -869,6 +1020,72 @@ body {
   justify-content: center;
   min-height: 44px;
   line-height: 1;
+  font-weight: 600;
+}
+
+/* Acciones de pedidos: una fila (iconos + cumplir/cancelar) */
+.admin-list-pedido-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.admin-list-pedido-actions--card {
+  width: 100%;
+}
+
+.admin-list-pedido-action-icon-btn {
+  flex: 0 0 auto;
+  width: 2.35rem;
+  padding-inline: 0.4rem;
+}
+
+.admin-list-pedido-actions--card .admin-list-pedido-action-icon-btn {
+  width: auto;
+  min-width: 44px;
+}
+
+.admin-list-pedido-actions .admin-list-table-action-btn:not(.admin-list-pedido-action-icon-btn) {
+  flex: 1 1 auto;
+  min-width: 4.5rem;
+}
+
+.admin-list-pedido-actions--card .admin-list-action-btn:not(.admin-list-pedido-action-icon-btn) {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.admin-list-table-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.admin-list-pedido-actions .btn-outline-dark:hover:not(:disabled),
+.admin-list-pedido-actions .btn-outline-dark:focus-visible:not(:disabled) {
+  background-color: var(--lepra-yellow);
+  border-color: var(--lepra-yellow-dark);
+  color: var(--lepra-black);
+}
+
+.admin-list-pedido-actions .btn-outline-success:hover:not(:disabled),
+.admin-list-pedido-actions .btn-outline-success:focus-visible:not(:disabled) {
+  background-color: #198754;
+  border-color: #198754;
+  color: var(--lepra-white);
+}
+
+.admin-list-pedido-actions .btn-outline-danger:hover:not(:disabled),
+.admin-list-pedido-actions .btn-outline-danger:focus-visible:not(:disabled) {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: var(--lepra-white);
 }
 
 @media (max-width: 991.98px) {

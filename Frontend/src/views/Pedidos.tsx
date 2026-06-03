@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Spinner, Form, InputGroup, Card } from 'react-bootstrap'
-import { Plus, FileText, Search, Calendar, NotebookPen, CheckCircle2 } from 'lucide-react'
+import { Plus, Search, Calendar, CheckCircle2 } from 'lucide-react'
+import { PedidoRowActions } from '@/components/PedidoRowActions'
 import { createColumnHelper } from '@tanstack/react-table'
 import { setOrderStatus } from '@/api/order'
 import { getOrdersPaginatedOfflineFirst } from '@/repositories/ordersRepo'
@@ -34,7 +35,7 @@ const columnHelper = createColumnHelper<Order>()
 
 function PedidoSyncBadge({ order, pending }: { order: Order; pending: boolean }) {
   if (order.id < 0 || pending) {
-    return <Badge bg="warning" className="text-dark">Pendiente</Badge>
+    return <Badge bg="warning">Pendiente</Badge>
   }
   return <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado" />
 }
@@ -160,7 +161,7 @@ export function Pedidos() {
     }),
     columnHelper.display({
       id: 'sync',
-      header: 'Sync',
+      header: 'Sincronización',
       cell: ({ row }) => (
         <PedidoSyncBadge
           order={row.original}
@@ -170,49 +171,17 @@ export function Pedidos() {
     }),
     columnHelper.display({
       id: 'actions',
-      header: '',
+      header: 'Acciones',
+      size: 260,
       cell: ({ row }) => (
-        <>
-          <Button
-            variant="link"
-            size="sm"
-            className="text-dark p-0 me-2"
-            onClick={() => setNotasOrder(row.original)}
-            title={row.original.payment?.trim() ? 'Editar notas de pago' : 'Agregar notas de pago'}
-          >
-            <NotebookPen size={16} /> Notas
-          </Button>
-          <Button
-            variant="link"
-            size="sm"
-            className="text-dark p-0 me-2"
-            onClick={() => setPdfOrder(row.original)}
-          >
-            <FileText size={16} /> Ver / Imprimir
-          </Button>
-          {row.original.status === 'PENDING' && (
-            <>
-              <Button
-                variant="link"
-                size="sm"
-                className="text-success p-0 me-1"
-                onClick={() => handleStatusChange(row.original.id, 'FULFILLED')}
-                disabled={row.original.id < 0}
-              >
-                Cumplir
-              </Button>
-              <Button
-                variant="link"
-                size="sm"
-                className="text-danger p-0"
-                onClick={() => handleStatusChange(row.original.id, 'CANCELED')}
-                disabled={row.original.id < 0}
-              >
-                Cancelar
-              </Button>
-            </>
-          )}
-        </>
+        <PedidoRowActions
+          order={row.original}
+          onNotas={() => setNotasOrder(row.original)}
+          onPdf={() => setPdfOrder(row.original)}
+          onFulfill={() => handleStatusChange(row.original.id, 'FULFILLED')}
+          onCancel={() => handleStatusChange(row.original.id, 'CANCELED')}
+          layout="table"
+        />
       ),
     }),
   ]
@@ -315,43 +284,14 @@ export function Pedidos() {
                         <PedidoSyncBadge order={o} pending={pendingOrders.has(o.id)} />
                       </div>
 
-                      <div className="d-flex flex-column gap-2">
-                        <Button
-                          variant="outline-dark"
-                          className="admin-list-action-btn"
-                          onClick={() => setNotasOrder(o)}
-                        >
-                          <NotebookPen size={16} className="me-1" aria-hidden />
-                          {o.payment?.trim() ? 'Editar notas' : 'Notas de pago'}
-                        </Button>
-                        <Button
-                          variant="outline-dark"
-                          className="admin-list-action-btn"
-                          onClick={() => setPdfOrder(o)}
-                        >
-                          <FileText size={16} className="me-1" aria-hidden /> Ver / Imprimir
-                        </Button>
-                        {o.status === 'PENDING' && (
-                          <div className="d-flex gap-2">
-                            <Button
-                              variant="outline-success"
-                              className="admin-list-action-btn flex-grow-1"
-                              onClick={() => handleStatusChange(o.id, 'FULFILLED')}
-                              disabled={o.id < 0}
-                            >
-                              Cumplir
-                            </Button>
-                            <Button
-                              variant="outline-danger"
-                              className="admin-list-action-btn flex-grow-1"
-                              onClick={() => handleStatusChange(o.id, 'CANCELED')}
-                              disabled={o.id < 0}
-                            >
-                              Cancelar
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                      <PedidoRowActions
+                        order={o}
+                        onNotas={() => setNotasOrder(o)}
+                        onPdf={() => setPdfOrder(o)}
+                        onFulfill={() => handleStatusChange(o.id, 'FULFILLED')}
+                        onCancel={() => handleStatusChange(o.id, 'CANCELED')}
+                        layout="card"
+                      />
                     </Card.Body>
                   </Card>
               ))

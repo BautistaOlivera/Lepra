@@ -4,6 +4,7 @@ import { lepraDb } from '@/offline/db'
 import { isAdminUser } from '@/offline/admin'
 import { isOnlineNow } from '@/offline/network'
 import { clampLimit, toOfflinePage } from './pagination'
+import { mergeProductForCache } from '@/lib/productMerge'
 
 function filterProducts(all: Product[], filters: Record<string, unknown> = {}): Product[] {
   let items = all
@@ -31,13 +32,16 @@ export async function getProductsPaginatedOfflineFirst(
   if (isOnlineNow()) {
     const res = await getProductsPaginated({ ...params, limit })
     if (res.data?.items?.length) {
-      await lepraDb.products.bulkPut(res.data.items)
+      for (const item of res.data.items) {
+        const existing = await lepraDb.products.get(item.id)
+        await lepraDb.products.put(mergeProductForCache(existing, item))
+      }
     }
     return res
   }
 
   if (!isAdminUser()) {
-    return { error: { status: 0, message: 'Offline' } }
+    return { error: { status: 0, message: 'Sin conexión' } }
   }
 
   const all = await lepraDb.products.toArray()

@@ -19,7 +19,7 @@ const columnHelper = createColumnHelper<User>()
 
 function ClienteSyncBadge({ user, pending }: { user: User; pending: boolean }) {
   if (user.id < 0 || pending) {
-    return <Badge bg="warning" className="text-dark">Pendiente</Badge>
+    return <Badge bg="warning">Pendiente</Badge>
   }
   return <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado" />
 }
@@ -129,7 +129,7 @@ export function Clientes() {
     }),
     columnHelper.display({
       id: 'sync',
-      header: 'Sync',
+      header: 'Sincronización',
       cell: ({ row }) => (
         <ClienteSyncBadge user={row.original} pending={pendingUsers.has(row.original.id)} />
       ),
