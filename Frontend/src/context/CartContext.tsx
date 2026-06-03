@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
 import { Product } from '@/types'
+import { loadCartFromStorage, saveCartToStorage } from '@/lib/cartStorage'
 
 export interface CartItem {
   id_product: number
@@ -19,7 +20,11 @@ interface CartContextValue {
 const CartContext = createContext<CartContextValue | null>(null)
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([])
+  const [items, setItems] = useState<CartItem[]>(() => loadCartFromStorage())
+
+  useEffect(() => {
+    saveCartToStorage(items)
+  }, [items])
 
   const addItem = useCallback((product: Product, quantity = 1) => {
     setItems((prev) => {

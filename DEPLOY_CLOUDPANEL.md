@@ -274,6 +274,16 @@ Creá o editá `Frontend/.env`:
 ```env
 VITE_API_URL=https://api.lepramg.com
 VITE_PDF_LOGO_URL=/uploads/lepra-logo-watermark.png
+
+# Pie de página del catálogo (dueño + Olivera.co)
+VITE_CONTACT_LABEL=El Lepra
+VITE_CONTACT_TAGLINE=Quesos y lácteos de calidad
+VITE_OWNER_NAME=Maxi Laraburru
+VITE_CONTACT_EMAIL=contacto@tudominio.com
+VITE_CONTACT_PHONE=+54 9 11 0000-0000
+VITE_CONTACT_WHATSAPP=5491100000000
+VITE_DEVELOPER_NAME=Olivera.co
+VITE_DEVELOPER_URL=https://olivera.co
 ```
 
 Sin barra final. Vite la embebe en el build (no se lee en runtime en el servidor).

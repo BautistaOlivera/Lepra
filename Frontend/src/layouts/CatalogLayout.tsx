@@ -3,6 +3,7 @@ import { Nav, Button } from 'react-bootstrap'
 import { LogIn, LogOut, ShoppingCart } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { LepraNavbar } from '@/components/LepraNavbar'
+import { CatalogSiteFooter } from '@/components/CatalogSiteFooter'
 
 function getStoredUser() {
   try {
@@ -44,23 +45,26 @@ export function CatalogLayout() {
   }
 
   return (
-    <>
+    <div className="catalog-layout d-flex flex-column min-vh-100">
       <LepraNavbar
         collapseId="main-nav"
         showAdminLink={isAdmin}
         toolbarActions={
-          user ? (
-            <Button
-              variant="outline-light"
-              size="sm"
-              className="lepra-nav-logout"
-              onClick={handleLogout}
-            >
-              <LogOut size={16} className="me-1" /> Cerrar sesión
-            </Button>
-          ) : (
-            <CartLink />
-          )
+          <>
+            <div className="navbar-nav">
+              <CartLink />
+            </div>
+            {user ? (
+              <Button
+                variant="outline-light"
+                size="sm"
+                className="lepra-nav-logout d-none d-lg-inline-flex"
+                onClick={handleLogout}
+              >
+                <LogOut size={16} className="me-1" /> Cerrar sesión
+              </Button>
+            ) : null}
+          </>
         }
         endNav={(closeNav) =>
           user ? (
@@ -75,16 +79,34 @@ export function CatalogLayout() {
               >
                 {user.name || user.email}
               </span>
-              <CartLink />
+              <Nav.Link
+                as="button"
+                type="button"
+                className="d-lg-none lepra-nav-logout-link"
+                onClick={() => {
+                  handleLogout()
+                  closeNav()
+                }}
+              >
+                <LogOut size={18} className="me-1" /> Cerrar sesión
+              </Nav.Link>
             </>
           ) : (
-            <Nav.Link as={Link} to="/login" onClick={closeNav}>
+            <Nav.Link
+              as={Link}
+              to="/login"
+              onClick={closeNav}
+              state={{ from: { pathname: '/carrito' } }}
+            >
               <LogIn size={18} className="me-1" /> Iniciar sesión
             </Nav.Link>
           )
         }
       />
-      <Outlet />
-    </>
+      <div className="catalog-layout-body flex-grow-1">
+        <Outlet />
+      </div>
+      <CatalogSiteFooter />
+    </div>
   )
 }

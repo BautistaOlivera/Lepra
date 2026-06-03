@@ -16,6 +16,7 @@ import { formatDateTimeAR } from '@/lib/formatDate'
 import { outboxTypeLabel, outboxPayloadSummary } from '@/lib/outboxLabels'
 import { syncButtonProps } from '@/lib/syncButton'
 import { esErrorDependenciaSincronizacion, formatErrorParaUsuario } from '@/lib/connectionLabels'
+import { useConfirm } from '@/context/ConfirmContext'
 
 interface OutboxModalProps {
   show: boolean
@@ -49,6 +50,7 @@ function statusBadgeEnhanced(r: OutboxRow) {
 }
 
 export function OutboxModal({ show, onClose }: OutboxModalProps) {
+  const confirm = useConfirm()
   const [rows, setRows] = useState<OutboxRow[]>([])
   const [busyMessage, setBusyMessage] = useState<string | null>(null)
   const loading = busyMessage !== null
@@ -83,6 +85,13 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
   }
 
   async function onClearDone() {
+    if (counts.done === 0) return
+    const ok = await confirm({
+      title: 'Limpiar envíos OK',
+      message: `¿Quitar ${counts.done} registro(s) ya sincronizados de la lista?`,
+      confirmLabel: 'Limpiar',
+    })
+    if (!ok) return
     await clearDone()
     await refresh()
   }
@@ -93,6 +102,15 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
   }
 
   async function onDeleteRow(id: string) {
+    const row = rows.find((r) => r.id === id)
+    const ok = await confirm({
+      title: 'Borrar de la cola',
+      message: row
+        ? `¿Borrar este cambio (${outboxTypeLabel(row.type)})? No se enviará al servidor.`
+        : '¿Borrar este cambio de la cola? No se enviará al servidor.',
+      confirmLabel: 'Borrar',
+    })
+    if (!ok) return
     await deleteOne(id)
     await refresh()
   }

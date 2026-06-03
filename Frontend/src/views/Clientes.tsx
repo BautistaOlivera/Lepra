@@ -16,6 +16,7 @@ import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
+import { useConfirm } from '@/context/ConfirmContext'
 
 const columnHelper = createColumnHelper<User>()
 
@@ -27,6 +28,7 @@ function ClienteSyncBadge({ user, pending }: { user: User; pending: boolean }) {
 }
 
 export function Clientes() {
+  const confirm = useConfirm()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [nextCursor, setNextCursor] = useState<number | null>(null)
@@ -76,7 +78,12 @@ export function Clientes() {
   }
 
   async function handleDeactivate(u: User) {
-    if (!confirm(`¿Desactivar a ${u.email}?`)) return
+    const ok = await confirm({
+      title: 'Desactivar cliente',
+      message: `¿Desactivar a ${u.email}? No podrá iniciar sesión hasta que lo reactives.`,
+      confirmLabel: 'Desactivar',
+    })
+    if (!ok) return
     if (!isOnlineNow()) {
       await enqueueCommand('USER_DEACTIVATE', { id: u.id })
       await lepraDb.users.update(u.id, { active: false })

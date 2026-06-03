@@ -18,6 +18,7 @@ import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
+import { useConfirm } from '@/context/ConfirmContext'
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=80&q=80'
 const columnHelper = createColumnHelper<Product>()
@@ -30,6 +31,7 @@ function ProductoSyncBadge({ product, pending }: { product: Product; pending: bo
 }
 
 export function Productos() {
+  const confirm = useConfirm()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [nextCursor, setNextCursor] = useState<number | null>(null)
@@ -79,7 +81,12 @@ export function Productos() {
   }
 
   async function handleDeactivate(p: Product) {
-    if (!confirm(`¿Desactivar "${p.name}"?`)) return
+    const ok = await confirm({
+      title: 'Desactivar producto',
+      message: `¿Desactivar "${p.name}"? Dejará de mostrarse en el catálogo.`,
+      confirmLabel: 'Desactivar',
+    })
+    if (!ok) return
     if (!isOnlineNow()) {
       await enqueueCommand('PRODUCT_DEACTIVATE', { id: p.id })
       await lepraDb.products.update(p.id, { active: false })

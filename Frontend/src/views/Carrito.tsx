@@ -7,13 +7,11 @@ import { createColumnHelper } from '@tanstack/react-table'
 import { useCart } from '@/context/CartContext'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { createOrderClient, createOrder } from '@/api/order'
-import { getImageUrl } from '@/api/product'
 import { Product } from '@/types'
+import { ProductImage } from '@/components/ProductImage'
 import toast from 'react-hot-toast'
 import { DataTable } from '@/components/DataTable'
 import { QuantityStepper } from '@/components/QuantityStepper'
-
-const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=80&q=80'
 
 function getUnitPrice(product: Product, quantity: number): number {
   if (!product.has_tiered_pricing || !product.price_tiers?.length) return product.price
@@ -46,14 +44,12 @@ export function Carrito() {
       header: '',
       size: 70,
       cell: ({ row }) => (
-        <Link to={`/producto/${row.original.id_product}`} className="d-inline-block">
-          <img
-            src={getImageUrl(row.original.product.img) || DEFAULT_IMG}
-            alt={row.original.product.name}
-            className="rounded"
-            style={{ width: 56, height: 56, objectFit: 'cover' }}
-          />
-        </Link>
+        <ProductImage
+          src={row.original.product.img}
+          alt={row.original.product.name}
+          variant="thumb"
+          linkTo={`/producto/${row.original.id_product}`}
+        />
       ),
     }),
     columnHelper.accessor((r) => r.product.name, { id: 'product', header: 'Producto' }),
@@ -93,8 +89,12 @@ export function Carrito() {
     }),
   ]
 
+  const token = localStorage.getItem('lepra_token')
+  const isLoggedIn = !!token
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!isLoggedIn) return
     if (items.length === 0) {
       toast.error('El carrito está vacío')
       return
@@ -122,19 +122,6 @@ export function Carrito() {
     navigate('/')
   }
 
-  const token = localStorage.getItem('lepra_token')
-  if (!token) {
-    return (
-      <Container fluid="sm" className={cartPageClass}>
-        <h1 className="cart-page-title h3 mb-3">Carrito</h1>
-        <p className="mb-3">Debes iniciar sesión para ver el carrito.</p>
-        <Link to="/login" className="btn btn-lepra cart-page-btn">
-          Iniciar sesión
-        </Link>
-      </Container>
-    )
-  }
-
   if (items.length === 0) {
     return (
       <Container fluid="sm" className={cartPageClass}>
@@ -150,6 +137,12 @@ export function Carrito() {
   return (
     <Container fluid="sm" className={cartPageClass}>
       <h1 className="cart-page-title h3 mb-3 mb-sm-4">Carrito</h1>
+      {!isLoggedIn ? (
+        <p className="text-muted small mb-3">
+          Podés armar el pedido sin cuenta. Para confirmarlo, iniciá sesión. El carrito se guarda en este
+          dispositivo.
+        </p>
+      ) : null}
 
       <form onSubmit={handleSubmit} className="position-relative">
         {loading ? <LoadingOverlay message="Enviando pedido..." variant="page" /> : null}
@@ -158,16 +151,13 @@ export function Carrito() {
             <Card key={row.id_product} className="card-lepra cart-item mb-3">
               <Card.Body className="p-3">
                 <div className="d-flex gap-3 align-items-start">
-                  <Link
-                    to={`/producto/${row.id_product}`}
+                  <ProductImage
+                    src={row.product.img}
+                    alt={row.product.name}
+                    variant="thumb"
+                    linkTo={`/producto/${row.id_product}`}
                     className="cart-item-image-link flex-shrink-0"
-                  >
-                    <img
-                      src={getImageUrl(row.product.img) || DEFAULT_IMG}
-                      alt=""
-                      className="cart-item-image rounded"
-                    />
-                  </Link>
+                  />
                   <div className="flex-grow-1 min-w-0">
                     <Link
                       to={`/producto/${row.id_product}`}
@@ -222,9 +212,19 @@ export function Carrito() {
             <Link to="/" className="btn btn-outline-dark cart-page-btn order-lg-1">
               ← Seguir comprando
             </Link>
-            <Button type="submit" className="btn-lepra cart-page-btn order-lg-2" disabled={loading}>
-              Realizar pedido
-            </Button>
+            {isLoggedIn ? (
+              <Button type="submit" className="btn-lepra cart-page-btn order-lg-2" disabled={loading}>
+                Realizar pedido
+              </Button>
+            ) : (
+              <Link
+                to="/login"
+                state={{ from: { pathname: '/carrito' } }}
+                className="btn btn-lepra cart-page-btn order-lg-2 text-center"
+              >
+                Iniciar sesión para confirmar pedido
+              </Link>
+            )}
           </div>
         </div>
       </form>

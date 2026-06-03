@@ -6,7 +6,7 @@ import { Plus } from 'lucide-react'
 import { getProductsPaginated } from '@/api/product'
 import { Product } from '@/types'
 import { useCart } from '@/context/CartContext'
-import { getImageUrl } from '@/api/product'
+import { ProductImage } from '@/components/ProductImage'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 const CHEESE_HERO = 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=1200&q=80'
@@ -74,17 +74,11 @@ export function Catalogo() {
             {products.map((p) => (
               <Col key={p.id}>
                 <Card className="card-lepra h-100 overflow-hidden">
-                  <div
-                    className="catalog-card-image bg-dark"
-                    style={{
-                      backgroundImage: p.img
-                        ? `url(${getImageUrl(p.img)})`
-                        : 'url(https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=400&q=80)',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
-                    role="img"
-                    aria-label={p.name}
+                  <ProductImage
+                    src={p.img}
+                    alt={p.name}
+                    variant="card"
+                    linkTo={`/producto/${p.id}`}
                   />
                   <Card.Body className="d-flex flex-column">
                     <Card.Title className="text-truncate mb-1">{p.name}</Card.Title>
