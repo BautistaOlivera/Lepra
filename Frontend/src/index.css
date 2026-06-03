@@ -453,6 +453,51 @@ body {
   white-space: nowrap;
 }
 
+.catalog-category-filters {
+  margin-top: 0.75rem;
+}
+
+.catalog-category-btn {
+  flex: 1 1 0;
+  min-height: 44px;
+  font-weight: 600;
+}
+
+.catalog-category-btn--inactive {
+  color: var(--lepra-white) !important;
+  background-color: rgba(0, 0, 0, 0.35) !important;
+  border: 2px solid rgba(255, 255, 255, 0.9) !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.catalog-category-btn--inactive:focus:not(:focus-visible) {
+  color: var(--lepra-white) !important;
+  background-color: rgba(0, 0, 0, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: none;
+}
+
+.catalog-category-btn--inactive:focus-visible {
+  color: var(--lepra-yellow) !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  border-color: var(--lepra-yellow) !important;
+  box-shadow: none;
+  outline: 2px solid var(--lepra-yellow);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .catalog-category-btn--inactive:hover {
+    color: var(--lepra-yellow) !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    border-color: var(--lepra-yellow) !important;
+  }
+}
+
+.catalog-category-btn--active {
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
 /* Imágenes de producto (catálogo, detalle, carrito) */
 .product-image-frame {
   --lepra-image-bg: #f3efe6;
@@ -611,21 +656,31 @@ body {
   }
 
   .navbar-lepra .navbar-collapse .navbar-nav,
-  .navbar-lepra .lepra-navbar-nav {
+  .navbar-lepra .lepra-navbar-nav,
+  .navbar-lepra .lepra-navbar-primary {
     width: 100%;
     align-items: stretch !important;
-    gap: 0.25rem !important;
+    gap: 0.5rem !important;
   }
 
-  .navbar-lepra .navbar-collapse .nav-link {
-    padding: 0.625rem 0;
+  .navbar-lepra .lepra-navbar-collapse .lepra-navbar-primary .nav-link,
+  .navbar-lepra .lepra-navbar-collapse .lepra-navbar-nav .nav-link,
+  .navbar-lepra .lepra-navbar-collapse .lepra-navbar-nav .btn,
+  .navbar-lepra .lepra-navbar-collapse .lepra-nav-logout-link {
+    width: 100%;
+    max-width: none;
     min-height: 44px;
     display: flex;
     align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.625rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 0.375rem;
+    box-sizing: border-box;
   }
 
   .navbar-lepra .navbar-collapse .btn {
-    width: 100%;
     min-height: 44px;
     display: inline-flex;
     align-items: center;
@@ -638,14 +693,28 @@ body {
     align-items: stretch !important;
   }
 
-  .navbar-lepra .navbar-collapse .lepra-navbar-tools .btn {
+  .navbar-lepra .lepra-navbar-collapse .lepra-navbar-tools .btn {
     width: 100%;
+    max-width: none;
+    border: 1px solid rgba(255, 255, 255, 0.35);
   }
 
-  .navbar-lepra .navbar-collapse .lepra-nav-welcome {
-    padding: 0.5rem 0;
-    text-align: center;
-    width: 100%;
+  .lepra-nav-welcome-bar {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    max-width: 7.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
+    margin-inline-end: 0.25rem;
+    line-height: 1.2;
+  }
+
+  .lepra-nav-welcome-bar--admin {
+    max-width: 5.5rem;
   }
 
   .navbar-lepra .navbar-collapse .lepra-nav-welcome-admin {
@@ -683,6 +752,10 @@ body {
 
   .lepra-navbar-brand-slot {
     order: 1;
+  }
+
+  .lepra-navbar-primary {
+    margin-inline-start: 1.5rem;
   }
 
   .lepra-navbar-collapse {
@@ -749,6 +822,16 @@ body {
 
 .catalog-footer-contact li:last-child {
   margin-bottom: 0 !important;
+}
+
+@media (max-width: 767.98px) {
+  .catalog-site-footer .row > [class*='col-'] {
+    text-align: center;
+  }
+
+  .catalog-site-footer .catalog-footer-contact .catalog-footer-link {
+    justify-content: center;
+  }
 }
 
 @media (min-width: 768px) {

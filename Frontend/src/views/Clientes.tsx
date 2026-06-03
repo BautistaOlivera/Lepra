@@ -132,11 +132,13 @@ export function Clientes() {
       cell: (info) => info.getValue() || '-',
     }),
     columnHelper.accessor('rol', {
-      header: 'Rol',
+      header: () => <span className="d-block text-center">Rol</span>,
       cell: (info) => {
         const rol = info.getValue()
         return (
-          <Badge bg={rol === 'ADMIN' ? 'dark' : 'secondary'}>{displayRolLabel(rol)}</Badge>
+          <div className="text-center">
+            <Badge bg={rol === 'ADMIN' ? 'dark' : 'secondary'}>{displayRolLabel(rol)}</Badge>
+          </div>
         )
       },
     }),

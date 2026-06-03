@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Container, Row, Col, Card, Form } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Link } from 'react-router-dom'
@@ -11,32 +11,48 @@ import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 const CHEESE_HERO = 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=1200&q=80'
 
+const CATALOG_CATEGORIES = [
+  { value: 'Embutidos', label: 'Embutidos' },
+  { value: 'Lacteos', label: 'Lácteos' },
+] as const
+
 export function Catalogo() {
   const { addItem } = useCart()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [nextCursor, setNextCursor] = useState<number | null>(null)
 
-  useEffect(() => {
-    loadProducts()
-  }, [])
-
-  async function loadProducts(lastId?: number) {
+  const loadProducts = useCallback(async (lastId?: number) => {
     setLoading(true)
+    const filters: Record<string, string> = {}
+    if (search.trim()) filters.search = search.trim()
+    if (categoryFilter) filters.category = categoryFilter
     const { data } = await getProductsPaginated({
       limit: 20,
       last_seen_id: lastId ?? null,
-      filters: { search: search || undefined },
+      filters: Object.keys(filters).length > 0 ? filters : undefined,
     })
     if (data) {
       setProducts((prev) => (lastId ? [...prev, ...data.items] : data.items))
       setNextCursor(data.next_cursor)
     }
     setLoading(false)
+  }, [search, categoryFilter])
+
+  useEffect(() => {
+    loadProducts()
+  }, [categoryFilter, loadProducts])
+
+  function toggleCategory(value: string) {
+    setCategoryFilter((prev) => (prev === value ? null : value))
   }
 
-  const handleSearch = () => loadProducts()
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    loadProducts()
+  }
 
   return (
     <>
@@ -48,10 +64,7 @@ export function Catalogo() {
           <Container fluid="sm" className="px-3 px-sm-4">
             <h1 className="text-white catalog-hero-title fw-bold mb-2">Catálogo El Lepra</h1>
             <p className="text-white-50 catalog-hero-subtitle mb-3 mb-sm-4">Quesos y lácteos de calidad</p>
-            <Form
-              className="d-flex gap-2 catalog-search-form"
-              onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
-            >
+            <Form className="d-flex gap-2 catalog-search-form" onSubmit={handleSearch}>
               <Form.Control
                 type="search"
                 placeholder="Buscar productos..."
@@ -62,6 +75,29 @@ export function Catalogo() {
               />
               <button type="submit" className="btn btn-lepra px-4">Buscar</button>
             </Form>
+            <div className="catalog-category-filters d-flex gap-2" role="group" aria-label="Filtrar por categoría">
+              {CATALOG_CATEGORIES.map(({ value, label }) => {
+                const active = categoryFilter === value
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    className={
+                      active
+                        ? 'btn btn-lepra catalog-category-btn catalog-category-btn--active'
+                        : 'btn catalog-category-btn catalog-category-btn--inactive'
+                    }
+                    aria-pressed={active}
+                    onClick={(e) => {
+                      toggleCategory(value)
+                      e.currentTarget.blur()
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
           </Container>
         </div>
       </div>

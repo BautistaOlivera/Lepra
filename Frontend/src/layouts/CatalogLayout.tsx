@@ -51,6 +51,14 @@ export function CatalogLayout() {
         showAdminLink={isAdmin}
         toolbarActions={
           <>
+            {user ? (
+              <span
+                className={`lepra-nav-welcome-bar d-lg-none${isAdmin ? ' lepra-nav-welcome-bar--admin' : ''}`}
+                title={user.name || user.email}
+              >
+                {user.name || user.email}
+              </span>
+            ) : null}
             <div className="navbar-nav">
               <CartLink />
             </div>
@@ -73,11 +81,6 @@ export function CatalogLayout() {
                 className={`text-white-50 small lepra-nav-welcome d-none d-lg-inline${isAdmin ? ' lepra-nav-welcome-admin' : ''}`}
               >
                 Bienvenido, {user.name || user.email}
-              </span>
-              <span
-                className={`text-white-50 small lepra-nav-welcome d-lg-none${isAdmin ? ' lepra-nav-welcome-admin' : ''}`}
-              >
-                {user.name || user.email}
               </span>
               <Nav.Link
                 as="button"
