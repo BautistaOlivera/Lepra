@@ -3,6 +3,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { cleanHtmlAssets } from './vite-html-assets.plugin'
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -45,7 +46,7 @@ export default defineConfig(({ mode }) => {
       ...(devHttps ? [basicSsl()] : []),
       VitePWA({
         registerType: 'autoUpdate',
-        injectRegister: false,
+        injectRegister: 'auto',
         includeAssets: ['favicon.svg', 'pwa-maskable.svg', 'apple-touch-icon.png'],
         manifest: {
           name: 'El Lepra',
@@ -116,6 +117,7 @@ export default defineConfig(({ mode }) => {
           enabled: false,
         },
       }),
+      cleanHtmlAssets(),
     ],
     resolve: {
       alias: {
