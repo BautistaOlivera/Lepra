@@ -120,7 +120,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
           <div className="ms-auto d-flex flex-wrap gap-2 lepra-outbox-modal-actions">
             <Button
               size="sm"
-              onClick={onProcessQueue}
+              onClick={() => void onProcessQueue()}
               disabled={loading || counts.pending === 0}
               {...syncButtonProps('pending')}
             >
@@ -128,7 +128,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
             </Button>
             <Button
               size="sm"
-              onClick={refresh}
+              onClick={() => void refresh()}
               disabled={loading || rows.length === 0}
               {...syncButtonProps('ok')}
             >
@@ -136,7 +136,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
             </Button>
             <Button
               size="sm"
-              onClick={onRetryFailed}
+              onClick={() => void onRetryFailed()}
               disabled={loading || counts.failed === 0}
               {...syncButtonProps('error')}
             >
@@ -144,7 +144,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
             </Button>
             <Button
               size="sm"
-              onClick={onClearDone}
+              onClick={() => void onClearDone()}
               disabled={loading || counts.done === 0}
               {...syncButtonProps('ok')}
             >
@@ -184,7 +184,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
                         <Button
                           size="sm"
                           disabled={loading}
-                          onClick={() => onRetryRow(r.id)}
+                          onClick={() => void onRetryRow(r.id)}
                           {...syncButtonProps('error', 'me-2')}
                         >
                           Reintentar
@@ -193,7 +193,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
                       <Button
                         variant="outline-secondary"
                         size="sm"
-                        onClick={() => onDeleteRow(r.id)}
+                        onClick={() => void onDeleteRow(r.id)}
                         disabled={loading}
                       >
                         Borrar
