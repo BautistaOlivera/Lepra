@@ -845,6 +845,18 @@ body {
 .admin-list-date-field {
   flex: 1 1 0;
   min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.admin-list-date-field > .input-group-text {
+  flex: 0 0 auto;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.admin-list-date-field .react-datepicker-wrapper .form-control {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .admin-list-dates-sep {
@@ -858,9 +870,18 @@ body {
   min-height: 38px;
 }
 
-.admin-list-date-field .react-datepicker-wrapper,
+/* react-datepicker envuelve el input: debe compartir fila con el ícono del InputGroup */
+.admin-list-date-field .react-datepicker-wrapper {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+}
+
 .admin-list-date-field .react-datepicker__input-container {
+  flex: 1 1 auto;
   width: 100%;
+  min-width: 0;
 }
 
 .react-datepicker-popper {
