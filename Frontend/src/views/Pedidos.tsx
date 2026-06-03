@@ -167,12 +167,14 @@ export function Pedidos() {
     }),
     columnHelper.display({
       id: 'sync',
-      header: 'Sincronización',
+      header: () => <span className="d-block text-center">Sincronización</span>,
       cell: ({ row }) => (
-        <PedidoSyncBadge
-          order={row.original}
-          pending={pendingOrders.has(row.original.id)}
-        />
+        <div className="text-center">
+          <PedidoSyncBadge
+            order={row.original}
+            pending={pendingOrders.has(row.original.id)}
+          />
+        </div>
       ),
     }),
     columnHelper.display({

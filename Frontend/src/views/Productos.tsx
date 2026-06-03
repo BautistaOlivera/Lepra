@@ -140,9 +140,12 @@ export function Productos() {
       cell: (info) => formatMoneyWithSymbol(info.getValue()),
     }),
     columnHelper.accessor('has_tiered_pricing', {
-      header: 'Volumen',
-      cell: (info) =>
-        info.getValue() ? <Badge bg="warning">Sí</Badge> : '-',
+      header: () => <span className="d-block text-center">Volumen</span>,
+      cell: (info) => (
+        <div className="text-center">
+          {info.getValue() ? <Badge bg="warning">Sí</Badge> : '-'}
+        </div>
+      ),
     }),
     columnHelper.accessor('active', {
       header: 'Estado',
@@ -151,9 +154,11 @@ export function Productos() {
     }),
     columnHelper.display({
       id: 'sync',
-      header: 'Sincronización',
+      header: () => <span className="d-block text-center">Sincronización</span>,
       cell: ({ row }) => (
-        <ProductoSyncBadge product={row.original} pending={pendingProducts.has(row.original.id)} />
+        <div className="text-center">
+          <ProductoSyncBadge product={row.original} pending={pendingProducts.has(row.original.id)} />
+        </div>
       ),
     }),
     columnHelper.display({

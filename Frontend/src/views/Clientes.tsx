@@ -20,6 +20,11 @@ import { useConfirm } from '@/context/ConfirmContext'
 
 const columnHelper = createColumnHelper<User>()
 
+function displayRolLabel(rol: string): string {
+  if (rol.toUpperCase() === 'CLIENT') return 'CLIENTE'
+  return rol
+}
+
 function ClienteSyncBadge({ user, pending }: { user: User; pending: boolean }) {
   if (user.id < 0 || pending) {
     return <Badge bg="warning">Pendiente</Badge>
@@ -128,9 +133,12 @@ export function Clientes() {
     }),
     columnHelper.accessor('rol', {
       header: 'Rol',
-      cell: (info) => (
-        <Badge bg={info.getValue() === 'ADMIN' ? 'dark' : 'secondary'}>{info.getValue()}</Badge>
-      ),
+      cell: (info) => {
+        const rol = info.getValue()
+        return (
+          <Badge bg={rol === 'ADMIN' ? 'dark' : 'secondary'}>{displayRolLabel(rol)}</Badge>
+        )
+      },
     }),
     columnHelper.accessor('active', {
       header: 'Estado',
@@ -139,9 +147,11 @@ export function Clientes() {
     }),
     columnHelper.display({
       id: 'sync',
-      header: 'Sincronización',
+      header: () => <span className="d-block text-center">Sincronización</span>,
       cell: ({ row }) => (
-        <ClienteSyncBadge user={row.original} pending={pendingUsers.has(row.original.id)} />
+        <div className="text-center">
+          <ClienteSyncBadge user={row.original} pending={pendingUsers.has(row.original.id)} />
+        </div>
       ),
     }),
     columnHelper.display({
