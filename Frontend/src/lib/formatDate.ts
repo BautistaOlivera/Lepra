@@ -53,6 +53,24 @@ export function isoDateToDisplay(iso: string): string {
 }
 
 /** `dd/mm/aaaa` → `YYYY-MM-DD` o null si no es válida */
+/** `YYYY-MM-DD` → Date local para el calendario (mediodía evita saltos de huso). */
+export function isoToPickerDate(iso: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim())
+  if (!m) return null
+  const year = Number(m[1])
+  const month = Number(m[2])
+  const day = Number(m[3])
+  return new Date(year, month - 1, day, 12, 0, 0, 0)
+}
+
+/** Día elegido en el calendario → `YYYY-MM-DD` para el API. */
+export function pickerDateToIso(date: Date): string {
+  const y = date.getFullYear()
+  const m = date.getMonth() + 1
+  const d = date.getDate()
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
 export function displayDateToIso(display: string): string | null {
   const t = display.trim()
   if (!t) return null

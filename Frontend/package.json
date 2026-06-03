@@ -16,6 +16,7 @@
   "dependencies": {
     "@tanstack/react-table": "^8.17.0",
     "bootstrap": "^5.3.3",
+    "date-fns": "^4.4.0",
     "dexie": "^4.3.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
@@ -24,6 +25,7 @@
     "overlayscrollbars": "^2.16.0",
     "react": "^18.2.0",
     "react-bootstrap": "^2.10.0",
+    "react-datepicker": "^9.1.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^7.13.0",
@@ -33,6 +35,7 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.66",
+    "@types/react-datepicker": "^6.2.0",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
     "@vitejs/plugin-react": "^4.7.0",

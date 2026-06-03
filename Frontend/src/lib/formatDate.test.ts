@@ -3,6 +3,8 @@ import {
   displayDateToIso,
   formatDateFromApi,
   isoDateToDisplay,
+  isoToPickerDate,
+  pickerDateToIso,
 } from './formatDate'
 
 describe('isoDateToDisplay / displayDateToIso', () => {
@@ -18,6 +20,14 @@ describe('isoDateToDisplay / displayDateToIso', () => {
   it('rechaza fechas inválidas', () => {
     expect(displayDateToIso('31/02/2026')).toBeNull()
     expect(displayDateToIso('abc')).toBeNull()
+  })
+})
+
+describe('picker date roundtrip', () => {
+  it('convierte ISO ↔ Date del calendario', () => {
+    const d = isoToPickerDate('2026-05-16')
+    expect(d).not.toBeNull()
+    expect(pickerDateToIso(d!)).toBe('2026-05-16')
   })
 })
 
