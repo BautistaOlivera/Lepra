@@ -38,8 +38,3 @@ export function findUserByClientQuery(
   })
 }
 
-export const PEDIDO_NEW_USER_CLOSE_DELAY_MS = 3200
-
-export function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}

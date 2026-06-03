@@ -15,15 +15,9 @@ import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { nextTempId } from '@/offline/ids'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
-import {
-  buildQuickClientEmail,
-  buildQuickClientPassword,
-  findUserByClientQuery,
-  PEDIDO_NEW_USER_CLOSE_DELAY_MS,
-  sleep,
-} from '@/lib/quickClient'
+import { buildQuickClientEmail, buildQuickClientPassword, findUserByClientQuery } from '@/lib/quickClient'
 
-type SubmitPhase = 'idle' | 'client' | 'order' | 'upload'
+type SubmitPhase = 'idle' | 'client' | 'order'
 
 function submitPhaseMessage(phase: SubmitPhase): string {
   switch (phase) {
@@ -31,8 +25,6 @@ function submitPhaseMessage(phase: SubmitPhase): string {
       return 'Creando cliente nuevo...'
     case 'order':
       return 'Creando pedido...'
-    case 'upload':
-      return 'Subiendo...'
     default:
       return ''
   }
@@ -259,10 +251,6 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
         toast.success(createdNewUser ? 'Pedido creado con cliente nuevo' : 'Pedido creado')
       }
 
-      if (createdNewUser) {
-        setSubmitPhase('upload')
-        await sleep(PEDIDO_NEW_USER_CLOSE_DELAY_MS)
-      }
       setSubmitPhase('idle')
       onClose(true)
     } catch {

@@ -45,6 +45,7 @@ export default defineConfig(({ mode }) => {
       ...(devHttps ? [basicSsl()] : []),
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: false,
         includeAssets: ['favicon.svg', 'pwa-maskable.svg', 'apple-touch-icon.png'],
         manifest: {
           name: 'El Lepra',
@@ -75,6 +76,9 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,svg,png,webp,pdf,woff2,woff,ttf}'],
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true,
           navigateFallback: 'index.html',
           runtimeCaching: [
             {
@@ -124,6 +128,8 @@ export default defineConfig(({ mode }) => {
         }
       : undefined,
     build: {
+      // Evita <link rel="modulepreload"> con credenciales distintas (warnings en consola).
+      modulePreload: false,
       rollupOptions: {
         output: {
           manualChunks(id) {
