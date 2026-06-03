@@ -47,6 +47,8 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         injectRegister: 'auto',
+        // Nuevo nombre: el SW viejo (sw.js) queda huérfano tras rsync --delete.
+        filename: 'sw-v2.js',
         includeAssets: ['favicon.svg', 'pwa-maskable.svg', 'apple-touch-icon.png'],
         manifest: {
           name: 'El Lepra',
@@ -76,7 +78,15 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,svg,png,webp,pdf,woff2,woff,ttf}'],
+          // Solo shell estático: los hashes en /assets/ cambian en cada deploy y rompen el precache.
+          globPatterns: [
+            'index.html',
+            'manifest.webmanifest',
+            'favicon.svg',
+            'pwa-maskable.svg',
+            'apple-touch-icon.png',
+          ],
+          globIgnores: ['**/assets/**', '**/workbox-*.js'],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,

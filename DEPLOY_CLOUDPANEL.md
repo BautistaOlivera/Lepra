@@ -323,6 +323,23 @@ location / {
 }
 ```
 
+### 3.6 Caché del shell (PWA / deploy)
+
+Tras cada deploy cambian los hashes en `/assets/`. Si Nginx o el navegador guardan `index.html` o el service worker en caché, ves errores de Workbox (`bad-precaching-response`, CSS 404) y avisos de `modulepreload`.
+
+En el **Vhost** del front, además de la regla SPA:
+
+```nginx
+location = /index.html {
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
+}
+location ~ ^/(sw\.js|sw-v2\.js|workbox-.*\.js|registerSW\.js)$ {
+    add_header Cache-Control "no-cache, no-store, must-revalidate";
+}
+```
+
+Los archivos en `/assets/` pueden seguir con caché larga (tienen hash en el nombre).
+
 ---
 
 ## Parte 4 — Verificación final
