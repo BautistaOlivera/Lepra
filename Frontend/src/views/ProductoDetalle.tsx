@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Container, Row, Col, Card, Spinner, Button } from 'react-bootstrap'
+import { Container, Row, Col, Card, Button } from 'react-bootstrap'
+import { LoadingCenter } from '@/components/LoadingOverlay'
 import { ArrowLeft, Minus, Plus, ShoppingCart } from 'lucide-react'
 import { getProduct } from '@/api/product'
 import { Product } from '@/types'
@@ -28,7 +29,7 @@ export function ProductoDetalle() {
   if (loading) {
     return (
       <Container fluid="sm" className="product-detail px-3 px-sm-4 py-5 text-center">
-        <Spinner animation="border" />
+        <LoadingCenter message="Cargando producto..." />
       </Container>
     )
   }

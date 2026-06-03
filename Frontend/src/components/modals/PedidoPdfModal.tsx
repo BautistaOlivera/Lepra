@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { Modal, Button, Spinner } from 'react-bootstrap'
+import { Modal, Button } from 'react-bootstrap'
+import { LepraModal } from '@/components/LepraModal'
+import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { Printer, Share2, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Order } from '@/types'
@@ -135,46 +137,55 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
   }
 
   return (
-    <Modal show={show} onHide={onClose} size="xl" fullscreen="lg-down" centered scrollable>
-      <Modal.Header closeButton className="border-dark">
+    <LepraModal
+      show={show}
+      onClose={onClose}
+      busy={loading}
+      size="xl"
+      fullscreen="lg-down"
+      centered
+      scrollable
+    >
+      <Modal.Header closeButton={!loading} className="border-dark">
         <Modal.Title className="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
           <span>Pedido #{order.id}</span>
           <span className="text-muted small fw-normal">Vista previa del comprobante</span>
         </Modal.Title>
       </Modal.Header>
       <Modal.Body className="p-0 d-flex flex-column bg-body-secondary" style={{ minHeight: 'min(72vh, 600px)' }}>
-        {loading ? (
-          <div className="d-flex flex-column align-items-center justify-content-center gap-2 flex-grow-1 py-5">
-            <Spinner animation="border" variant="dark" />
-            <span className="text-muted small">Generando PDF…</span>
-          </div>
-        ) : pdfUrl ? (
-          <iframe
-            ref={iframeRef}
-            title={`Comprobante pedido ${order.id}`}
-            src={pdfUrl}
-            className="w-100 border-0 flex-grow-1 bg-white"
-            style={{ minHeight: 'min(62vh, 520px)', height: '62vh' }}
-          />
-        ) : (
-          <div className="text-center text-muted py-5 flex-grow-1">No se pudo mostrar el PDF.</div>
-        )}
+        <ModalBusyFrame busy={loading} message="Generando PDF…">
+          <div className="d-flex flex-column flex-grow-1" style={{ minHeight: 'min(72vh, 600px)' }}>
+            {pdfUrl ? (
+              <iframe
+                ref={iframeRef}
+                title={`Comprobante pedido ${order.id}`}
+                src={pdfUrl}
+                className="w-100 border-0 flex-grow-1 bg-white"
+                style={{ minHeight: 'min(62vh, 520px)', height: '62vh' }}
+              />
+            ) : !loading ? (
+              <div className="text-center text-muted py-5 flex-grow-1">No se pudo mostrar el PDF.</div>
+            ) : (
+              <div className="flex-grow-1" aria-hidden />
+            )}
 
-        <div className="border-top bg-body p-3 d-flex flex-wrap gap-2 justify-content-end align-items-center">
-          <Button variant="outline-dark" onClick={onClose}>
-            Cerrar
-          </Button>
-          <Button variant="outline-dark" onClick={handleDownload} disabled={loading || !pdfBlob}>
-            <Download size={18} className="me-1" /> Descargar PDF
-          </Button>
-          <Button variant="outline-dark" onClick={handleShare} disabled={loading || !pdfBlob}>
-            <Share2 size={18} className="me-1" /> Compartir
-          </Button>
-          <Button className="btn-lepra" onClick={handlePrint} disabled={loading || !pdfUrl}>
-            <Printer size={18} className="me-1" /> Imprimir
-          </Button>
-        </div>
+            <div className="border-top bg-body p-3 d-flex flex-wrap gap-2 justify-content-end align-items-center">
+              <Button variant="outline-dark" onClick={onClose} disabled={loading}>
+                Cerrar
+              </Button>
+              <Button variant="outline-dark" onClick={handleDownload} disabled={loading || !pdfBlob}>
+                <Download size={18} className="me-1" /> Descargar PDF
+              </Button>
+              <Button variant="outline-dark" onClick={handleShare} disabled={loading || !pdfBlob}>
+                <Share2 size={18} className="me-1" /> Compartir
+              </Button>
+              <Button className="btn-lepra" onClick={handlePrint} disabled={loading || !pdfUrl}>
+                <Printer size={18} className="me-1" /> Imprimir
+              </Button>
+            </div>
+          </div>
+        </ModalBusyFrame>
       </Modal.Body>
-    </Modal>
+    </LepraModal>
   )
 }

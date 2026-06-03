@@ -4,10 +4,15 @@ Configuración de base de datos.
 - Desarrollo sin URL: DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME.
 """
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 # Prioridad: INTERNAL_DATABASE_URL, luego DATABASE_URL; si no hay, variables DB_* locales
 _url = os.getenv("INTERNAL_DATABASE_URL") or os.getenv("DATABASE_URL")

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Container, Row, Col, Card, Form, Spinner } from 'react-bootstrap'
+import { Container, Row, Col, Card, Form } from 'react-bootstrap'
+import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { getProductsPaginated } from '@/api/product'
@@ -67,9 +68,7 @@ export function Catalogo() {
 
       <Container fluid="sm" className="catalog-products px-3 px-sm-4 pb-4 pb-sm-5">
         {loading && products.length === 0 ? (
-          <div className="text-center py-5">
-            <Spinner animation="border" />
-          </div>
+          <LoadingCenter message="Cargando catálogo..." />
         ) : (
           <Row xs={1} sm={2} lg={3} xl={4} className="g-3 g-sm-4">
             {products.map((p) => (

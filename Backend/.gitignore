@@ -1,0 +1,12 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# PostgreSQL / JWT — solo en esta máquina o en el VPS (plantilla: .env.example)
+.env
+.env.*
+!.env.example
+
+uploads/

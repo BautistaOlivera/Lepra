@@ -6,3 +6,8 @@ dist
 *.tsbuildinfo
 vite.config.js
 vite.config.d.ts
+
+# API URL y secretos locales (plantilla: .env.example)
+.env
+.env.*
+!.env.example

@@ -11,6 +11,7 @@ import { OutboxModal } from '@/components/modals/OutboxModal'
 import { isAuthRequiredFlagSet } from '@/offline/authGrace'
 import { MENSAJE_SIN_CONEXION } from '@/lib/connectionLabels'
 import { LepraNavbar } from '@/components/LepraNavbar'
+import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 
 export function AdminLayout() {
   const navigate = useNavigate()
@@ -130,8 +131,13 @@ export function AdminLayout() {
 
   function handleOutboxClose() {
     setOutboxOpen(false)
+    releaseBootstrapModalLock()
     refreshOutboxCounts()
   }
+
+  useEffect(() => {
+    releaseBootstrapModalLock()
+  }, [location.pathname])
 
   const hasOutboxItems = outboxTotal > 0
 
@@ -175,7 +181,7 @@ export function AdminLayout() {
       <Container fluid="sm" className="px-3 px-sm-4 py-4">
         <Outlet />
       </Container>
-      <OutboxModal show={outboxOpen} onClose={handleOutboxClose} />
+      {outboxOpen && <OutboxModal show onClose={handleOutboxClose} />}
     </>
   )
 }

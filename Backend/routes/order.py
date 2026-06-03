@@ -1,7 +1,8 @@
 from datetime import date, datetime, timedelta
+from typing import Optional
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import selectinload
 from models.user import User
 import traceback
@@ -18,6 +19,14 @@ order_router = APIRouter(prefix="/order", tags=["Order"])
 
 def _compute_total(lines):
     return sum(line.quantity * line.unit_price for line in lines)
+
+
+def _order_display_name(order: Order) -> Optional[str]:
+    if order.customer_name and str(order.customer_name).strip():
+        return str(order.customer_name).strip()
+    if order.user:
+        return (order.user.name or order.user.email or "").strip() or order.user.email
+    return None
 
 
 def _unit_price_from_product(product: Product, quantity: int) -> float:
@@ -57,9 +66,13 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
         if role == "CLIENT":
             stmt = stmt.where(Order.id_user == user_id)
         if search:
-            stmt = stmt.join(Order.user)
+            stmt = stmt.outerjoin(Order.user)
             stmt = stmt.where(
-                User.email.ilike(f"%{search}%") | User.name.ilike(f"%{search}%")
+                or_(
+                    User.email.ilike(f"%{search}%"),
+                    User.name.ilike(f"%{search}%"),
+                    Order.customer_name.ilike(f"%{search}%"),
+                )
             )
         if date_from:
             try:
@@ -91,13 +104,11 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
 
         items = []
         for o in orders:
-            user_name = None
-            if o.user:
-                user_name = (o.user.name or o.user.email or "").strip() or o.user.email
             items.append({
                 "id": o.id,
                 "id_user": o.id_user,
-                "user_name": user_name,
+                "customer_name": o.customer_name,
+                "user_name": _order_display_name(o),
                 "total": o.total,
                 "date": o.date.isoformat() if o.date else None,
                 "created_at": utc_naive_iso(o.created_at),
@@ -146,16 +157,13 @@ async def get_order(req: Request, order_id: int):
         if role == "CLIENT" and o.id_user != user_id:
             return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
 
-        user_name = None
-        if o.user:
-            user_name = (o.user.name or o.user.email or "").strip() or o.user.email
-
         return JSONResponse(
             status_code=200,
             content={
                 "id": o.id,
                 "id_user": o.id_user,
-                "user_name": user_name,
+                "customer_name": o.customer_name,
+                "user_name": _order_display_name(o),
                 "total": o.total,
                 "date": o.date.isoformat() if o.date else None,
                 "created_at": utc_naive_iso(o.created_at),
@@ -246,8 +254,26 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
     if isinstance(payload, JSONResponse):
         return payload
 
+    id_user = body.id_user
+    guest_name = (body.customer_name or "").strip() or None
+    if id_user is None and not guest_name:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "Indicá un cliente registrado o un nombre para el pedido"},
+        )
+    if id_user is not None and guest_name:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "Usá cliente registrado o nombre libre, no ambos"},
+        )
+
     try:
         async with AsyncSessionLocal() as session:
+            if id_user is not None:
+                user_row = await session.get(User, id_user)
+                if not user_row:
+                    return JSONResponse(status_code=400, content={"message": "Cliente no encontrado"})
+
             product_ids = [line.id_product for line in body.lines]
             stmt = select(Product).where(Product.id.in_(product_ids)).options(
                 selectinload(Product.price_tiers)
@@ -257,7 +283,8 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
 
             order_date = body.date or date.today()
             order = Order(
-                id_user=body.id_user,
+                id_user=id_user,
+                customer_name=guest_name,
                 date=order_date,
                 payment=body.payment,
                 status="PENDING",

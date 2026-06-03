@@ -12,7 +12,9 @@ function filterOrders(all: Order[], filters: Record<string, unknown> = {}): Orde
   const search = typeof filters.search === 'string' ? filters.search.trim().toLowerCase() : ''
   if (search) {
     items = items.filter((o) =>
-      [o.user_name ?? '', String(o.id_user)].some((x) => String(x).toLowerCase().includes(search))
+      [o.user_name ?? '', o.customer_name ?? '', String(o.id_user ?? '')].some((x) =>
+        String(x).toLowerCase().includes(search)
+      )
     )
   }
   const status = typeof filters.status === 'string' ? filters.status.trim().toUpperCase() : ''

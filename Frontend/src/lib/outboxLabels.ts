@@ -63,8 +63,11 @@ export function outboxPayloadSummary(r: OutboxRow): string {
     }
     case 'ORDER_CREATE_ADMIN': {
       const lines = p?.data?.lines?.length ?? 0
+      const guest = (p?.data?.customer_name && String(p.data.customer_name).trim()) || ''
       const user = p?.data?.id_user
-      return [user != null ? `Cliente n.º ${user}` : '', lines ? `${lines} línea(s)` : ''].filter(Boolean).join(' · ')
+      const client =
+        guest || (user != null && Number(user) !== 0 ? `Cliente n.º ${user}` : '')
+      return [client, lines ? `${lines} línea(s)` : ''].filter(Boolean).join(' · ')
     }
     case 'ORDER_STATUS_SET': {
       if (p?.id == null) return ''

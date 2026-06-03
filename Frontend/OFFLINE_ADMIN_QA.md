@@ -19,7 +19,7 @@ Este documento valida el uso offline del **ADMIN** (IndexedDB + outbox + sync).
 1. Abrir `http://127.0.0.1:5173/login` e iniciar sesión con admin.
 2. Confirmar que redirige a `/admin`.
 3. En la navbar de admin confirmar:
-   - Badge **Online**
+   - Badge **Con conexión**
    - Botón **Sincronizar**
    - Botón **Pendientes**
 4. Abrir **Pendientes**:
@@ -31,7 +31,7 @@ Este documento valida el uso offline del **ADMIN** (IndexedDB + outbox + sync).
 
 1. Abrir DevTools → **Network** → activar **Offline**.
 2. Esperado:
-   - navbar muestra badge **Offline**
+   - navbar muestra badge **Sin conexión**
 
 ### B. Navegación en admin
 

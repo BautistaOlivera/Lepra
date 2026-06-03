@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Modal, Form, Button, Spinner } from 'react-bootstrap'
+import { Modal, Form, Button } from 'react-bootstrap'
+import { LepraModal } from '@/components/LepraModal'
+import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import toast from 'react-hot-toast'
 import { updateOrder } from '@/api/order'
 import { Order } from '@/types'
@@ -7,6 +9,7 @@ import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import { orderCustomerLabel } from '@/lib/orderDisplay'
 
 interface PedidoNotasModalProps {
   show: boolean
@@ -57,59 +60,55 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
     onClose()
   }
 
-  const clientLabel = (order.user_name && order.user_name.trim()) || `Cliente #${order.id_user}`
+  const clientLabel = orderCustomerLabel(order)
 
   return (
-    <Modal show={show} onHide={onClose} centered scrollable>
-      <Modal.Header closeButton className="border-dark">
+    <LepraModal show={show} onClose={onClose} busy={loading} centered scrollable>
+      <Modal.Header closeButton={!loading} className="border-dark">
         <Modal.Title className="h5 mb-0">Notas de pago — Pedido #{order.id}</Modal.Title>
       </Modal.Header>
-      <Form onSubmit={handleSave}>
-        <Modal.Body>
-          <p className="text-muted small mb-3">
-            {clientLabel} · Total {formatMoneyWithSymbol(order.total)}
-          </p>
-          <p className="small mb-2">
-            Anotá cómo va pagando el pedido (montos, medios, pagos parciales). El cliente verá este texto en el
-            comprobante.
-          </p>
-          <Form.Group>
-            <Form.Label className="fw-semibold" htmlFor="pedido-notas-pago">
-              Anotaciones
-            </Form.Label>
-            <Form.Control
-              id="pedido-notas-pago"
-              as="textarea"
-              rows={8}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={'Ej:\n15/03 — $5.000 efectivo\n20/03 — $3.200 transferencia\nSaldo pendiente: $1.800'}
-              disabled={loading}
-              autoFocus
-            />
-          </Form.Group>
-          {order.id < 0 && (
-            <p className="text-warning small mt-2 mb-0">
-              Pedido en cola de sincronización: las notas se podrán guardar cuando el pedido tenga número en el
-              servidor.
+      <Modal.Body>
+        <ModalBusyFrame busy={loading} message="Guardando notas...">
+          <Form onSubmit={handleSave}>
+            <p className="text-muted small mb-3">
+              {clientLabel} · Total {formatMoneyWithSymbol(order.total)}
             </p>
-          )}
-        </Modal.Body>
-        <Modal.Footer className="border-dark">
-          <Button variant="outline-dark" onClick={onClose} disabled={loading}>
-            Cancelar
-          </Button>
-          <Button type="submit" className="btn-lepra" disabled={loading || order.id < 0}>
-            {loading ? (
-              <>
-                <Spinner animation="border" size="sm" className="me-1" /> Guardando…
-              </>
-            ) : (
-              'Guardar notas'
+            <p className="small mb-2">
+              Anotá cómo va pagando el pedido (montos, medios, pagos parciales). El cliente verá este texto en el
+              comprobante.
+            </p>
+            <Form.Group>
+              <Form.Label className="fw-semibold" htmlFor="pedido-notas-pago">
+                Anotaciones
+              </Form.Label>
+              <Form.Control
+                id="pedido-notas-pago"
+                as="textarea"
+                rows={8}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={'Ej:\n15/03 — $5.000 efectivo\n20/03 — $3.200 transferencia\nSaldo pendiente: $1.800'}
+                disabled={loading}
+                autoFocus
+              />
+            </Form.Group>
+            {order.id < 0 && (
+              <p className="text-warning small mt-2 mb-0">
+                Pedido en cola de sincronización: las notas se podrán guardar cuando el pedido tenga número en el
+                servidor.
+              </p>
             )}
-          </Button>
-        </Modal.Footer>
-      </Form>
-    </Modal>
+            <div className="d-flex justify-content-end gap-2 mt-3 pt-3 border-top border-dark">
+              <Button variant="outline-dark" onClick={onClose} disabled={loading}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="btn-lepra" disabled={loading || order.id < 0}>
+                Guardar notas
+              </Button>
+            </div>
+          </Form>
+        </ModalBusyFrame>
+      </Modal.Body>
+    </LepraModal>
   )
 }

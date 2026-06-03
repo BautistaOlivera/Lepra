@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Container, Button, Card, Spinner } from 'react-bootstrap'
+import { Container, Button, Card } from 'react-bootstrap'
+import { LoadingOverlay } from '@/components/LoadingOverlay'
 import { Link, useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
@@ -150,7 +151,8 @@ export function Carrito() {
     <Container fluid="sm" className={cartPageClass}>
       <h1 className="cart-page-title h3 mb-3 mb-sm-4">Carrito</h1>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="position-relative">
+        {loading ? <LoadingOverlay message="Enviando pedido..." variant="page" /> : null}
         <div className="cart-items-mobile d-lg-none">
           {totals.map((row) => (
             <Card key={row.id_product} className="card-lepra cart-item mb-3">
@@ -220,19 +222,8 @@ export function Carrito() {
             <Link to="/" className="btn btn-outline-dark cart-page-btn order-lg-1">
               ← Seguir comprando
             </Link>
-            <Button
-              type="submit"
-              className="btn-lepra cart-page-btn order-lg-2"
-              disabled={loading}
-            >
-              {loading ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-1" aria-hidden />
-                  Procesando...
-                </>
-              ) : (
-                'Realizar pedido'
-              )}
+            <Button type="submit" className="btn-lepra cart-page-btn order-lg-2" disabled={loading}>
+              Realizar pedido
             </Button>
           </div>
         </div>
