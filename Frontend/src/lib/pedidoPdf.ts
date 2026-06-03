@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { __createTable, __drawTable } from 'jspdf-autotable'
 import type { Order } from '@/types'
+import { orderCustomerLabel } from '@/lib/orderDisplay'
 import { getImageUrl } from '@/api/client'
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { formatDateTimeAR } from '@/lib/formatDate'
@@ -171,7 +172,7 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
   }
 
   metaLine('Nº pedido', `#${order.id}`)
-  metaLine('Cliente', (order.user_name && order.user_name.trim()) || `Usuario #${order.id_user}`)
+  metaLine('Cliente', orderCustomerLabel(order))
   const when = order.created_at
     ? parseUtcFromApi(order.created_at)
     : order.date

@@ -12,7 +12,8 @@ class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    id_user = Column(Integer, ForeignKey("users.id"), nullable=False)
+    id_user = Column(Integer, ForeignKey("users.id"), nullable=True)
+    customer_name = Column(String, nullable=True)
     total = Column(Float, default=0.0)
     date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=_utcnow_naive)
@@ -71,8 +72,9 @@ class OrderCreateClient(BaseModel):
 
 
 class OrderCreateAdmin(BaseModel):
-    """Crear pedido como admin: id_user en body, líneas con unit_price opcional."""
-    id_user: int
+    """Crear pedido como admin: cliente registrado (id_user) o nombre libre (customer_name)."""
+    id_user: Optional[int] = None
+    customer_name: Optional[str] = None
     date: Optional[date] = None
     payment: Optional[str] = None
     lines: List[OrderLineAdminInput]

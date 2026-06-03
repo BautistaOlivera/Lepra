@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Container, Card, Form, Button } from 'react-bootstrap'
+import { LoadingOverlay } from '@/components/LoadingOverlay'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Link } from 'react-router-dom'
 import { login } from '@/api/auth'
@@ -44,7 +45,8 @@ export function Login() {
             className="rounded-top"
             style={{ height: 140, backgroundImage: `url(${CHEESE_BG})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
           />
-          <Card.Body className="p-4">
+          <Card.Body className="p-4 position-relative">
+            {loading ? <LoadingOverlay message="Ingresando..." variant="page" /> : null}
             <h3 className="mb-3 text-dark">Iniciar sesión</h3>
             <Form onSubmit={handleSubmit}>
               <Form.Group className="mb-3">
@@ -67,7 +69,7 @@ export function Login() {
                 />
               </Form.Group>
               <Button type="submit" className="btn-lepra w-100" disabled={loading}>
-                {loading ? 'Ingresando...' : 'Entrar'}
+                Entrar
               </Button>
             </Form>
             <p className="mt-3 mb-0 small text-muted text-center">

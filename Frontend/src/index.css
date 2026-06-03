@@ -1119,6 +1119,102 @@ body {
   white-space: nowrap;
 }
 
+.cliente-pedido-select-row {
+  width: 100%;
+}
+
+.cliente-pedido-new-badge {
+  flex-shrink: 0;
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.55rem;
+}
+
+.pedido-modal-submit-btn {
+  min-width: 10.5rem;
+}
+
+/* —— Carga global: overlay modal + centros de página —— */
+.lepra-modal-busy-frame {
+  position: relative;
+}
+
+.lepra-modal-busy-frame--busy {
+  pointer-events: none;
+  user-select: none;
+}
+
+.lepra-loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.lepra-loading-overlay--modal {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.58);
+  border-radius: var(--bs-modal-inner-border-radius, 0.3rem);
+}
+
+.lepra-loading-overlay--page {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(255, 255, 255, 0.72);
+  min-height: 12rem;
+}
+
+.lepra-loading-overlay__spinner {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-width: 0.35rem;
+}
+
+.lepra-loading-overlay--page .lepra-loading-overlay__spinner {
+  border-color: var(--lepra-black);
+  border-right-color: transparent;
+}
+
+.lepra-loading-overlay--page .lepra-loading-overlay__message {
+  color: var(--lepra-black);
+}
+
+.lepra-loading-overlay__message {
+  color: #fff;
+  font-size: 1.125rem;
+  font-weight: 600;
+  max-width: 16rem;
+  line-height: 1.35;
+}
+
+.lepra-loading-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.lepra-loading-center__spinner {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-width: 0.3rem;
+  color: var(--lepra-black);
+}
+
+.lepra-loading-center__message {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6c757d;
+}
+
 .admin-list-pedido-actions .btn-outline-dark:hover:not(:disabled),
 .admin-list-pedido-actions .btn-outline-dark:focus-visible:not(:disabled) {
   background-color: var(--lepra-yellow);

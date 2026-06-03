@@ -129,10 +129,14 @@ async def sync_orders(req: Request, since: int | None = None):
                 {
                     "id": o.id,
                     "id_user": o.id_user,
+                    "customer_name": o.customer_name,
                     "user_name": (
-                        ((o.user.name or o.user.email or "").strip() or o.user.email)
-                        if o.user
-                        else None
+                        (o.customer_name or "").strip()
+                        or (
+                            ((o.user.name or o.user.email or "").strip() or o.user.email)
+                            if o.user
+                            else None
+                        )
                     ),
                     "total": o.total,
                     "date": o.date.isoformat() if o.date else None,

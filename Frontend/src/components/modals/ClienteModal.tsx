@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Modal, Form, Button } from 'react-bootstrap'
+import { LepraModal } from '@/components/LepraModal'
+import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { createUser, updateUser } from '@/api/user'
 import { User } from '@/types'
 import toast from 'react-hot-toast'
@@ -89,8 +91,8 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
           rol,
         })
         toast.success('Cambio guardado (pendiente de sincronizar)')
-        onClose(true)
         setLoading(false)
+        onClose(true)
         return
       }
       const { error } = await updateUser({
@@ -104,7 +106,9 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
       if (error) toast.error(error.message)
       else {
         toast.success('Cliente actualizado')
+        setLoading(false)
         onClose(true)
+        return
       }
     } else {
       if (!isOnlineNow()) {
@@ -120,27 +124,30 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
           active: true,
         } as any)
         toast.success('Usuario creado (pendiente de sincronizar)')
-        onClose(true)
         setLoading(false)
+        onClose(true)
         return
       }
       const { error } = await createUser({ email, password, name: name || undefined, location: location || undefined, rol })
       if (error) toast.error(error.message)
       else {
         toast.success('Cliente creado')
+        setLoading(false)
         onClose(true)
+        return
       }
     }
     setLoading(false)
   }
 
   return (
-    <Modal show={show} onHide={() => onClose()}>
-      <Modal.Header closeButton className="border-dark">
+    <LepraModal show={show} onClose={() => onClose()} busy={loading}>
+      <Modal.Header closeButton={!loading} className="border-dark">
         <Modal.Title>{isEditing ? 'Editar cliente' : 'Agregar cliente'}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <Form onSubmit={handleSubmit}>
+        <ModalBusyFrame busy={loading} message={isEditing ? 'Guardando cambios...' : 'Creando cliente...'}>
+          <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-3">
             <Form.Label>Email</Form.Label>
             <Form.Control
@@ -201,14 +208,17 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
               isSearchable={false}
             />
           </Form.Group>
-          <div className="d-flex justify-content-end gap-2">
-            <Button variant="outline-dark" onClick={() => onClose()}>Cancelar</Button>
-            <Button type="submit" className="btn-lepra" disabled={loading || cannotSubmitPassword}>
-              {loading ? 'Guardando...' : isEditing ? 'Guardar' : 'Crear'}
-            </Button>
-          </div>
-        </Form>
+              <div className="d-flex justify-content-end gap-2">
+                <Button variant="outline-dark" onClick={() => onClose()} disabled={loading}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="btn-lepra" disabled={loading || cannotSubmitPassword}>
+                  {isEditing ? 'Guardar' : 'Crear'}
+                </Button>
+              </div>
+          </Form>
+        </ModalBusyFrame>
       </Modal.Body>
-    </Modal>
+    </LepraModal>
   )
 }

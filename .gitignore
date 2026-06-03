@@ -1,10 +1,22 @@
 .venv/
+venv/
+Backend/venv/
 .pytest_cache/
 __pycache__/
 *.pyc
+
+# Credenciales y conexión local (plantillas: Backend/.env.example, Frontend/.env.example)
 .env
+.env.*
+!.env.example
+!**/.env.example
 Backend/.env
+Backend/.env.*
+!Backend/.env.example
 Frontend/.env
+Frontend/.env.*
+!Frontend/.env.example
+
 *.egg-info/
 .vscode/
 

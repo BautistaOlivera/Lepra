@@ -257,9 +257,13 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
       const tempId = Number(payload?.tempId)
       const data = payload?.data
       // resolver dependencias si vienen IDs temporales
+      const rawUserId = data?.id_user
+      const hasRegisteredUser =
+        rawUserId != null && rawUserId !== '' && Number(rawUserId) !== 0
       const resolved = {
         ...data,
-        id_user: await resolveId('user', Number(data?.id_user)),
+        id_user: hasRegisteredUser ? await resolveId('user', Number(rawUserId)) : null,
+        customer_name: (data?.customer_name && String(data.customer_name).trim()) || null,
         lines: Array.isArray(data?.lines)
           ? await Promise.all(
               data.lines.map(async (l: any) => ({

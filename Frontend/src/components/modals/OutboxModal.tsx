@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Modal, Button, Table, Badge } from 'react-bootstrap'
+import { LepraModal } from '@/components/LepraModal'
+import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import type { OutboxRow } from '@/offline/db'
 import {
   clearDone,
@@ -48,21 +50,22 @@ function statusBadgeEnhanced(r: OutboxRow) {
 
 export function OutboxModal({ show, onClose }: OutboxModalProps) {
   const [rows, setRows] = useState<OutboxRow[]>([])
-  const [loading, setLoading] = useState(false)
+  const [busyMessage, setBusyMessage] = useState<string | null>(null)
+  const loading = busyMessage !== null
 
-  async function refresh() {
-    setLoading(true)
+  async function refresh(message = 'Actualizando...') {
+    setBusyMessage(message)
     try {
       const r = await listOutbox()
       setRows(r)
     } finally {
-      setLoading(false)
+      setBusyMessage(null)
     }
   }
 
   useEffect(() => {
     if (!show) return
-    refresh().catch(() => {})
+    refresh('Cargando...').catch(() => {})
     const onOutboxChanged = () => refresh().catch(() => {})
     window.addEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged)
     return () => window.removeEventListener(OUTBOX_CHANGED_EVENT, onOutboxChanged)
@@ -95,7 +98,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
   }
 
   async function onProcessQueue() {
-    setLoading(true)
+    setBusyMessage('Procesando cola...')
     try {
       await processOutbox({ max: 100 })
     } finally {
@@ -104,11 +107,12 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
   }
 
   return (
-    <Modal show={show} onHide={onClose} size="lg">
-      <Modal.Header closeButton className="border-dark">
+    <LepraModal show={show} onClose={onClose} busy={loading} size="lg">
+      <Modal.Header closeButton={!loading} className="border-dark">
         <Modal.Title>Cambios pendientes</Modal.Title>
       </Modal.Header>
       <Modal.Body>
+        <ModalBusyFrame busy={loading} message={busyMessage ?? 'Procesando...'}>
         <div className="d-flex gap-2 align-items-center mb-3 flex-wrap">
           <span className="text-muted small">
             Pendientes: {counts.pending} · Enviando: {counts.running} · Fallidos: {counts.failed} · OK: {counts.done}
@@ -201,11 +205,14 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
             </tbody>
           </Table>
         </div>
+        </ModalBusyFrame>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline-dark" onClick={onClose}>Cerrar</Button>
+        <Button variant="outline-dark" onClick={onClose} disabled={loading}>
+          Cerrar
+        </Button>
       </Modal.Footer>
-    </Modal>
+    </LepraModal>
   )
 }
 

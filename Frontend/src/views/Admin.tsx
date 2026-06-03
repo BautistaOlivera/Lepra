@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Row, Col, Card, Badge, Spinner, Alert } from 'react-bootstrap'
+import { Row, Col, Card, Badge, Alert } from 'react-bootstrap'
+import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Link } from 'react-router-dom'
 import { Package, ShoppingCart, Users } from 'lucide-react'
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
@@ -32,11 +33,7 @@ export function Admin() {
   }, [load, online])
 
   if (loading) {
-    return (
-      <div className="text-center py-5">
-        <Spinner animation="border" />
-      </div>
-    )
+    return <LoadingCenter message="Cargando panel..." />
   }
 
   if (error || !stats) {

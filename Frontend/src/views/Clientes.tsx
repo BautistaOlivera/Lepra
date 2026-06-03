@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Button, Badge, Spinner, Form, InputGroup, Card } from 'react-bootstrap'
+import { Button, Badge, Form, InputGroup, Card } from 'react-bootstrap'
+import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Plus, Pencil, Trash2, Search, CheckCircle2 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { deactivateUser } from '@/api/user'
@@ -14,6 +15,7 @@ import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
+import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 
 const columnHelper = createColumnHelper<User>()
 
@@ -94,6 +96,7 @@ export function Clientes() {
   function onModalClose(refresh?: boolean) {
     setModalOpen(false)
     setEditingUser(null)
+    releaseBootstrapModalLock()
     if (refresh) {
       refreshPending().catch(() => {})
       loadUsers()
@@ -216,9 +219,7 @@ export function Clientes() {
       </div>
 
       {loading && users.length === 0 ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" />
-        </div>
+        <LoadingCenter message="Cargando clientes..." />
       ) : (
         <>
           <div className="admin-list-mobile d-lg-none">
@@ -297,7 +298,9 @@ export function Clientes() {
         </div>
       )}
 
-      <ClienteModal show={modalOpen} onClose={onModalClose} editingUser={editingUser} />
+      {modalOpen && (
+        <ClienteModal show onClose={onModalClose} editingUser={editingUser} />
+      )}
     </div>
   )
 }

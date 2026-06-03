@@ -1,16 +1,42 @@
 import { useState, useEffect } from 'react'
-import { Modal, Form, Button, Table, Spinner } from 'react-bootstrap'
+import { Modal, Form, Button, Table } from 'react-bootstrap'
+import { LepraModal } from '@/components/LepraModal'
+import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { createOrder } from '@/api/order'
+import { createUser } from '@/api/user'
 import { getUsersPaginatedOfflineFirst } from '@/repositories/usersRepo'
 import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
-import { User, Product } from '@/types'
+import { User, Product, Order } from '@/types'
 import toast from 'react-hot-toast'
 import { Select, type SelectOption } from '@/components/Select'
+import { ClientePedidoSelect, type ClientePedidoValue } from '@/components/ClientePedidoSelect'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { nextTempId } from '@/offline/ids'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import {
+  buildQuickClientEmail,
+  buildQuickClientPassword,
+  findUserByClientQuery,
+  PEDIDO_NEW_USER_CLOSE_DELAY_MS,
+  sleep,
+} from '@/lib/quickClient'
+
+type SubmitPhase = 'idle' | 'client' | 'order' | 'upload'
+
+function submitPhaseMessage(phase: SubmitPhase): string {
+  switch (phase) {
+    case 'client':
+      return 'Creando cliente nuevo...'
+    case 'order':
+      return 'Creando pedido...'
+    case 'upload':
+      return 'Subiendo...'
+    default:
+      return ''
+  }
+}
 
 interface PedidoModalProps {
   show: boolean
@@ -29,12 +55,13 @@ function getUnitPrice(product: Product, quantity: number): number {
 export function PedidoModal({ show, onClose }: PedidoModalProps) {
   const [users, setUsers] = useState<User[]>([])
   const [products, setProducts] = useState<Product[]>([])
-  const [idUser, setIdUser] = useState<number | ''>('')
+  const [clientValue, setClientValue] = useState<ClientePedidoValue | null>(null)
   const [lines, setLines] = useState<{ id_product: number; quantity: number; unit_price: number; product?: Product }[]>([])
 
   const validLines = lines.filter((l) => l.id_product !== 0)
-  const [loading, setLoading] = useState(false)
+  const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle')
   const [loadingData, setLoadingData] = useState(false)
+  const loading = submitPhase !== 'idle'
 
   useEffect(() => {
     if (!show) {
@@ -42,7 +69,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       return
     }
     setLoadingData(true)
-    setIdUser('')
+    setClientValue(null)
     setLines([])
     Promise.all([
       getUsersPaginatedOfflineFirst({ limit: 100, filters: {} }),
@@ -104,66 +131,172 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     label: p.brand ? `${p.name} (${p.brand})` : p.name,
   }))
 
+  function resolveClient(): { idUser: number; displayName: string; createNew: false } | { newName: string; createNew: true } | null {
+    if (!clientValue) return null
+    if (clientValue.kind === 'existing') {
+      const u = users.find((x) => x.id === clientValue.id)
+      return {
+        idUser: clientValue.id,
+        displayName: u?.name || u?.email || clientValue.label,
+        createNew: false,
+      }
+    }
+    const name = clientValue.name.trim()
+    if (name.length < 2) return null
+    const existing = findUserByClientQuery(users, name)
+    if (existing) {
+      return {
+        idUser: existing.id,
+        displayName: existing.name || existing.email,
+        createNew: false,
+      }
+    }
+    return { newName: name, createNew: true }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!idUser || validLines.length === 0) {
-      toast.error('Selecciona un cliente y agrega al menos un producto')
+    const client = resolveClient()
+    if (!client) {
+      toast.error('Escribí o elegí un cliente')
       return
     }
-    setLoading(true)
-    const body = {
-      id_user: Number(idUser),
-      lines: validLines.map((l) => ({ id_product: l.id_product, quantity: l.quantity, unit_price: l.unit_price })),
-    }
-    if (!isOnlineNow()) {
-      const tempId = nextTempId()
-      const selectedUser = users.find((u) => u.id === Number(idUser))
-      await enqueueCommand('ORDER_CREATE_ADMIN', { tempId, data: body })
-      await lepraDb.orders.put({
-        id: tempId,
-        id_user: Number(idUser),
-        user_name: selectedUser?.name || selectedUser?.email || null,
-        total,
-        created_at: new Date().toISOString(),
-        status: 'PENDING',
-        active: true,
-        lines: validLines.map((l) => ({ id_product: l.id_product, quantity: l.quantity, unit_price: l.unit_price })),
-      } as any)
-      const dependsOnPending = Number(idUser) < 0 || validLines.some((l) => l.id_product < 0)
-      toast.success(
-        dependsOnPending
-          ? 'Pedido creado (pendiente; sincronizará después de productos/clientes nuevos)'
-          : 'Pedido creado (pendiente de sincronizar)'
-      )
-      setLoading(false)
-      onClose(true)
+    if (validLines.length === 0) {
+      toast.error('Agregá al menos un producto')
       return
     }
 
-    const { error } = await createOrder(body)
-    setLoading(false)
-    if (error) toast.error(error.message)
-    else {
-      toast.success('Pedido creado')
+    let createdNewUser = false
+    let idUser: number
+    let displayName: string
+
+    try {
+      if (!client.createNew) {
+        setSubmitPhase('order')
+        idUser = client.idUser
+        displayName = client.displayName
+      } else if (!isOnlineNow()) {
+        createdNewUser = true
+        setSubmitPhase('client')
+        const userTempId = nextTempId()
+        const email = buildQuickClientEmail(client.newName)
+        const password = buildQuickClientPassword()
+        await enqueueCommand('USER_CREATE', {
+          tempId: userTempId,
+          data: { email, password, name: client.newName, rol: 'CLIENT' },
+        })
+        await lepraDb.users.put({
+          id: userTempId,
+          email,
+          name: client.newName,
+          location: null,
+          rol: 'CLIENT',
+          active: true,
+        } as User)
+        idUser = userTempId
+        displayName = client.newName
+        setSubmitPhase('order')
+      } else {
+        createdNewUser = true
+        setSubmitPhase('client')
+        const email = buildQuickClientEmail(client.newName)
+        const password = buildQuickClientPassword()
+        const userRes = await createUser({
+          email,
+          password,
+          name: client.newName,
+          rol: 'CLIENT',
+        })
+        if (userRes.error) {
+          toast.error(userRes.error.message)
+          setSubmitPhase('idle')
+          return
+        }
+        idUser = userRes.data!.user.id
+        displayName = client.newName
+        setSubmitPhase('order')
+      }
+
+      const linePayload = validLines.map((l) => ({
+        id_product: l.id_product,
+        quantity: l.quantity,
+        unit_price: l.unit_price,
+      }))
+
+      const body = { id_user: idUser!, lines: linePayload }
+
+      if (!isOnlineNow()) {
+        const orderTempId = nextTempId()
+        await enqueueCommand('ORDER_CREATE_ADMIN', { tempId: orderTempId, data: body })
+        await lepraDb.orders.put({
+          id: orderTempId,
+          id_user: idUser,
+          customer_name: null,
+          user_name: displayName,
+          total,
+          created_at: new Date().toISOString(),
+          status: 'PENDING',
+          active: true,
+          lines: linePayload,
+        } as Order)
+        const dependsOnPending = idUser < 0 || validLines.some((l) => l.id_product < 0)
+        toast.success(
+          createdNewUser
+            ? dependsOnPending
+              ? 'Pedido y cliente nuevos guardados (pendientes de sincronizar)'
+              : 'Pedido creado con cliente nuevo (pendiente de sincronizar)'
+            : dependsOnPending
+              ? 'Pedido creado (pendiente; sincronizará después de productos o clientes nuevos)'
+              : 'Pedido creado (pendiente de sincronizar)'
+        )
+      } else {
+        const { error } = await createOrder(body)
+        if (error) {
+          toast.error(error.message)
+          setSubmitPhase('idle')
+          return
+        }
+        toast.success(createdNewUser ? 'Pedido creado con cliente nuevo' : 'Pedido creado')
+      }
+
+      if (createdNewUser) {
+        setSubmitPhase('upload')
+        await sleep(PEDIDO_NEW_USER_CLOSE_DELAY_MS)
+      }
+      setSubmitPhase('idle')
       onClose(true)
+    } catch {
+      setSubmitPhase('idle')
     }
   }
 
+  const clientReady =
+    clientValue?.kind === 'existing' ||
+    (clientValue?.kind === 'new' && clientValue.name.trim().length >= 2)
+
+  const busy = loading || loadingData
+  const busyMessage = loading ? submitPhaseMessage(submitPhase) : 'Cargando datos...'
+
   return (
-    <Modal show={show} onHide={() => onClose()} size="lg">
-      <Modal.Header closeButton className="border-dark">
+    <LepraModal show={show} onClose={() => onClose()} busy={busy} size="lg">
+      <Modal.Header closeButton={!busy} className="border-dark">
         <Modal.Title>Nuevo pedido</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <Form onSubmit={handleSubmit}>
+        <ModalBusyFrame busy={busy} message={busyMessage}>
+          <Form onSubmit={handleSubmit}>
           <Form.Group className="mb-4">
             <Form.Label>Cliente</Form.Label>
-            <Select<number>
+            <ClientePedidoSelect
               options={userOptions}
-              value={idUser === '' ? null : idUser}
-              onChange={(id) => setIdUser(id ?? '')}
-              placeholder="Buscar por nombre o email..."
+              users={users}
+              value={clientValue}
+              onChange={setClientValue}
+              disabled={busy}
             />
+            <Form.Text className="text-muted">
+              Elegí uno de la lista o escribí un nombre; si no hay coincidencia, se crea un cliente nuevo al guardar.
+            </Form.Text>
           </Form.Group>
 
           <div className="d-flex justify-content-between align-items-center mb-2">
@@ -173,9 +306,9 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
               variant="outline-dark"
               size="sm"
               onClick={addLine}
-              disabled={loadingData || products.length === 0}
+              disabled={busy || products.length === 0}
             >
-              {loadingData ? <><Spinner animation="border" size="sm" className="me-1" />Cargando...</> : '+ Agregar'}
+              + Agregar
             </Button>
           </div>
 
@@ -234,14 +367,22 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
 
           <p className="fw-bold">Total: {formatMoneyWithSymbol(total)}</p>
 
-          <div className="d-flex justify-content-end gap-2">
-            <Button variant="outline-dark" onClick={() => onClose()}>Cancelar</Button>
-            <Button type="submit" className="btn-lepra" disabled={loading || validLines.length === 0}>
-              {loading ? 'Creando...' : 'Crear pedido'}
-            </Button>
-          </div>
-        </Form>
+              <div className="d-flex justify-content-end gap-2">
+                <Button variant="outline-dark" onClick={() => onClose()} disabled={busy}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  variant="success"
+                  className="pedido-modal-submit-btn fw-semibold"
+                  disabled={busy || !clientReady || validLines.length === 0}
+                >
+                  Crear pedido
+                </Button>
+              </div>
+          </Form>
+        </ModalBusyFrame>
       </Modal.Body>
-    </Modal>
+    </LepraModal>
   )
 }

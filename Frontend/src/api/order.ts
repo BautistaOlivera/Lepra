@@ -19,7 +19,13 @@ export async function createOrderClient(data: { date?: string; payment?: string;
   })
 }
 
-export async function createOrder(data: { id_user: number; date?: string; payment?: string; lines: OrderProduct[] }) {
+export async function createOrder(data: {
+  id_user?: number | null
+  customer_name?: string | null
+  date?: string
+  payment?: string
+  lines: OrderProduct[]
+}) {
   return api<{ message: string; id: number; total: number }>('/order/create-admin', {
     method: 'POST',
     body: JSON.stringify(data),

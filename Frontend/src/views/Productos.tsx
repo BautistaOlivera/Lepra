@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Button, Badge, Spinner, Form, InputGroup, Card } from 'react-bootstrap'
+import { Button, Badge, Form, InputGroup, Card } from 'react-bootstrap'
+import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Plus, Pencil, Trash2, Search, CheckCircle2 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Link } from 'react-router-dom'
@@ -16,6 +17,7 @@ import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
+import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=80&q=80'
 const columnHelper = createColumnHelper<Product>()
@@ -97,6 +99,7 @@ export function Productos() {
   function onModalClose(refresh?: boolean) {
     setModalOpen(false)
     setEditingProduct(null)
+    releaseBootstrapModalLock()
     if (refresh) {
       refreshPending().catch(() => {})
       loadProducts()
@@ -228,9 +231,7 @@ export function Productos() {
       </div>
 
       {loading && products.length === 0 ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" />
-        </div>
+        <LoadingCenter message="Cargando productos..." />
       ) : (
         <>
           <div className="admin-list-mobile d-lg-none">
@@ -323,7 +324,9 @@ export function Productos() {
         </div>
       )}
 
-      <ProductoModal show={modalOpen} onClose={onModalClose} editingProduct={editingProduct} />
+      {modalOpen && (
+        <ProductoModal show onClose={onModalClose} editingProduct={editingProduct} />
+      )}
     </div>
   )
 }

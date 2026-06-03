@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Button, Badge, Spinner, Form, InputGroup, Card } from 'react-bootstrap'
+import { Button, Badge, Form, InputGroup, Card } from 'react-bootstrap'
+import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Plus, Search, Calendar, CheckCircle2 } from 'lucide-react'
 import { PedidoRowActions } from '@/components/PedidoRowActions'
 import { createColumnHelper } from '@tanstack/react-table'
@@ -19,7 +20,9 @@ import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 import { formatDateFromApi } from '@/lib/formatDate'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import { orderCustomerLabel } from '@/lib/orderDisplay'
 import { DateInputAr } from '@/components/DateInputAr'
+import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -105,6 +108,7 @@ export function Pedidos() {
 
   function onAddModalClose(refresh?: boolean) {
     setAddModalOpen(false)
+    releaseBootstrapModalLock()
     if (refresh) {
       refreshPending().catch(() => {})
       loadOrders()
@@ -113,10 +117,12 @@ export function Pedidos() {
 
   function onPdfClose() {
     setPdfOrder(null)
+    releaseBootstrapModalLock()
   }
 
   function onNotasClose() {
     setNotasOrder(null)
+    releaseBootstrapModalLock()
   }
 
   function applyOrderPayment(orderId: number, payment: string) {
@@ -141,7 +147,7 @@ export function Pedidos() {
   const columns = [
     columnHelper.accessor('user_name', {
       header: 'Cliente',
-      cell: (info) => info.getValue() || info.row.original.id_user,
+      cell: ({ row }) => orderCustomerLabel(row.original),
     }),
     columnHelper.accessor('total', {
       header: 'Total',
@@ -251,9 +257,7 @@ export function Pedidos() {
       </div>
 
       {loading && orders.length === 0 ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" />
-        </div>
+        <LoadingCenter message="Cargando pedidos..." />
       ) : (
         <>
           <div className="admin-list-mobile d-lg-none">
@@ -266,7 +270,7 @@ export function Pedidos() {
                       <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
                         <div className="min-w-0">
                           <div className="fw-semibold text-dark text-truncate">
-                            {o.user_name || `Cliente #${o.id_user}`}
+                            {orderCustomerLabel(o)}
                           </div>
                           <div className="text-muted small mt-1">
                             {formatDateFromApi(o.created_at || o.date)}
@@ -317,7 +321,7 @@ export function Pedidos() {
         </div>
       )}
 
-      <PedidoModal show={addModalOpen} onClose={onAddModalClose} />
+      {addModalOpen && <PedidoModal show onClose={onAddModalClose} />}
       {notasOrder && (
         <PedidoNotasModal
           show

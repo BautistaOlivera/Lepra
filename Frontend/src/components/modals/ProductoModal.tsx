@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Modal, Form, Button, Table } from 'react-bootstrap'
+import { LepraModal } from '@/components/LepraModal'
+import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { Plus, Trash2 } from 'lucide-react'
 import { createProduct, updateProduct, uploadProductImage, getImageUrl } from '@/api/product'
 import {
@@ -328,8 +330,8 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
               : [],
         })
         toast.success('Cambio guardado (pendiente de sincronizar)')
-        onClose(true)
         setLoading(false)
+        onClose(true)
         return
       }
 
@@ -352,14 +354,16 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         const tierErr = await persistTiersForProduct(editingProduct!.id, validatedTiers)
         if (tierErr) {
           toast.error(`Producto actualizado, pero falló un precio por volumen: ${tierErr}`)
-          onClose(true)
           setLoading(false)
+          onClose(true)
           return
         }
       }
 
       toast.success('Producto actualizado')
+      setLoading(false)
       onClose(true)
+      return
     } else {
       if (!isOnlineNow()) {
         if (img) {
@@ -397,8 +401,8 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             hasTieredPricing && validatedTiers?.ok ? tiersFromPayload(validatedTiers.tiers) : undefined,
         } as Product)
         toast.success('Producto creado (pendiente de sincronizar)')
-        onClose(true)
         setLoading(false)
+        onClose(true)
         return
       }
 
@@ -421,14 +425,16 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         const tierErr = await persistTiersForProduct(newId!, validatedTiers)
         if (tierErr) {
           toast.error(`Producto creado, pero falló un precio por volumen: ${tierErr}`)
-          onClose(true)
           setLoading(false)
+          onClose(true)
           return
         }
       }
 
       toast.success('Producto creado')
+      setLoading(false)
       onClose(true)
+      return
     }
     setLoading(false)
   }
@@ -437,14 +443,18 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     ? initialTiersRef.current.length
     : tierRows.filter((r) => r.min_quantity.trim() || r.unit_price.trim()).length
 
+  const busy = loading || uploading
+  const busyMessage = uploading ? 'Subiendo imagen...' : isEditing ? 'Guardando cambios...' : 'Creando producto...'
+
   return (
     <>
-      <Modal show={show} onHide={() => onClose()} size={hasTieredPricing ? 'lg' : undefined}>
-        <Modal.Header closeButton className="border-dark">
+      <LepraModal show={show} onClose={() => onClose()} busy={busy} size={hasTieredPricing ? 'lg' : undefined}>
+        <Modal.Header closeButton={!busy} className="border-dark">
           <Modal.Title>{isEditing ? 'Editar producto' : 'Agregar producto'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form onSubmit={handleSubmit} noValidate>
+          <ModalBusyFrame busy={busy} message={busyMessage}>
+            <Form onSubmit={handleSubmit} noValidate>
             <Form.Group className="mb-3">
               <Form.Label>Nombre</Form.Label>
               <Form.Control value={name} onChange={(e) => setName(e.target.value)} required />
@@ -504,10 +514,10 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                     type="button"
                     variant="outline-dark"
                     size="sm"
-                    disabled={uploading}
+                    disabled={busy}
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    {uploading ? 'Subiendo...' : img ? 'Cambiar imagen' : 'Subir imagen'}
+                    {img ? 'Cambiar imagen' : 'Subir imagen'}
                   </Button>
                   {img && (
                     <Button
@@ -597,24 +607,31 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
               </div>
             ) : null}
 
-            <div className="d-flex justify-content-end gap-2">
-              <Button variant="outline-dark" onClick={() => onClose()}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="btn-lepra" disabled={loading || !isFormValid}>
-                {loading ? 'Guardando...' : isEditing ? 'Guardar' : 'Crear'}
-              </Button>
-            </div>
-          </Form>
+                <div className="d-flex justify-content-end gap-2">
+                  <Button variant="outline-dark" onClick={() => onClose()} disabled={busy}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" className="btn-lepra" disabled={busy || !isFormValid}>
+                    {isEditing ? 'Guardar' : 'Crear'}
+                  </Button>
+                </div>
+            </Form>
+          </ModalBusyFrame>
         </Modal.Body>
-      </Modal>
+      </LepraModal>
 
-      <Modal show={disableModalOpen} onHide={cancelDisableTieredPricing} centered>
-        <Modal.Header closeButton className="border-dark">
+      <LepraModal
+        show={disableModalOpen}
+        onClose={cancelDisableTieredPricing}
+        busy={disablingTiers}
+        centered
+      >
+        <Modal.Header closeButton={!disablingTiers} className="border-dark">
           <Modal.Title>Desactivar precios por volumen</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p className="mb-3">
+          <ModalBusyFrame busy={disablingTiers} message="Eliminando precios por volumen...">
+            <p className="mb-3">
             Vas a desactivar precios por volumen y eliminar{' '}
             <strong>{disableTierCount}</strong> precio(s) por volumen de este producto.
           </p>
@@ -628,20 +645,21 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             checked={disableConfirmChecked}
             onChange={(e) => setDisableConfirmChecked(e.target.checked)}
           />
+            <div className="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
+              <Button variant="outline-dark" onClick={cancelDisableTieredPricing} disabled={disablingTiers}>
+                Cancelar
+              </Button>
+              <Button
+                variant="outline-danger"
+                disabled={!disableConfirmChecked || disablingTiers}
+                onClick={() => void confirmDisableTieredPricing()}
+              >
+                Eliminar precios por volumen y desactivar
+              </Button>
+            </div>
+          </ModalBusyFrame>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="outline-dark" onClick={cancelDisableTieredPricing}>
-            Cancelar
-          </Button>
-          <Button
-            variant="outline-danger"
-            disabled={!disableConfirmChecked || disablingTiers}
-            onClick={() => void confirmDisableTieredPricing()}
-          >
-            {disablingTiers ? 'Eliminando...' : 'Eliminar precios por volumen y desactivar'}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      </LepraModal>
     </>
   )
 }
