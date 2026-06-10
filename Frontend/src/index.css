@@ -1219,11 +1219,21 @@ body {
 
 .admin-list-card {
   border: 1px solid #e5e5e5;
+  overflow: hidden;
+}
+
+.admin-list-card-title,
+.admin-list-card-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-list-card-email {
   font-size: 0.95rem;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-list-card-image {

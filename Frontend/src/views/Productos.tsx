@@ -265,12 +265,12 @@ export function Productos() {
                           className="admin-list-card-image rounded"
                         />
                       </Link>
-                      <div className="min-w-0 flex-grow-1">
+                      <div className="min-w-0 flex-grow-1 overflow-hidden">
                         <div className="d-flex justify-content-between align-items-start gap-2">
-                          <div className="min-w-0">
-                            <div className="fw-semibold text-dark text-truncate">{p.name}</div>
+                          <div className="min-w-0 flex-grow-1 overflow-hidden">
+                            <div className="fw-semibold text-dark admin-list-card-title">{p.name}</div>
                             {p.brand && (
-                              <div className="text-muted small mt-1">{p.brand}</div>
+                              <div className="text-muted small mt-1 admin-list-card-subtitle">{p.brand}</div>
                             )}
                             <div className="fw-bold text-dark mt-1">{formatMoneyWithSymbol(p.price)}</div>
                           </div>
