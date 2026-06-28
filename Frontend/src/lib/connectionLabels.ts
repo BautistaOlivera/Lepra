@@ -15,6 +15,7 @@ export function formatErrorParaUsuario(message: string | undefined | null): stri
   if (!message?.trim()) return ''
   const m = message.trim()
   if (m === 'Offline') return CONEXION_SIN
+  if (/no se pudo conectar con el servidor/i.test(m)) return m
 
   const legacy = m.match(/^Esperando sync de (\w+) \((-?\d+)\)/i)
   if (legacy) {

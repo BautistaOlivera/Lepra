@@ -24,8 +24,8 @@ Base.metadata.create_all(bind=engine)
 lepra.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -36,6 +36,13 @@ lepra.include_router(tier_router)
 lepra.include_router(order_router)
 lepra.include_router(sync_router)
 lepra.include_router(stats_router)
+
+
+@lepra.get("/health")
+async def health():
+    """Ping simple para probar conectividad desde el navegador (incl. tablets viejas)."""
+    return {"ok": True}
+
 
 # Servir imágenes subidas (uploads)
 uploads_path = os.path.join(os.path.dirname(__file__), "uploads")

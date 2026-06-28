@@ -1,3 +1,7 @@
+import { formatNetworkErrorMessage } from '@/lib/networkErrors'
+import { httpRequest, xhrRequest } from '@/lib/httpTransport'
+import { isLegacyClient } from '@/lib/legacyBrowser'
+
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 function getToken(): string | null {
@@ -13,22 +17,62 @@ export function getImageUrl(img: string | null | undefined): string {
   return `${base}${path}`
 }
 
+function buildHeaders(options: RequestInit): HeadersInit {
+  const headers: Record<string, string> = {}
+  if (options.body != null && !(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json'
+  }
+  const extra = options.headers
+  if (extra instanceof Headers) {
+    extra.forEach((v, k) => {
+      headers[k] = v
+    })
+  } else if (Array.isArray(extra)) {
+    for (const [k, v] of extra) headers[k] = v
+  } else if (extra) {
+    Object.assign(headers, extra)
+  }
+  const token = getToken()
+  if (token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
+
+async function request(url: string, options: RequestInit = {}): Promise<{
+  ok: boolean
+  status: number
+  statusText: string
+  json: () => Promise<unknown>
+}> {
+  const init: RequestInit = {
+    ...options,
+    headers: buildHeaders(options),
+    // La API en producción puede responder ACA-Credentials:true; Chrome 81 exige include.
+    credentials: 'include',
+    mode: 'cors',
+  }
+
+  if (isLegacyClient()) {
+    try {
+      return await xhrRequest(url, init)
+    } catch (xhrErr) {
+      try {
+        return await httpRequest(url, init)
+      } catch {
+        throw xhrErr
+      }
+    }
+  }
+
+  return httpRequest(url, init)
+}
+
 export async function api<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<{ data?: T; error?: { status: number; message: string } }> {
-  const token = getToken()
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  }
-  if (token) {
-    (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`
-  }
-
   try {
-    const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
-    const json = await res.json().catch(() => ({}))
+    const res = await request(`${API_BASE}${path}`, options)
+    const json = (await res.json().catch(() => ({}))) as { message?: string }
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
         try {
@@ -40,7 +84,6 @@ export async function api<T>(
       }
       return { error: { status: res.status, message: json.message || res.statusText } }
     }
-    // si respondió OK, limpiamos flag de auth requerida
     try {
       localStorage.removeItem('lepra_auth_required')
     } catch {
@@ -48,7 +91,7 @@ export async function api<T>(
     }
     return { data: json as T }
   } catch (err) {
-    return { error: { status: 0, message: (err as Error).message } }
+    return { error: { status: 0, message: formatNetworkErrorMessage(err) } }
   }
 }
 
@@ -62,8 +105,8 @@ export async function apiUpload<T>(
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   try {
-    const res = await fetch(`${API_BASE}${path}`, { method: 'POST', body: formData, headers })
-    const json = await res.json().catch(() => ({}))
+    const res = await request(`${API_BASE}${path}`, { method: 'POST', body: formData, headers })
+    const json = (await res.json().catch(() => ({}))) as { message?: string }
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
         try {
@@ -82,6 +125,6 @@ export async function apiUpload<T>(
     }
     return { data: json as T }
   } catch (err) {
-    return { error: { status: 0, message: (err as Error).message } }
+    return { error: { status: 0, message: formatNetworkErrorMessage(err) } }
   }
 }

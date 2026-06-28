@@ -9,6 +9,7 @@ import { useCart } from '@/context/CartContext'
 import { ProductImage } from '@/components/ProductImage'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { formatWeight, hasWeight } from '@/lib/formatWeight'
+import toast from 'react-hot-toast'
 
 const CHEESE_HERO = 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=1200&q=80'
 
@@ -30,11 +31,14 @@ export function Catalogo() {
     const filters: Record<string, string> = {}
     if (search.trim()) filters.search = search.trim()
     if (categoryFilter) filters.category = categoryFilter
-    const { data } = await getProductsPaginated({
+    const { data, error } = await getProductsPaginated({
       limit: 20,
       last_seen_id: lastId ?? null,
       filters: Object.keys(filters).length > 0 ? filters : undefined,
     })
+    if (error && !lastId) {
+      toast.error(error.message || 'No se pudo cargar el catálogo')
+    }
     if (data) {
       setProducts((prev) => (lastId ? [...prev, ...data.items] : data.items))
       setNextCursor(data.next_cursor)

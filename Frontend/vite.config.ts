@@ -46,7 +46,8 @@ export default defineConfig(({ mode }) => {
       ...(devHttps ? [basicSsl()] : []),
       VitePWA({
         registerType: 'autoUpdate',
-        injectRegister: 'auto',
+        // Sin registerSW.js en el HTML: lo registramos desde la app (evita carrera con Android 4.x).
+        injectRegister: false,
         includeAssets: ['favicon.svg', 'pwa-maskable.svg', 'apple-touch-icon.png'],
         manifest: {
           name: 'El Lepra',
@@ -76,7 +77,6 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
-          // Solo shell estático: los hashes en /assets/ cambian en cada deploy y rompen el precache.
           globPatterns: [
             'index.html',
             'manifest.webmanifest',
@@ -125,7 +125,6 @@ export default defineConfig(({ mode }) => {
         },
       }),
       legacy({
-        // Chrome 81 / Android 4.4: sin chunks ESM modernos (evita pantalla en blanco por nomodule).
         targets: ['chrome >= 81', 'android >= 4.4'],
         renderModernChunks: false,
         additionalLegacyPolyfills: ['regenerator-runtime/runtime'],
@@ -148,7 +147,6 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return
-            // React core (scheduler evita ciclos con otros paquetes UI)
             if (
               id.includes('node_modules/react-dom') ||
               id.includes('node_modules/react/') ||
