@@ -11,6 +11,7 @@ import { Admin } from '@/views/Admin'
 import { Clientes } from '@/views/Clientes'
 import { Productos } from '@/views/Productos'
 import { Pedidos } from '@/views/Pedidos'
+import { Estadisticas } from '@/views/Estadisticas'
 
 export function AppRoutes() {
   return (
@@ -37,6 +38,7 @@ export function AppRoutes() {
           <Route path="clientes" element={<Clientes />} />
           <Route path="productos" element={<Productos />} />
           <Route path="pedidos" element={<Pedidos />} />
+          <Route path="estadisticas" element={<Estadisticas />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,0 +1,356 @@
+import { parseUtcFromApi } from '@/lib/dateApi'
+import { isCanceledStatus, normalizeOrderStatus } from '@/lib/orderStatus'
+import { orderCustomerLabel } from '@/lib/orderDisplay'
+import type { Order, Product } from '@/types'
+import type {
+  SalesByCategory,
+  SalesByCustomer,
+  SalesByProduct,
+  SalesGranularity,
+  SalesProductByCustomer,
+  SalesStats,
+  SalesStatsParams,
+  SalesSummary,
+  SalesTimePoint,
+} from '@/types/salesStats'
+
+type SalesLine = {
+  orderId: number
+  at: Date
+  status: string
+  customerKey: string
+  customerLabel: string
+  idProduct: number
+  productName: string
+  category: string | null
+  quantity: number
+  lineRevenue: number
+}
+
+type SalesFilters = {
+  dateFrom: string
+  dateTo: string
+  productId: number | null
+  category: string | null
+  granularity: SalesGranularity
+}
+
+function startOfDayUtc(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+}
+
+function parseIsoDate(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d))
+}
+
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+export function defaultSalesDateRange(): { from: string; to: string } {
+  const to = startOfDayUtc(new Date())
+  const from = new Date(to)
+  from.setUTCDate(from.getUTCDate() - 29)
+  return { from: isoDate(from), to: isoDate(to) }
+}
+
+function resolveFilters(params: SalesStatsParams): SalesFilters {
+  const defaults = defaultSalesDateRange()
+  return {
+    dateFrom: params.date_from || defaults.from,
+    dateTo: params.date_to || defaults.to,
+    productId: params.product_id ?? null,
+    category: params.category ?? null,
+    granularity: params.granularity ?? 'day',
+  }
+}
+
+function inDateRange(at: Date, from: string, to: string): boolean {
+  const day = isoDate(startOfDayUtc(at))
+  return day >= from && day <= to
+}
+
+function periodLengthDays(from: string, to: string): number {
+  const a = parseIsoDate(from)
+  const b = parseIsoDate(to)
+  return Math.round((b.getTime() - a.getTime()) / 86400000) + 1
+}
+
+function previousRange(from: string, to: string): { from: string; to: string } {
+  const days = periodLengthDays(from, to)
+  const prevEnd = new Date(parseIsoDate(from))
+  prevEnd.setUTCDate(prevEnd.getUTCDate() - 1)
+  const prevStart = new Date(prevEnd)
+  prevStart.setUTCDate(prevStart.getUTCDate() - (days - 1))
+  return { from: isoDate(prevStart), to: isoDate(prevEnd) }
+}
+
+function bucketKey(at: Date, granularity: SalesGranularity): string {
+  const d = startOfDayUtc(at)
+  if (granularity === 'day') return isoDate(d)
+  if (granularity === 'week') {
+    const monday = new Date(d)
+    monday.setUTCDate(monday.getUTCDate() - ((d.getUTCDay() + 6) % 7))
+    return isoDate(monday)
+  }
+  if (granularity === 'month') {
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+  }
+  return String(d.getUTCFullYear())
+}
+
+function advanceCursor(cur: Date, granularity: SalesGranularity): Date {
+  const next = new Date(cur)
+  if (granularity === 'day') next.setUTCDate(next.getUTCDate() + 1)
+  else if (granularity === 'week') next.setUTCDate(next.getUTCDate() + 7)
+  else if (granularity === 'month') next.setUTCMonth(next.getUTCMonth() + 1)
+  else next.setUTCFullYear(next.getUTCFullYear() + 1)
+  return next
+}
+
+function customerKey(order: Order): string {
+  if (order.id_user != null && order.id_user > 0) return `user:${order.id_user}`
+  const name = (order.customer_name || '').trim().toLowerCase()
+  if (name) return `name:${name}`
+  return 'none'
+}
+
+function toLines(orders: Order[], products: Product[]): SalesLine[] {
+  const names = new Map(products.map((p) => [p.id, p]))
+  const lines: SalesLine[] = []
+
+  for (const o of orders) {
+    if (!o.active || o.id <= 0 || !o.lines?.length) continue
+    const at = parseUtcFromApi(o.created_at)
+    if (!at) continue
+    const status = normalizeOrderStatus(o.status)
+    const label = orderCustomerLabel(o)
+    const ck = customerKey(o)
+
+    for (const line of o.lines) {
+      const prod = names.get(line.id_product)
+      const qty = line.quantity || 0
+      const rev = Math.round(qty * (line.unit_price || 0) * 100) / 100
+      lines.push({
+        orderId: o.id,
+        at,
+        status,
+        customerKey: ck,
+        customerLabel: label,
+        idProduct: line.id_product,
+        productName: prod?.name ?? `Producto #${line.id_product}`,
+        category: prod?.category ?? null,
+        quantity: qty,
+        lineRevenue: rev,
+      })
+    }
+  }
+  return lines
+}
+
+function filterLines(lines: SalesLine[], filters: SalesFilters): SalesLine[] {
+  return lines.filter((l) => {
+    if (isCanceledStatus(l.status)) return false
+    if (!inDateRange(l.at, filters.dateFrom, filters.dateTo)) return false
+    if (filters.productId != null && l.idProduct !== filters.productId) return false
+    if (filters.category && (l.category || '') !== filters.category) return false
+    return true
+  })
+}
+
+function buildSummary(allLines: SalesLine[], filters: SalesFilters): SalesSummary {
+  const current = filterLines(allLines, filters)
+  const prev = previousRange(filters.dateFrom, filters.dateTo)
+  const prevFilters = { ...filters, dateFrom: prev.from, dateTo: prev.to }
+  const previous = filterLines(allLines, prevFilters)
+
+  const curOrders = new Set(current.map((l) => l.orderId)).size
+  const prevOrders = new Set(previous.map((l) => l.orderId)).size
+  const curRevenue = Math.round(current.reduce((s, l) => s + l.lineRevenue, 0) * 100) / 100
+  const prevRevenue = Math.round(previous.reduce((s, l) => s + l.lineRevenue, 0) * 100) / 100
+  const curQty = current.reduce((s, l) => s + l.quantity, 0)
+
+  return {
+    orders: curOrders,
+    revenue: curRevenue,
+    quantity: curQty,
+    avg_ticket: curOrders ? Math.round((curRevenue / curOrders) * 100) / 100 : 0,
+    previous_orders: prevOrders,
+    previous_revenue: prevRevenue,
+  }
+}
+
+function buildTimeSeries(allLines: SalesLine[], filters: SalesFilters): SalesTimePoint[] {
+  const filtered = filterLines(allLines, filters)
+  const buckets = new Map<string, { period: string; orderIds: Set<number>; revenue: number; quantity: number }>()
+
+  let cur = parseIsoDate(filters.dateFrom)
+  const end = parseIsoDate(filters.dateTo)
+  while (cur <= end) {
+    const key = bucketKey(cur, filters.granularity)
+    if (!buckets.has(key)) {
+      buckets.set(key, { period: key, orderIds: new Set(), revenue: 0, quantity: 0 })
+    }
+    cur = advanceCursor(cur, filters.granularity)
+  }
+
+  for (const line of filtered) {
+    const key = bucketKey(line.at, filters.granularity)
+    if (!buckets.has(key)) {
+      buckets.set(key, { period: key, orderIds: new Set(), revenue: 0, quantity: 0 })
+    }
+    const b = buckets.get(key)!
+    b.orderIds.add(line.orderId)
+    b.revenue += line.lineRevenue
+    b.quantity += line.quantity
+  }
+
+  return [...buckets.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, b]) => ({
+      period: b.period,
+      orders: b.orderIds.size,
+      revenue: Math.round(b.revenue * 100) / 100,
+      quantity: b.quantity,
+    }))
+}
+
+function buildByProduct(allLines: SalesLine[], filters: SalesFilters): SalesByProduct[] {
+  const filtered = filterLines(allLines, filters)
+  const byId = new Map<number, SalesByProduct & { orderIds: Set<number> }>()
+
+  for (const line of filtered) {
+    const cur = byId.get(line.idProduct) ?? {
+      id_product: line.idProduct,
+      name: line.productName,
+      category: line.category,
+      quantity: 0,
+      revenue: 0,
+      orders: 0,
+      orderIds: new Set<number>(),
+    }
+    cur.quantity += line.quantity
+    cur.revenue = Math.round((cur.revenue + line.lineRevenue) * 100) / 100
+    cur.orderIds.add(line.orderId)
+    byId.set(line.idProduct, cur)
+  }
+
+  return [...byId.values()]
+    .map(({ orderIds, ...row }) => ({ ...row, orders: orderIds.size }))
+    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
+}
+
+function buildByCategory(allLines: SalesLine[], filters: SalesFilters): SalesByCategory[] {
+  const filtered = filterLines(allLines, filters)
+  const byCat = new Map<string, SalesByCategory & { orderIds: Set<number> }>()
+
+  for (const line of filtered) {
+    const cat = (line.category || 'Sin categoría').trim() || 'Sin categoría'
+    const cur = byCat.get(cat) ?? {
+      category: cat,
+      quantity: 0,
+      revenue: 0,
+      orders: 0,
+      orderIds: new Set<number>(),
+    }
+    cur.quantity += line.quantity
+    cur.revenue = Math.round((cur.revenue + line.lineRevenue) * 100) / 100
+    cur.orderIds.add(line.orderId)
+    byCat.set(cat, cur)
+  }
+
+  return [...byCat.values()]
+    .map(({ orderIds, ...row }) => ({ ...row, orders: orderIds.size }))
+    .sort((a, b) => b.revenue - a.revenue)
+}
+
+function buildByCustomer(allLines: SalesLine[], filters: SalesFilters): SalesByCustomer[] {
+  const filtered = filterLines(allLines, filters)
+  const byKey = new Map<string, SalesByCustomer & { orderIds: Set<number> }>()
+
+  for (const line of filtered) {
+    const cur = byKey.get(line.customerKey) ?? {
+      label: line.customerLabel,
+      quantity: 0,
+      revenue: 0,
+      orders: 0,
+      orderIds: new Set<number>(),
+    }
+    cur.quantity += line.quantity
+    cur.revenue = Math.round((cur.revenue + line.lineRevenue) * 100) / 100
+    cur.orderIds.add(line.orderId)
+    byKey.set(line.customerKey, cur)
+  }
+
+  return [...byKey.values()]
+    .map(({ orderIds, ...row }) => ({ ...row, orders: orderIds.size }))
+    .sort((a, b) => b.revenue - a.revenue)
+}
+
+function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): SalesProductByCustomer[] {
+  const filtered = filterLines(allLines, filters)
+  const byProduct = new Map<
+    number,
+    {
+      id_product: number
+      name: string
+      category: string | null
+      total_quantity: number
+      customers: Map<string, { label: string; quantity: number }>
+    }
+  >()
+
+  for (const line of filtered) {
+    const cur = byProduct.get(line.idProduct) ?? {
+      id_product: line.idProduct,
+      name: line.productName,
+      category: line.category,
+      total_quantity: 0,
+      customers: new Map(),
+    }
+    cur.total_quantity += line.quantity
+    const cell = cur.customers.get(line.customerKey) ?? { label: line.customerLabel, quantity: 0 }
+    cell.quantity += line.quantity
+    cur.customers.set(line.customerKey, cell)
+    byProduct.set(line.idProduct, cur)
+  }
+
+  return [...byProduct.values()]
+    .map((row) => ({
+      id_product: row.id_product,
+      name: row.name,
+      category: row.category,
+      total_quantity: row.total_quantity,
+      customers: [...row.customers.values()].sort((a, b) => b.quantity - a.quantity),
+    }))
+    .sort((a, b) => b.total_quantity - a.total_quantity)
+}
+
+export function aggregateSalesStatsFromLocal(
+  orders: Order[],
+  products: Product[],
+  params: SalesStatsParams
+): SalesStats {
+  const filters = resolveFilters(params)
+  const allLines = toLines(orders, products)
+  const now = new Date()
+
+  return {
+    source: 'local',
+    generated_at: now.toISOString(),
+    filters: {
+      date_from: filters.dateFrom,
+      date_to: filters.dateTo,
+      product_id: filters.productId,
+      category: filters.category,
+      granularity: filters.granularity,
+    },
+    summary: buildSummary(allLines, filters),
+    time_series: buildTimeSeries(allLines, filters),
+    by_product: buildByProduct(allLines, filters),
+    by_category: buildByCategory(allLines, filters),
+    by_customer: buildByCustomer(allLines, filters),
+    product_by_customer: buildProductByCustomer(allLines, filters),
+  }
+}

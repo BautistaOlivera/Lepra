@@ -1382,6 +1382,27 @@ body {
   min-width: 0;
 }
 
+.estadisticas-matrix-scroll {
+  max-height: 28rem;
+  overflow: auto;
+}
+
+.estadisticas-matrix-table .estadisticas-matrix-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bs-table-bg, #fff);
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.06);
+}
+
+.estadisticas-matrix-table thead .estadisticas-matrix-sticky-col {
+  background: var(--bs-table-striped-bg, #f8f9fa);
+}
+
+.estadisticas-matrix-table tfoot .estadisticas-matrix-sticky-col {
+  background: var(--bs-secondary-bg, #e9ecef);
+}
+
 .admin-list-action-btn {
   display: inline-flex;
   align-items: center;

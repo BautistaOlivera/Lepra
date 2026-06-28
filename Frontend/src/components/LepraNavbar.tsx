@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router-dom'
 import { Container, Navbar } from 'react-bootstrap'
-import { LayoutDashboard, Users, Package, ShoppingCart } from 'lucide-react'
+import { LayoutDashboard, Users, Package, ShoppingCart, BarChart3 } from 'lucide-react'
 
 function AdminNavItem({
   to,
@@ -83,6 +83,9 @@ export function LepraNavbar({
               </AdminNavItem>
               <AdminNavItem to="/admin/pedidos" onNavigate={closeNav}>
                 <ShoppingCart size={18} className="me-1" aria-hidden /> Pedidos
+              </AdminNavItem>
+              <AdminNavItem to="/admin/estadisticas" onNavigate={closeNav}>
+                <BarChart3 size={18} className="me-1" aria-hidden /> Estadísticas
               </AdminNavItem>
             </div>
           )}

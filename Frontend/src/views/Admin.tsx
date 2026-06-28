@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Row, Col, Card, Badge, Alert } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Link } from 'react-router-dom'
-import { Package, ShoppingCart, Users } from 'lucide-react'
+import { Package, ShoppingCart, Users, BarChart3 } from 'lucide-react'
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
 import { getDashboardStatsHybrid } from '@/repositories/dashboardRepo'
 import { useOnlineStatus } from '@/offline/network'
@@ -66,6 +66,9 @@ export function Admin() {
               </Link>
               <Link to="/admin/pedidos" className="btn btn-lepra admin-quick-btn">
                 <ShoppingCart size={18} className="me-1" aria-hidden /> Pedidos
+              </Link>
+              <Link to="/admin/estadisticas" className="btn btn-lepra admin-quick-btn">
+                <BarChart3 size={18} className="me-1" aria-hidden /> Estadísticas
               </Link>
             </div>
             {!online && stats.source === 'local' && (
