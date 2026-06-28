@@ -36,9 +36,8 @@ class OrderProduct(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_order = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     id_product = Column(Integer, ForeignKey("products.id"), nullable=False)
-    quantity = Column(Integer, nullable=False)
-    unit_price = Column(Float, nullable=False)
-    weight = Column(Float, nullable=True)
+    weight = Column(Float, nullable=False)
+    price_per_kg = Column(Float, nullable=False)
 
     order = relationship("Order", back_populates="order_products")
     product = relationship("Product", back_populates="order_products")
@@ -48,35 +47,30 @@ class OrderProduct(Base):
 
 class OrderProductCreate(BaseModel):
     id_product: int
-    quantity: int
-    unit_price: float
-    weight: Optional[float] = None
+    weight: float
+    price_per_kg: float
 
 
 class OrderLineClientInput(BaseModel):
-    """Solo id_product y quantity; unit_price se calcula en backend."""
+    """Línea de pedido cliente: peso total en kg; price_per_kg se calcula en backend."""
     id_product: int
-    quantity: int
-    weight: Optional[float] = None
+    weight: float
 
 
 class OrderLineAdminInput(BaseModel):
-    """id_product, quantity y opcional unit_price (si viene, se usa; si no, se calcula)."""
+    """Línea admin: peso en kg; price_per_kg opcional (si no viene, se calcula)."""
     id_product: int
-    quantity: int
-    unit_price: Optional[float] = None
-    weight: Optional[float] = None
+    weight: float
+    price_per_kg: Optional[float] = None
 
 
 class OrderCreateClient(BaseModel):
-    """Crear pedido como cliente: id_user = usuario logueado, líneas sin precio."""
     date: Optional[date] = None
     payment: Optional[str] = None
     lines: List[OrderLineClientInput]
 
 
 class OrderCreateAdmin(BaseModel):
-    """Crear pedido como admin: cliente registrado (id_user) o nombre libre (customer_name)."""
     id_user: Optional[int] = None
     customer_name: Optional[str] = None
     date: Optional[date] = None
@@ -88,9 +82,8 @@ class OrderProductResponse(BaseModel):
     id: int
     id_order: int
     id_product: int
-    quantity: int
-    unit_price: float
-    weight: Optional[float] = None
+    weight: float
+    price_per_kg: float
 
     class Config:
         from_attributes = True

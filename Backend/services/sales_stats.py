@@ -20,7 +20,7 @@ class SalesLine:
     id_product: int
     product_name: str
     category: str | None
-    quantity: int
+    weight_kg: float
     line_revenue: float
 
 
@@ -115,14 +115,14 @@ def aggregate_summary(
     prev_orders = len({l.order_id for l in previous})
     cur_revenue = round(sum(l.line_revenue for l in current), 2)
     prev_revenue = round(sum(l.line_revenue for l in previous), 2)
-    cur_qty = sum(l.quantity for l in current)
+    cur_kg = sum(l.weight_kg for l in current)
 
     avg_ticket = round(cur_revenue / cur_orders, 2) if cur_orders else 0.0
 
     return {
         "orders": cur_orders,
         "revenue": cur_revenue,
-        "quantity": cur_qty,
+        "total_kg": round(cur_kg, 3),
         "avg_ticket": avg_ticket,
         "previous_orders": prev_orders,
         "previous_revenue": prev_revenue,
@@ -140,7 +140,7 @@ def aggregate_time_series(
     while cur <= filters.date_to:
         key = _bucket_key(_start_inclusive(cur), filters.granularity)
         if key not in buckets:
-            buckets[key] = {"period": key, "orders": 0, "revenue": 0.0, "quantity": 0, "_order_ids": set()}
+            buckets[key] = {"period": key, "orders": 0, "revenue": 0.0, "total_kg": 0.0, "_order_ids": set()}
         if filters.granularity == "day":
             cur += timedelta(days=1)
         elif filters.granularity == "week":
@@ -156,13 +156,13 @@ def aggregate_time_series(
     for line in filtered:
         key = _bucket_key(line.created_at, filters.granularity)
         if key not in buckets:
-            buckets[key] = {"period": key, "orders": 0, "revenue": 0.0, "quantity": 0, "_order_ids": set()}
+            buckets[key] = {"period": key, "orders": 0, "revenue": 0.0, "total_kg": 0.0, "_order_ids": set()}
         bucket = buckets[key]
         order_ids = bucket["_order_ids"]
         assert isinstance(order_ids, set)
         order_ids.add(line.order_id)
         bucket["revenue"] = float(bucket["revenue"]) + line.line_revenue
-        bucket["quantity"] = int(bucket["quantity"]) + line.quantity
+        bucket["total_kg"] = float(bucket["total_kg"]) + line.weight_kg
 
     out: list[dict[str, float | int | str]] = []
     for key in sorted(buckets.keys()):
@@ -190,12 +190,12 @@ def aggregate_by_product(
                 "id_product": pid,
                 "name": line.product_name,
                 "category": line.category,
-                "quantity": 0,
+                "total_kg": 0.0,
                 "revenue": 0.0,
                 "orders": set(),
             }
         row = by_id[pid]
-        row["quantity"] = int(row["quantity"]) + line.quantity
+        row["total_kg"] = round(float(row["total_kg"]) + line.weight_kg, 3)
         row["revenue"] = round(float(row["revenue"]) + line.line_revenue, 2)
         orders = row["orders"]
         assert isinstance(orders, set)
@@ -203,7 +203,7 @@ def aggregate_by_product(
 
     ranked = sorted(
         by_id.values(),
-        key=lambda x: (int(x["quantity"]), float(x["revenue"])),
+        key=lambda x: (float(x["total_kg"]), float(x["revenue"])),
         reverse=True,
     )
     result: list[dict[str, object]] = []
@@ -221,9 +221,9 @@ def aggregate_by_category(lines: Sequence[SalesLine], filters: SalesFilters) -> 
     for line in filtered:
         cat = (line.category or "Sin categoría").strip() or "Sin categoría"
         if cat not in by_cat:
-            by_cat[cat] = {"category": cat, "quantity": 0, "revenue": 0.0, "orders": set()}
+            by_cat[cat] = {"category": cat, "total_kg": 0.0, "revenue": 0.0, "orders": set()}
         row = by_cat[cat]
-        row["quantity"] = int(row["quantity"]) + line.quantity
+        row["total_kg"] = round(float(row["total_kg"]) + line.weight_kg, 3)
         row["revenue"] = round(float(row["revenue"]) + line.line_revenue, 2)
         orders = row["orders"]
         assert isinstance(orders, set)
@@ -232,7 +232,7 @@ def aggregate_by_category(lines: Sequence[SalesLine], filters: SalesFilters) -> 
     return [
         {
             "category": row["category"],
-            "quantity": row["quantity"],
+            "total_kg": row["total_kg"],
             "revenue": row["revenue"],
             "orders": len(row["orders"]),
         }
@@ -249,12 +249,12 @@ def aggregate_by_customer(lines: Sequence[SalesLine], filters: SalesFilters) -> 
             by_key[key] = {
                 "customer_key": key,
                 "label": line.customer_label,
-                "quantity": 0,
+                "total_kg": 0.0,
                 "revenue": 0.0,
                 "orders": set(),
             }
         row = by_key[key]
-        row["quantity"] = int(row["quantity"]) + line.quantity
+        row["total_kg"] = round(float(row["total_kg"]) + line.weight_kg, 3)
         row["revenue"] = round(float(row["revenue"]) + line.line_revenue, 2)
         orders = row["orders"]
         assert isinstance(orders, set)
@@ -263,7 +263,7 @@ def aggregate_by_customer(lines: Sequence[SalesLine], filters: SalesFilters) -> 
     return [
         {
             "label": row["label"],
-            "quantity": row["quantity"],
+            "total_kg": row["total_kg"],
             "revenue": row["revenue"],
             "orders": len(row["orders"]),
         }
@@ -286,25 +286,25 @@ def aggregate_product_by_customer(
                 "id_product": pid,
                 "name": line.product_name,
                 "category": line.category,
-                "total_quantity": 0,
+                "total_weight_kg": 0.0,
                 "customers": {},
             }
         prod = by_product[pid]
-        prod["total_quantity"] = int(prod["total_quantity"]) + line.quantity
+        prod["total_weight_kg"] = round(float(prod["total_weight_kg"]) + line.weight_kg, 3)
         customers = prod["customers"]
         assert isinstance(customers, dict)
         ck = line.customer_key
         if ck not in customers:
-            customers[ck] = {"label": line.customer_label, "quantity": 0}
-        customers[ck]["quantity"] = int(customers[ck]["quantity"]) + line.quantity
+            customers[ck] = {"label": line.customer_label, "total_kg": 0.0}
+        customers[ck]["total_kg"] = round(float(customers[ck]["total_kg"]) + line.weight_kg, 3)
 
     result: list[dict[str, object]] = []
-    for row in sorted(by_product.values(), key=lambda x: int(x["total_quantity"]), reverse=True):
+    for row in sorted(by_product.values(), key=lambda x: int(x["total_weight_kg"]), reverse=True):
         customers = row.pop("customers")
         assert isinstance(customers, dict)
         row["customers"] = sorted(
             customers.values(),
-            key=lambda c: int(c["quantity"]),
+            key=lambda c: float(c["total_kg"]),
             reverse=True,
         )
         result.append(row)
@@ -346,8 +346,8 @@ def lines_from_rows(rows: Sequence[Mapping[str, object]]) -> list[SalesLine]:
         else:
             customer_key = "none"
 
-        qty = int(r.get("quantity") or 0)
-        unit_price = float(r.get("unit_price") or 0)
+        weight_kg = float(r.get("weight") or 0)
+        price_per_kg = float(r.get("price_per_kg") or 0)
         out.append(
             SalesLine(
                 order_id=int(r["order_id"]),
@@ -358,8 +358,8 @@ def lines_from_rows(rows: Sequence[Mapping[str, object]]) -> list[SalesLine]:
                 id_product=int(r["id_product"]),
                 product_name=str(r.get("product_name") or f"Producto #{r['id_product']}"),
                 category=(str(r["category"]).strip() if r.get("category") else None),
-                quantity=qty,
-                line_revenue=round(qty * unit_price, 2),
+                weight_kg=weight_kg,
+                line_revenue=round(weight_kg * price_per_kg, 2),
             )
         )
     return out

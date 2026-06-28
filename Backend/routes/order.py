@@ -8,17 +8,37 @@ from models.user import User
 import traceback
 
 from models import Order, OrderProduct, InputOrderUpdate, InputPaginatedRequestFilter
-from models.order import OrderCreateClient, OrderCreateAdmin
+from models.order import OrderCreateClient, OrderCreateAdmin, OrderProduct
 from models.product import Product
 from config.db import AsyncSessionLocal
 from auth.roles import require_roles
+from services.pricing import line_total, unit_price_for_line, validate_line_weight
 from utils.datetime_api import utc_naive_iso
 
 order_router = APIRouter(prefix="/order", tags=["Order"])
 
 
-def _compute_total(lines):
-    return sum(line.quantity * line.unit_price for line in lines)
+def _compute_total(lines, products: dict[int, Product]):
+    total = 0.0
+    for line in lines:
+        product = products.get(line.id_product)
+        if product:
+            total += line_total(product, float(line.weight), float(line.price_per_kg))
+        else:
+            total += round(float(line.weight) * float(line.price_per_kg), 2)
+    return total
+
+
+def _line_payload(op: OrderProduct, product: Product | None = None) -> dict:
+    payload = {
+        "id": op.id,
+        "id_product": op.id_product,
+        "weight": op.weight,
+        "price_per_kg": op.price_per_kg,
+    }
+    if product is not None:
+        payload["sold_by_piece"] = bool(product.fixed_weight)
+    return payload
 
 
 def _order_display_name(order: Order) -> Optional[str]:
@@ -29,23 +49,10 @@ def _order_display_name(order: Order) -> Optional[str]:
     return None
 
 
-def _line_weight(line_weight: Optional[float], product: Product) -> Optional[float]:
-    if line_weight is not None:
-        return float(line_weight)
-    if product.weight is not None:
-        return float(product.weight)
-    return None
-
-
-def _unit_price_from_product(product: Product, quantity: int) -> float:
-    """Precio unitario según producto: base o mejor volumen si has_tiered_pricing."""
-    if not product.has_tiered_pricing or not product.price_tiers:
-        return float(product.price)
-    best = None
-    for t in product.price_tiers:
-        if quantity >= t.min_quantity and (best is None or t.min_quantity > best.min_quantity):
-            best = t
-    return float(best.unit_price) if best else float(product.price)
+def _resolve_unit_price(product: Product, weight_kg: float, override: Optional[float] = None) -> float:
+    if override is not None:
+        return float(override)
+    return unit_price_for_line(product, weight_kg)
 
 
 @order_router.post("/paginated")
@@ -68,7 +75,7 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
 
     async with AsyncSessionLocal() as session:
         stmt = select(Order).options(
-            selectinload(Order.order_products),
+            selectinload(Order.order_products).selectinload(OrderProduct.product),
             selectinload(Order.user),
         )
         if role == "CLIENT":
@@ -123,16 +130,7 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
                 "payment": o.payment,
                 "status": o.status,
                 "active": o.active,
-                "lines": [
-                    {
-                        "id": op.id,
-                        "id_product": op.id_product,
-                        "quantity": op.quantity,
-                        "unit_price": op.unit_price,
-                        "weight": op.weight,
-                    }
-                    for op in o.order_products
-                ],
+                "lines": [_line_payload(op, op.product) for op in o.order_products],
             })
 
         return JSONResponse(
@@ -156,7 +154,7 @@ async def get_order(req: Request, order_id: int):
 
     async with AsyncSessionLocal() as session:
         stmt = select(Order).where(Order.id == order_id).options(
-            selectinload(Order.order_products),
+            selectinload(Order.order_products).selectinload(OrderProduct.product),
             selectinload(Order.user),
         )
         result = await session.execute(stmt)
@@ -179,16 +177,7 @@ async def get_order(req: Request, order_id: int):
                 "payment": o.payment,
                 "status": o.status,
                 "active": o.active,
-                "lines": [
-                    {
-                        "id": op.id,
-                        "id_product": op.id_product,
-                        "quantity": op.quantity,
-                        "unit_price": op.unit_price,
-                        "weight": op.weight,
-                    }
-                    for op in o.order_products
-                ],
+                "lines": [_line_payload(op, op.product) for op in o.order_products],
             },
         )
 
@@ -230,16 +219,19 @@ async def create_order_client(req: Request, body: OrderCreateClient):
                         status_code=400,
                         content={"message": f"Producto id {line.id_product} no encontrado"},
                     )
-                unit_price = _unit_price_from_product(product, line.quantity)
+                weight_kg = float(line.weight)
+                err = validate_line_weight(product, weight_kg)
+                if err:
+                    return JSONResponse(status_code=400, content={"message": err})
+                price_per_kg = unit_price_for_line(product, weight_kg)
                 op = OrderProduct(
                     id_order=order.id,
                     id_product=line.id_product,
-                    quantity=line.quantity,
-                    unit_price=unit_price,
-                    weight=_line_weight(line.weight, product),
+                    weight=weight_kg,
+                    price_per_kg=price_per_kg,
                 )
                 session.add(op)
-                total += line.quantity * unit_price
+                total += line_total(product, weight_kg, price_per_kg)
 
             order.total = total
             await session.commit()
@@ -306,33 +298,25 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
 
             total = 0.0
             for line in body.lines:
-                if line.unit_price is not None:
-                    unit_price = line.unit_price
-                else:
-                    product = products.get(line.id_product)
-                    if not product:
-                        return JSONResponse(
-                            status_code=400,
-                            content={"message": f"Producto id {line.id_product} no encontrado"},
-                        )
-                    unit_price = _unit_price_from_product(product, line.quantity)
-
                 product = products.get(line.id_product)
-                line_weight = None
-                if product:
-                    line_weight = _line_weight(line.weight, product)
-                elif line.weight is not None:
-                    line_weight = float(line.weight)
-
+                if not product:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"message": f"Producto id {line.id_product} no encontrado"},
+                    )
+                weight_kg = float(line.weight)
+                err = validate_line_weight(product, weight_kg)
+                if err:
+                    return JSONResponse(status_code=400, content={"message": err})
+                price_per_kg = _resolve_unit_price(product, weight_kg, line.price_per_kg)
                 op = OrderProduct(
                     id_order=order.id,
                     id_product=line.id_product,
-                    quantity=line.quantity,
-                    unit_price=unit_price,
-                    weight=line_weight,
+                    weight=weight_kg,
+                    price_per_kg=price_per_kg,
                 )
                 session.add(op)
-                total += line.quantity * unit_price
+                total += line_total(product, weight_kg, price_per_kg)
 
             order.total = total
             await session.commit()
@@ -384,17 +368,24 @@ async def update_order(req: Request, body: InputOrderUpdate):
                 for op in order.order_products:
                     await session.delete(op)
                 await session.flush()
+                product_ids = [line.id_product for line in body.lines]
+                stmt = select(Product).where(Product.id.in_(product_ids))
+                result = await session.execute(stmt)
+                products = {p.id: p for p in result.scalars().all()}
                 total = 0.0
                 for line in body.lines:
+                    product = products.get(line.id_product)
                     op = OrderProduct(
                         id_order=order.id,
                         id_product=line.id_product,
-                        quantity=line.quantity,
-                        unit_price=line.unit_price,
-                        weight=line.weight,
+                        weight=float(line.weight),
+                        price_per_kg=float(line.price_per_kg),
                     )
                     session.add(op)
-                    total += line.quantity * line.unit_price
+                    if product:
+                        total += line_total(product, float(line.weight), float(line.price_per_kg))
+                    else:
+                        total += round(float(line.weight) * float(line.price_per_kg), 2)
                 order.total = total
 
             await session.commit()

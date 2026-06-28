@@ -1,5 +1,6 @@
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { isCanceledStatus, normalizeOrderStatus } from '@/lib/orderStatus'
+import { lineTotal } from '@/lib/pricing'
 import type { Order, Product } from '@/types'
 import type {
   DashboardDailyPoint,
@@ -119,6 +120,7 @@ function buildDailySeries(rows: OrderRow[], now: Date): DashboardDailyPoint[] {
 }
 
 function buildTopProducts(orders: Order[], products: Product[]): DashboardTopProduct[] {
+  const byIdMap = new Map(products.map((p) => [p.id, p]))
   const names = new Map(products.map((p) => [p.id, p.name]))
   const byId = new Map<number, DashboardTopProduct>()
 
@@ -131,22 +133,25 @@ function buildTopProducts(orders: Order[], products: Product[]): DashboardTopPro
     if (!at || at < seriesStart) continue
     for (const line of o.lines) {
       const pid = line.id_product
-      const qty = line.quantity || 0
-      const rev = qty * (line.unit_price || 0)
+      const prod = byIdMap.get(pid)
+      const kg = line.weight || 0
+      const rev = prod
+        ? lineTotal(prod, kg, line.price_per_kg || 0)
+        : Math.round(kg * (line.price_per_kg || 0) * 100) / 100
       const cur = byId.get(pid) ?? {
         id_product: pid,
         name: names.get(pid) ?? `Producto #${pid}`,
-        quantity: 0,
+        total_kg: 0,
         revenue: 0,
       }
-      cur.quantity += qty
+      cur.total_kg = Math.round((cur.total_kg + kg) * 1000) / 1000
       cur.revenue = Math.round((cur.revenue + rev) * 100) / 100
       byId.set(pid, cur)
     }
   }
 
   return [...byId.values()]
-    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
+    .sort((a, b) => b.total_kg - a.total_kg || b.revenue - a.revenue)
     .slice(0, 5)
 }
 

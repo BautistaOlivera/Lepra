@@ -37,7 +37,7 @@ describe('aggregateDashboardFromLocal', () => {
         status: 'FULFILLED',
         active: true,
         created_at: new Date().toISOString().replace(/\.\d{3}Z$/, ''),
-        lines: [{ id_product: 10, quantity: 3, unit_price: 10 }],
+        lines: [{ id_product: 10, weight: 3, price_per_kg: 10 }],
       },
     ]
     const products: Product[] = [
@@ -51,6 +51,6 @@ describe('aggregateDashboardFromLocal', () => {
     ]
     const stats = aggregateDashboardFromLocal(orders, products, [])
     expect(stats.top_products[0]?.name).toBe('Queso')
-    expect(stats.top_products[0]?.quantity).toBe(3)
+    expect(stats.top_products[0]?.total_kg).toBe(3)
   })
 })

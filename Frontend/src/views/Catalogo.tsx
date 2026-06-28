@@ -128,7 +128,10 @@ export function Catalogo() {
                       <Card.Text className="small text-muted mb-0">{formatWeight(p.weight)}</Card.Text>
                     )}
                     <div className="d-flex justify-content-between align-items-center gap-2 mt-auto pt-2 flex-wrap catalog-card-actions">
-                      <span className="fw-bold text-dark catalog-card-price">{formatMoneyWithSymbol(p.price)}</span>
+                      <span className="fw-bold text-dark catalog-card-price">
+                        {formatMoneyWithSymbol(p.price)}
+                        {!p.fixed_weight && '/kg'}
+                      </span>
                       <div className="d-flex gap-2 catalog-card-buttons">
                         <Link to={`/producto/${p.id}`} className="btn btn-sm btn-outline-dark">
                           Ver

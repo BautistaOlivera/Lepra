@@ -1,6 +1,7 @@
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { isCanceledStatus, normalizeOrderStatus } from '@/lib/orderStatus'
 import { orderCustomerLabel } from '@/lib/orderDisplay'
+import { lineTotal } from '@/lib/pricing'
 import type { Order, Product } from '@/types'
 import type {
   SalesByCategory,
@@ -23,7 +24,7 @@ type SalesLine = {
   idProduct: number
   productName: string
   category: string | null
-  quantity: number
+  total_kg: number
   lineRevenue: number
 }
 
@@ -130,8 +131,10 @@ function toLines(orders: Order[], products: Product[]): SalesLine[] {
 
     for (const line of o.lines) {
       const prod = names.get(line.id_product)
-      const qty = line.quantity || 0
-      const rev = Math.round(qty * (line.unit_price || 0) * 100) / 100
+      const kg = line.weight || 0
+      const rev = prod
+        ? lineTotal(prod, kg, line.price_per_kg || 0)
+        : Math.round(kg * (line.price_per_kg || 0) * 100) / 100
       lines.push({
         orderId: o.id,
         at,
@@ -141,7 +144,7 @@ function toLines(orders: Order[], products: Product[]): SalesLine[] {
         idProduct: line.id_product,
         productName: prod?.name ?? `Producto #${line.id_product}`,
         category: prod?.category ?? null,
-        quantity: qty,
+        total_kg: kg,
         lineRevenue: rev,
       })
     }
@@ -169,12 +172,12 @@ function buildSummary(allLines: SalesLine[], filters: SalesFilters): SalesSummar
   const prevOrders = new Set(previous.map((l) => l.orderId)).size
   const curRevenue = Math.round(current.reduce((s, l) => s + l.lineRevenue, 0) * 100) / 100
   const prevRevenue = Math.round(previous.reduce((s, l) => s + l.lineRevenue, 0) * 100) / 100
-  const curQty = current.reduce((s, l) => s + l.quantity, 0)
+  const curKg = Math.round(current.reduce((s, l) => s + l.total_kg, 0) * 1000) / 1000
 
   return {
     orders: curOrders,
     revenue: curRevenue,
-    quantity: curQty,
+    total_kg: curKg,
     avg_ticket: curOrders ? Math.round((curRevenue / curOrders) * 100) / 100 : 0,
     previous_orders: prevOrders,
     previous_revenue: prevRevenue,
@@ -183,14 +186,14 @@ function buildSummary(allLines: SalesLine[], filters: SalesFilters): SalesSummar
 
 function buildTimeSeries(allLines: SalesLine[], filters: SalesFilters): SalesTimePoint[] {
   const filtered = filterLines(allLines, filters)
-  const buckets = new Map<string, { period: string; orderIds: Set<number>; revenue: number; quantity: number }>()
+  const buckets = new Map<string, { period: string; orderIds: Set<number>; revenue: number; total_kg: number }>()
 
   let cur = parseIsoDate(filters.dateFrom)
   const end = parseIsoDate(filters.dateTo)
   while (cur <= end) {
     const key = bucketKey(cur, filters.granularity)
     if (!buckets.has(key)) {
-      buckets.set(key, { period: key, orderIds: new Set(), revenue: 0, quantity: 0 })
+      buckets.set(key, { period: key, orderIds: new Set(), revenue: 0, total_kg: 0 })
     }
     cur = advanceCursor(cur, filters.granularity)
   }
@@ -198,12 +201,12 @@ function buildTimeSeries(allLines: SalesLine[], filters: SalesFilters): SalesTim
   for (const line of filtered) {
     const key = bucketKey(line.at, filters.granularity)
     if (!buckets.has(key)) {
-      buckets.set(key, { period: key, orderIds: new Set(), revenue: 0, quantity: 0 })
+      buckets.set(key, { period: key, orderIds: new Set(), revenue: 0, total_kg: 0 })
     }
     const b = buckets.get(key)!
     b.orderIds.add(line.orderId)
     b.revenue += line.lineRevenue
-    b.quantity += line.quantity
+    b.total_kg += line.total_kg
   }
 
   return [...buckets.entries()]
@@ -212,7 +215,7 @@ function buildTimeSeries(allLines: SalesLine[], filters: SalesFilters): SalesTim
       period: b.period,
       orders: b.orderIds.size,
       revenue: Math.round(b.revenue * 100) / 100,
-      quantity: b.quantity,
+      total_kg: Math.round(b.total_kg * 1000) / 1000,
     }))
 }
 
@@ -225,12 +228,12 @@ function buildByProduct(allLines: SalesLine[], filters: SalesFilters): SalesByPr
       id_product: line.idProduct,
       name: line.productName,
       category: line.category,
-      quantity: 0,
+      total_kg: 0,
       revenue: 0,
       orders: 0,
       orderIds: new Set<number>(),
     }
-    cur.quantity += line.quantity
+    cur.total_kg = Math.round((cur.total_kg + line.total_kg) * 1000) / 1000
     cur.revenue = Math.round((cur.revenue + line.lineRevenue) * 100) / 100
     cur.orderIds.add(line.orderId)
     byId.set(line.idProduct, cur)
@@ -238,7 +241,7 @@ function buildByProduct(allLines: SalesLine[], filters: SalesFilters): SalesByPr
 
   return [...byId.values()]
     .map(({ orderIds, ...row }) => ({ ...row, orders: orderIds.size }))
-    .sort((a, b) => b.quantity - a.quantity || b.revenue - a.revenue)
+    .sort((a, b) => b.total_kg - a.total_kg || b.revenue - a.revenue)
 }
 
 function buildByCategory(allLines: SalesLine[], filters: SalesFilters): SalesByCategory[] {
@@ -249,12 +252,12 @@ function buildByCategory(allLines: SalesLine[], filters: SalesFilters): SalesByC
     const cat = (line.category || 'Sin categoría').trim() || 'Sin categoría'
     const cur = byCat.get(cat) ?? {
       category: cat,
-      quantity: 0,
+      total_kg: 0,
       revenue: 0,
       orders: 0,
       orderIds: new Set<number>(),
     }
-    cur.quantity += line.quantity
+    cur.total_kg = Math.round((cur.total_kg + line.total_kg) * 1000) / 1000
     cur.revenue = Math.round((cur.revenue + line.lineRevenue) * 100) / 100
     cur.orderIds.add(line.orderId)
     byCat.set(cat, cur)
@@ -272,12 +275,12 @@ function buildByCustomer(allLines: SalesLine[], filters: SalesFilters): SalesByC
   for (const line of filtered) {
     const cur = byKey.get(line.customerKey) ?? {
       label: line.customerLabel,
-      quantity: 0,
+      total_kg: 0,
       revenue: 0,
       orders: 0,
       orderIds: new Set<number>(),
     }
-    cur.quantity += line.quantity
+    cur.total_kg = Math.round((cur.total_kg + line.total_kg) * 1000) / 1000
     cur.revenue = Math.round((cur.revenue + line.lineRevenue) * 100) / 100
     cur.orderIds.add(line.orderId)
     byKey.set(line.customerKey, cur)
@@ -296,8 +299,8 @@ function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): S
       id_product: number
       name: string
       category: string | null
-      total_quantity: number
-      customers: Map<string, { label: string; quantity: number }>
+      total_kg: number
+      customers: Map<string, { label: string; total_kg: number }>
     }
   >()
 
@@ -306,12 +309,12 @@ function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): S
       id_product: line.idProduct,
       name: line.productName,
       category: line.category,
-      total_quantity: 0,
+      total_kg: 0,
       customers: new Map(),
     }
-    cur.total_quantity += line.quantity
-    const cell = cur.customers.get(line.customerKey) ?? { label: line.customerLabel, quantity: 0 }
-    cell.quantity += line.quantity
+    cur.total_kg = Math.round((cur.total_kg + line.total_kg) * 1000) / 1000
+    const cell = cur.customers.get(line.customerKey) ?? { label: line.customerLabel, total_kg: 0 }
+    cell.total_kg = Math.round((cell.total_kg + line.total_kg) * 1000) / 1000
     cur.customers.set(line.customerKey, cell)
     byProduct.set(line.idProduct, cur)
   }
@@ -321,10 +324,10 @@ function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): S
       id_product: row.id_product,
       name: row.name,
       category: row.category,
-      total_quantity: row.total_quantity,
-      customers: [...row.customers.values()].sort((a, b) => b.quantity - a.quantity),
+      total_kg: row.total_kg,
+      customers: [...row.customers.values()].sort((a, b) => b.total_kg - a.total_kg),
     }))
-    .sort((a, b) => b.total_quantity - a.total_quantity)
+    .sort((a, b) => b.total_kg - a.total_kg)
 }
 
 export function aggregateSalesStatsFromLocal(

@@ -29,7 +29,7 @@ export function SalesMatrixTable({ rows }: Props) {
     )
   }
 
-  const grandTotal = rows.reduce((s, r) => s + r.total_quantity, 0)
+  const grandTotal = rows.reduce((s, r) => s + r.total_kg, 0)
 
   return (
     <Card className="card-lepra border-0 shadow-sm">
@@ -37,7 +37,7 @@ export function SalesMatrixTable({ rows }: Props) {
         <div className="p-3 pb-0">
           <Card.Title className="h6 mb-1">Caudal por producto y cliente</Card.Title>
           <Card.Text className="text-muted small mb-0">
-            Cantidades vendidas por producto y cliente (estilo caudal de ventas)
+            Kg vendidos por producto y cliente (estilo caudal de ventas)
           </Card.Text>
         </div>
         <div className="table-responsive estadisticas-matrix-scroll">
@@ -50,12 +50,12 @@ export function SalesMatrixTable({ rows }: Props) {
                     {label}
                   </th>
                 ))}
-                <th className="text-end fw-bold">Total</th>
+                <th className="text-end fw-bold">Total kg</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => {
-                const byLabel = new Map(row.customers.map((c) => [c.label, c.quantity]))
+                const byLabel = new Map(row.customers.map((c) => [c.label, c.total_kg]))
                 return (
                   <tr key={row.id_product}>
                     <td className="estadisticas-matrix-sticky-col text-nowrap">{row.name}</td>
@@ -64,7 +64,7 @@ export function SalesMatrixTable({ rows }: Props) {
                         {byLabel.get(label) ?? ''}
                       </td>
                     ))}
-                    <td className="text-end fw-semibold">{row.total_quantity}</td>
+                    <td className="text-end fw-semibold">{row.total_kg}</td>
                   </tr>
                 )
               })}
@@ -75,7 +75,7 @@ export function SalesMatrixTable({ rows }: Props) {
                 {customerLabels.map((label) => {
                   const colTotal = rows.reduce((s, row) => {
                     const cell = row.customers.find((c) => c.label === label)
-                    return s + (cell?.quantity ?? 0)
+                    return s + (cell?.total_kg ?? 0)
                   }, 0)
                   return (
                     <td key={label} className="text-end fw-semibold">
@@ -98,7 +98,7 @@ type ProductTableProps = {
     id_product: number
     name: string
     category: string | null
-    quantity: number
+    total_kg: number
     revenue: number
     orders: number
   }[]
@@ -121,7 +121,7 @@ export function SalesProductTable({ rows }: ProductTableProps) {
               <tr>
                 <th>Producto</th>
                 <th>Categoría</th>
-                <th className="text-end">Cantidad</th>
+                <th className="text-end">Kg</th>
                 <th className="text-end">Facturación</th>
                 <th className="text-end">Pedidos</th>
               </tr>
@@ -131,7 +131,7 @@ export function SalesProductTable({ rows }: ProductTableProps) {
                 <tr key={row.id_product}>
                   <td>{row.name}</td>
                   <td>{row.category || '-'}</td>
-                  <td className="text-end">{row.quantity}</td>
+                  <td className="text-end">{row.total_kg}</td>
                   <td className="text-end">{formatMoneyWithSymbol(row.revenue)}</td>
                   <td className="text-end">{row.orders}</td>
                 </tr>

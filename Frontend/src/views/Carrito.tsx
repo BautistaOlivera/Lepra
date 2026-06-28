@@ -7,6 +7,12 @@ import { createColumnHelper } from '@tanstack/react-table'
 import { useCart } from '@/context/CartContext'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { parseWeightInput } from '@/lib/formatWeight'
+import {
+  isFixedWeightProduct,
+  lineTotal,
+  lineUnitPrice,
+  validateLineWeightKg,
+} from '@/lib/pricing'
 import { createOrderClient, createOrder } from '@/api/order'
 import { Product } from '@/types'
 import { ProductImage } from '@/components/ProductImage'
@@ -14,37 +20,47 @@ import toast from 'react-hot-toast'
 import { DataTable } from '@/components/DataTable'
 import { QuantityStepper } from '@/components/QuantityStepper'
 
-function getUnitPrice(product: Product, quantity: number): number {
-  if (!product.has_tiered_pricing || !product.price_tiers?.length) return product.price
-  const sorted = [...(product.price_tiers || [])].sort((a, b) => b.min_quantity - a.min_quantity)
-  for (const t of sorted) {
-    if (quantity >= t.min_quantity) return t.unit_price
-  }
-  return product.price
+type CartRow = ReturnType<typeof useCart>['items'][0] & {
+  unitPrice: number
+  subtotal: number
+  pieces: number
 }
-
-type CartRow = ReturnType<typeof useCart>['items'][0] & { unitPrice: number; subtotal: number }
 
 const cartPageClass = 'cart-page px-3 px-sm-4 py-3 py-sm-4 pb-4 pb-sm-5'
 
+function piecesForLine(product: Product, weightKg: number): number {
+  if (!isFixedWeightProduct(product)) return 0
+  const piece = product.weight
+  if (!piece) return 1
+  return Math.max(1, Math.round(weightKg / piece))
+}
+
 export function Carrito() {
-  const { items, updateQuantity, updateLineWeight, removeItem, clearCart } = useCart()
+  const { items, updateWeight, adjustPieces, removeItem, clearCart } = useCart()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
 
   const totals: CartRow[] = items.map((i) => {
-    const unitPrice = getUnitPrice(i.product, i.quantity)
-    return { ...i, unitPrice, subtotal: i.quantity * unitPrice }
+    const unitPrice = lineUnitPrice(i.product, i.weight)
+    return {
+      ...i,
+      unitPrice,
+      subtotal: lineTotal(i.product, i.weight, unitPrice),
+      pieces: piecesForLine(i.product, i.weight),
+    }
   })
   const total = totals.reduce((s, t) => s + t.subtotal, 0)
 
-  function handleLineWeightChange(id_product: number, raw: string) {
-    if (!raw.trim()) {
-      updateLineWeight(id_product, null)
+  function handleLineWeightChange(id_product: number, product: Product, raw: string) {
+    const parsed = parseWeightInput(raw)
+    if (!parsed.ok) return
+    if (parsed.value == null) return
+    const valid = validateLineWeightKg(product, parsed.value)
+    if (!valid.ok) {
+      toast.error(valid.message)
       return
     }
-    const parsed = parseWeightInput(raw)
-    if (parsed.ok) updateLineWeight(id_product, parsed.value)
+    updateWeight(id_product, parsed.value)
   }
 
   const columnHelper = createColumnHelper<CartRow>()
@@ -69,34 +85,43 @@ export function Carrito() {
     }),
     columnHelper.display({
       id: 'weight',
-      header: 'Peso (kg)',
-      cell: ({ row }) => (
-        <Form.Control
-          type="number"
-          step="0.001"
-          min="0"
-          size="sm"
-          value={row.original.weight != null ? String(row.original.weight) : ''}
-          onChange={(e) => handleLineWeightChange(row.original.id_product, e.target.value)}
-          placeholder="—"
-          aria-label={`Peso de ${row.original.product.name}`}
-        />
-      ),
+      header: 'Cant. / kg',
+      cell: ({ row }) => {
+        const { product, id_product, weight, pieces } = row.original
+        if (isFixedWeightProduct(product)) {
+          return (
+            <QuantityStepper
+              value={pieces}
+              onChange={(p) => adjustPieces(id_product, p - pieces)}
+              ariaLabel={`Piezas de ${product.name}`}
+            />
+          )
+        }
+        return (
+          <Form.Control
+            type="number"
+            step="0.001"
+            min="0"
+            size="sm"
+            className="input-kg"
+            value={String(weight)}
+            onChange={(e) => handleLineWeightChange(id_product, product, e.target.value)}
+            aria-label={`Peso de ${product.name}`}
+          />
+        )
+      },
     }),
     columnHelper.display({
-      id: 'quantity',
-      header: 'Cantidad',
+      id: 'unitPrice',
+      header: 'Precio',
       cell: ({ row }) => (
-        <QuantityStepper
-          value={row.original.quantity}
-          onChange={(q) => updateQuantity(row.original.id_product, q)}
-          ariaLabel={`Cantidad de ${row.original.product.name}`}
-        />
+        <span>
+          {formatMoneyWithSymbol(row.original.unitPrice)}
+          {!isFixedWeightProduct(row.original.product) && (
+            <span className="text-muted small">/kg</span>
+          )}
+        </span>
       ),
-    }),
-    columnHelper.accessor('unitPrice', {
-      header: 'Precio u.',
-      cell: (info) => formatMoneyWithSymbol(info.getValue()),
     }),
     columnHelper.accessor('subtotal', {
       header: 'Subtotal',
@@ -129,28 +154,28 @@ export function Carrito() {
       toast.error('El carrito está vacío')
       return
     }
+
+    for (const t of totals) {
+      const valid = validateLineWeightKg(t.product, t.weight)
+      if (!valid.ok) {
+        toast.error(`${t.product.name}: ${valid.message}`)
+        return
+      }
+    }
+
     const userStr = localStorage.getItem('lepra_user')
     const user = userStr ? JSON.parse(userStr) : null
     const isAdmin = user?.rol === 'ADMIN'
 
     setLoading(true)
+    const linePayload = totals.map((t) => ({
+      id_product: t.id_product,
+      weight: t.weight,
+      ...(isAdmin ? { price_per_kg: t.unitPrice } : {}),
+    }))
     const { error } = isAdmin
-      ? await createOrder({
-          id_user: user.id,
-          lines: totals.map((t) => ({
-            id_product: t.id_product,
-            quantity: t.quantity,
-            unit_price: t.unitPrice,
-            ...(t.weight != null ? { weight: t.weight } : {}),
-          })),
-        })
-      : await createOrderClient({
-          lines: totals.map((t) => ({
-            id_product: t.id_product,
-            quantity: t.quantity,
-            ...(t.weight != null ? { weight: t.weight } : {}),
-          })),
-        })
+      ? await createOrder({ id_user: user.id, lines: linePayload })
+      : await createOrderClient({ lines: linePayload.map(({ id_product, weight }) => ({ id_product, weight })) })
     setLoading(false)
     if (error) {
       toast.error(error.message || 'Error al crear el pedido')
@@ -205,21 +230,32 @@ export function Carrito() {
                       {row.product.name}
                     </Link>
                     <div className="d-flex align-items-center gap-2 mt-2">
-                      <span className="small text-muted flex-shrink-0">Peso (kg)</span>
-                      <Form.Control
-                        type="number"
-                        step="0.001"
-                        min="0"
-                        size="sm"
-                        className="cart-item-weight-input"
-                        value={row.weight != null ? String(row.weight) : ''}
-                        onChange={(e) => handleLineWeightChange(row.id_product, e.target.value)}
-                        placeholder="—"
-                        aria-label={`Peso de ${row.product.name}`}
-                      />
+                      <span className="small text-muted flex-shrink-0">
+                        {isFixedWeightProduct(row.product) ? 'Piezas' : 'Peso (kg)'}
+                      </span>
+                      {isFixedWeightProduct(row.product) ? (
+                        <QuantityStepper
+                          value={row.pieces}
+                          onChange={(p) => adjustPieces(row.id_product, p - row.pieces)}
+                          ariaLabel={`Piezas de ${row.product.name}`}
+                          className="cart-item-stepper"
+                        />
+                      ) : (
+                        <Form.Control
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          size="sm"
+                          className="cart-item-weight-input input-kg"
+                          value={String(row.weight)}
+                          onChange={(e) => handleLineWeightChange(row.id_product, row.product, e.target.value)}
+                          aria-label={`Peso de ${row.product.name}`}
+                        />
+                      )}
                     </div>
                     <p className="small text-muted mb-0 mt-2">
-                      {formatMoneyWithSymbol(row.unitPrice)} c/u
+                      {formatMoneyWithSymbol(row.unitPrice)}
+                      {!isFixedWeightProduct(row.product) ? '/kg' : ' c/u'}
                     </p>
                   </div>
                   <Button
@@ -233,13 +269,7 @@ export function Carrito() {
                   </Button>
                 </div>
 
-                <div className="d-flex justify-content-between align-items-center mt-3 gap-2 flex-wrap">
-                  <QuantityStepper
-                    value={row.quantity}
-                    onChange={(q) => updateQuantity(row.id_product, q)}
-                    ariaLabel={`Cantidad de ${row.product.name}`}
-                    className="cart-item-stepper"
-                  />
+                <div className="d-flex justify-content-end align-items-center mt-3 gap-2 flex-wrap">
                   <span className="cart-item-subtotal fw-bold text-dark">
                     {formatMoneyWithSymbol(row.subtotal)}
                   </span>

@@ -50,6 +50,17 @@
   box-shadow: 0 0 0 0.2rem rgba(230, 184, 0, 0.4);
 }
 
+/* Peso en kg: sin flechas del input number (el step 0.001 es poco intuitivo). */
+.form-control.input-kg {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.form-control.input-kg::-webkit-outer-spin-button,
+.form-control.input-kg::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 * {
   --bs-body-color: var(--lepra-black);
 }

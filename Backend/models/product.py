@@ -15,6 +15,7 @@ class Product(Base):
     name = Column(String, nullable=False)
     price = Column(Float, nullable=False)
     weight = Column(Float, nullable=True)
+    fixed_weight = Column(Boolean, default=False, nullable=False)
     brand = Column(String, nullable=True)
     category = Column(String, nullable=True)
     has_tiered_pricing = Column(Boolean, default=False)
@@ -30,6 +31,7 @@ class ProductBase(BaseModel):
     name: str
     price: float
     weight: Optional[float] = None
+    fixed_weight: bool = False
     brand: Optional[str] = None
     category: Optional[str] = None
     has_tiered_pricing: bool = False
@@ -48,6 +50,7 @@ class InputProduct(BaseModel):
     name: str
     price: float
     weight: Optional[float] = None
+    fixed_weight: bool = False
     brand: Optional[str] = None
     category: Optional[str] = None
     has_tiered_pricing: bool = False
@@ -59,6 +62,7 @@ class InputProductUpdate(BaseModel):
     name: Optional[str] = None
     price: Optional[float] = None
     weight: Optional[float] = None
+    fixed_weight: Optional[bool] = None
     brand: Optional[str] = None
     category: Optional[str] = None
     has_tiered_pricing: Optional[bool] = None

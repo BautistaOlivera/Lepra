@@ -10,7 +10,7 @@ describe('mergeProductForCache', () => {
       price: 10,
       has_tiered_pricing: true,
       active: true,
-      price_tiers: [{ id: 1, min_quantity: 5, unit_price: 9 }],
+      price_tiers: [{ id: 1, min_kg: 5, price_per_kg: 9 }],
     }
     const incoming: Product = {
       id: 1,
@@ -31,7 +31,7 @@ describe('mergeProductForCache', () => {
       price: 10,
       has_tiered_pricing: true,
       active: true,
-      price_tiers: [{ id: 1, min_quantity: 5, unit_price: 9 }],
+      price_tiers: [{ id: 1, min_kg: 5, price_per_kg: 9 }],
     }
     const incoming: Product = {
       id: 1,
@@ -48,13 +48,13 @@ describe('mergeProductForCache', () => {
 
 describe('applyTierDiffToLocal', () => {
   it('applies create update delete', () => {
-    const initial = [{ id: 1, min_quantity: 5, unit_price: 9 }]
+    const initial = [{ id: 1, min_kg: 5, price_per_kg: 9 }]
     const next = applyTierDiffToLocal(initial, {
-      update: [{ id: 1, min_quantity: 5, unit_price: 8.5 }],
-      create: [{ min_quantity: 10, unit_price: 8 }],
+      update: [{ id: 1, min_kg: 5, price_per_kg: 8.5 }],
+      create: [{ min_kg: 10, price_per_kg: 8 }],
       delete: [],
     })
-    expect(next.find((t) => t.min_quantity === 5)?.unit_price).toBe(8.5)
-    expect(next.some((t) => t.min_quantity === 10)).toBe(true)
+    expect(next.find((t) => t.min_kg === 5)?.price_per_kg).toBe(8.5)
+    expect(next.some((t) => t.min_kg === 10)).toBe(true)
   })
 })

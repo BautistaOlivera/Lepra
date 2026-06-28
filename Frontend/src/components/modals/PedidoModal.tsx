@@ -17,6 +17,16 @@ import { nextTempId } from '@/offline/ids'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { formatWeight, hasWeight, parseWeightInput } from '@/lib/formatWeight'
 import { buildQuickClientEmail, buildQuickClientPassword, findUserByClientQuery } from '@/lib/quickClient'
+import {
+  defaultLineWeightKg,
+  isFixedWeightProduct,
+  lineTotal,
+  lineUnitPrice,
+  minKgFromPieces,
+  pieceWeightKg,
+  validateLineWeightKg,
+} from '@/lib/pricing'
+import { QuantityStepper } from '@/components/QuantityStepper'
 
 type SubmitPhase = 'idle' | 'client' | 'order'
 
@@ -36,22 +46,30 @@ interface PedidoModalProps {
   onClose: (refresh?: boolean) => void
 }
 
-function getUnitPrice(product: Product, quantity: number): number {
-  if (!product.has_tiered_pricing || !product.price_tiers?.length) return product.price
-  const sorted = [...product.price_tiers].sort((a, b) => b.min_quantity - a.min_quantity)
-  for (const t of sorted) {
-    if (quantity >= t.min_quantity) return t.unit_price
-  }
-  return product.price
+type PedidoLine = {
+  id_product: number
+  weight: string
+  price_per_kg: number
+  product?: Product
+}
+
+function lineWeightKg(line: PedidoLine): number {
+  const parsed = parseWeightInput(line.weight)
+  return parsed.ok && parsed.value != null ? parsed.value : 0
+}
+
+function linePieces(line: PedidoLine): number {
+  const piece = line.product ? pieceWeightKg(line.product) : null
+  if (!piece) return 1
+  const w = lineWeightKg(line)
+  return Math.max(1, Math.round(w / piece))
 }
 
 export function PedidoModal({ show, onClose }: PedidoModalProps) {
   const [users, setUsers] = useState<User[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [clientValue, setClientValue] = useState<ClientePedidoValue | null>(null)
-  const [lines, setLines] = useState<
-    { id_product: number; quantity: number; unit_price: number; weight: string; product?: Product }[]
-  >([])
+  const [lines, setLines] = useState<PedidoLine[]>([])
 
   const validLines = lines.filter((l) => l.id_product !== 0)
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle')
@@ -80,41 +98,48 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       .finally(() => setLoadingData(false))
   }, [show])
 
+  function recalcPrice(line: PedidoLine): void {
+    if (!line.product) return
+    const w = lineWeightKg(line)
+    line.price_per_kg = lineUnitPrice(line.product, w)
+  }
+
   function addLine() {
     if (products.length === 0) {
       toast.error('No hay productos cargados')
       return
     }
-    setLines([...lines, { id_product: 0, quantity: 1, unit_price: 0, weight: '' }])
+    setLines([...lines, { id_product: 0, weight: '', price_per_kg: 0 }])
   }
 
-  function updateLine(
-    index: number,
-    field: 'id_product' | 'quantity' | 'weight',
-    value: number | string | null,
-  ) {
+  function updateLine(index: number, field: 'id_product' | 'weight' | 'pieces', value: number | string | null) {
     const newLines = [...lines]
     const line = newLines[index]
     if (field === 'id_product') {
       if (value == null || value === 0) {
         line.id_product = 0
-        line.unit_price = 0
+        line.price_per_kg = 0
         line.product = undefined
         line.weight = ''
       } else {
         const product = products.find((x) => x.id === value)
         if (product) {
           line.id_product = product.id
-          line.unit_price = getUnitPrice(product, line.quantity)
           line.product = product
-          line.weight = hasWeight(product.weight) ? String(product.weight) : ''
+          const defaultW = defaultLineWeightKg(product)
+          line.weight = String(defaultW)
+          line.price_per_kg = lineUnitPrice(product, defaultW)
         }
       }
-    } else if (field === 'quantity' && typeof value === 'number') {
-      line.quantity = Math.max(1, value)
-      if (line.product) line.unit_price = getUnitPrice(line.product, line.quantity)
     } else if (field === 'weight' && typeof value === 'string') {
       line.weight = value
+      recalcPrice(line)
+    } else if (field === 'pieces' && typeof value === 'number' && line.product) {
+      const piece = pieceWeightKg(line.product)
+      if (piece) {
+        line.weight = String(minKgFromPieces(Math.max(1, value), piece))
+        recalcPrice(line)
+      }
     }
     setLines(newLines)
   }
@@ -123,7 +148,10 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     setLines(lines.filter((_, i) => i !== index))
   }
 
-  const total = validLines.reduce((s, l) => s + l.quantity * l.unit_price, 0)
+  const total = validLines.reduce(
+    (s, l) => s + (l.product ? lineTotal(l.product, lineWeightKg(l), l.price_per_kg) : 0),
+    0,
+  )
 
   const userOptions: SelectOption<number>[] = users.map((u) => ({
     value: u.id,
@@ -171,18 +199,28 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       return
     }
 
-    const parsedLines: { id_product: number; quantity: number; unit_price: number; weight?: number }[] = []
+    const parsedLines: { id_product: number; weight: number; price_per_kg: number }[] = []
     for (const l of validLines) {
       const w = parseWeightInput(l.weight)
       if (!w.ok) {
         toast.error(w.message)
         return
       }
+      if (w.value == null) {
+        toast.error('Indicá el peso en kg')
+        return
+      }
+      if (l.product) {
+        const valid = validateLineWeightKg(l.product, w.value)
+        if (!valid.ok) {
+          toast.error(`${l.product.name}: ${valid.message}`)
+          return
+        }
+      }
       parsedLines.push({
         id_product: l.id_product,
-        quantity: l.quantity,
-        unit_price: l.unit_price,
-        ...(w.value != null ? { weight: w.value } : {}),
+        weight: w.value,
+        price_per_kg: lineUnitPrice(l.product!, w.value),
       })
     }
 
@@ -238,7 +276,6 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       }
 
       const linePayload = parsedLines
-
       const body = { id_user: idUser!, lines: linePayload }
 
       if (!isOnlineNow()) {
@@ -327,25 +364,29 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
           <div className="table-lepra-wrap mb-4">
           <Table size="sm" className="table-lepra pedido-lines-table mb-0" style={{ tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: '34%' }} />
-              <col style={{ width: '10%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '14%' }} />
-              <col style={{ width: '14%' }} />
+              <col style={{ width: '36%' }} />
+              <col style={{ width: '18%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '16%' }} />
               <col style={{ width: '5%' }} />
             </colgroup>
             <thead className="table-dark">
               <tr>
                 <th>Producto</th>
-                <th className="text-center">Cant.</th>
-                <th className="text-center">Peso (kg)</th>
-                <th className="text-end">Precio u.</th>
+                <th className="text-center">Cant. / kg</th>
+                <th className="text-end">Precio</th>
                 <th className="text-end">Subtotal</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {lines.map((l, i) => (
+              {lines.map((l, i) => {
+                const w = lineWeightKg(l)
+                const sub = l.product
+                  ? lineTotal(l.product, w, l.price_per_kg)
+                  : 0
+                const fixed = l.product ? isFixedWeightProduct(l.product) : false
+                return (
                 <tr key={i}>
                   <td className="align-middle">
                     <Select<number>
@@ -358,38 +399,42 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                     />
                   </td>
                   <td className="align-middle text-center">
-                    <Form.Control
-                      type="number"
-                      min={1}
-                      size="sm"
-                      className="w-100"
-                      style={{ minHeight: 31 }}
-                      value={l.quantity}
-                      onChange={(e) => updateLine(i, 'quantity', parseInt(e.target.value) || 1)}
-                    />
+                    {fixed ? (
+                      <QuantityStepper
+                        value={linePieces(l)}
+                        onChange={(p) => updateLine(i, 'pieces', p)}
+                        ariaLabel="Piezas"
+                      />
+                    ) : (
+                      <div className="d-inline-flex align-items-center gap-1">
+                        <Form.Control
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          size="sm"
+                          className="input-kg"
+                          style={{ minHeight: 31, width: '4.25rem' }}
+                          value={l.weight}
+                          onChange={(e) => updateLine(i, 'weight', e.target.value)}
+                          placeholder="—"
+                          aria-label="Peso en kg"
+                        />
+                        <span className="text-muted small user-select-none">kg</span>
+                      </div>
+                    )}
                   </td>
-                  <td className="align-middle">
-                    <Form.Control
-                      type="number"
-                      step="0.001"
-                      min="0"
-                      size="sm"
-                      className="w-100"
-                      style={{ minHeight: 31 }}
-                      value={l.weight}
-                      onChange={(e) => updateLine(i, 'weight', e.target.value)}
-                      placeholder="—"
-                    />
+                  <td className="text-end align-middle">
+                    {formatMoneyWithSymbol(l.price_per_kg)}
+                    {!fixed && <span className="text-muted small">/kg</span>}
                   </td>
-                  <td className="text-end align-middle">{formatMoneyWithSymbol(l.unit_price)}</td>
-                  <td className="text-end align-middle">{formatMoneyWithSymbol(l.quantity * l.unit_price)}</td>
+                  <td className="text-end align-middle">{formatMoneyWithSymbol(sub)}</td>
                   <td className="align-middle">
                     <Button variant="link" size="sm" className="text-danger p-0" onClick={() => removeLine(i)}>
                       ✕
                     </Button>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </Table>
           </div>

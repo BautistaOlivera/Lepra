@@ -125,8 +125,8 @@ export function EstadisticasCharts({ stats }: Props) {
         <Col sm={6} xl={3}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
-              <Card.Text className="text-muted small mb-1">Unidades vendidas</Card.Text>
-              <Card.Title className="mb-0 h3">{summary.quantity}</Card.Title>
+              <Card.Text className="text-muted small mb-1">Kg vendidos</Card.Text>
+              <Card.Title className="mb-0 h3">{summary.total_kg}</Card.Title>
             </Card.Body>
           </Card>
         </Col>
@@ -256,8 +256,8 @@ export function EstadisticasCharts({ stats }: Props) {
                         width={140}
                         tick={{ fill: CHART.black, fontSize: 12 }}
                       />
-                      <Tooltip formatter={(value) => [`${value ?? 0} u.`, 'Cantidad']} />
-                      <Bar dataKey="quantity" name="Cantidad" fill={CHART.yellow} radius={[0, 4, 4, 0]} />
+                      <Tooltip formatter={(value) => [`${value ?? 0} kg`, 'Peso']} />
+                      <Bar dataKey="total_kg" name="Peso (kg)" fill={CHART.yellow} radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

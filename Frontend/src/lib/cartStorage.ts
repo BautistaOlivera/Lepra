@@ -2,7 +2,7 @@ import type { Product } from '@/types'
 
 export interface StoredCartItem {
   id_product: number
-  quantity: number
+  weight: number
   product: Product
 }
 
@@ -19,8 +19,8 @@ function isStoredCartItem(value: unknown): value is StoredCartItem {
   const row = value as StoredCartItem
   return (
     typeof row.id_product === 'number' &&
-    typeof row.quantity === 'number' &&
-    row.quantity >= 1 &&
+    typeof row.weight === 'number' &&
+    row.weight > 0 &&
     isProduct(row.product) &&
     row.product.id === row.id_product
   )

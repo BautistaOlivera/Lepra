@@ -174,22 +174,22 @@ def seed_orders(
     for batch_start in range(0, count, batch_size):
         batch_count = min(batch_size, count - batch_start)
         orders: list[Order] = []
-        lines_per_order: list[list[tuple[int, int, float]]] = []
+        lines_per_order: list[list[tuple[int, float, float]]] = []
 
         for _ in range(batch_count):
             id_user = random.choice(user_ids)
             days_ago = random.randint(0, 730)
             order_date = today - timedelta(days=days_ago)
-            lines: list[tuple[int, int, float]] = []
+            lines: list[tuple[int, float, float]] = []
             total = 0.0
             n_lines = random.randint(lines_min, lines_max)
             chosen = random.sample(product_ids, k=min(n_lines, len(product_ids)))
 
             for pid in chosen:
-                qty = random.randint(1, 24)
-                unit_price = price_by_id[pid]
-                lines.append((pid, qty, unit_price))
-                total += qty * unit_price
+                weight_kg = round(random.uniform(0.5, 40.0), 3)
+                price_per_kg = price_by_id[pid]
+                lines.append((pid, weight_kg, price_per_kg))
+                total += round(weight_kg * price_per_kg, 2)
 
             orders.append(
                 Order(
@@ -208,13 +208,13 @@ def seed_orders(
 
         order_products: list[OrderProduct] = []
         for order, lines in zip(orders, lines_per_order):
-            for pid, qty, unit_price in lines:
+            for pid, weight_kg, price_per_kg in lines:
                 order_products.append(
                     OrderProduct(
                         id_order=order.id,
                         id_product=pid,
-                        quantity=qty,
-                        unit_price=unit_price,
+                        weight=weight_kg,
+                        price_per_kg=price_per_kg,
                     )
                 )
 

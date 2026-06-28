@@ -20,7 +20,7 @@ describe('outboxPayloadSummary', () => {
     const row: OutboxRow = {
       id: '1',
       type: 'PRODUCT_CREATE',
-      payload: { data: { name: 'Yogur' }, tiers: [{ min_quantity: 5, unit_price: 9 }] },
+      payload: { data: { name: 'Yogur' }, tiers: [{ min_kg: 5, price_per_kg: 9 }] },
       createdAt: 0,
       status: 'pending',
       retries: 0,

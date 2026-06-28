@@ -51,6 +51,8 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
             productById[id] = {
               name: (p?.name && String(p.name).trim()) || '',
               brand: p?.brand ?? null,
+              fixed_weight: !!p?.fixed_weight,
+              weight: p?.weight ?? null,
             }
           } catch {
             productById[id] = { name: '', brand: null }

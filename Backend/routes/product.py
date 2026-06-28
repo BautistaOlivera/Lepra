@@ -121,13 +121,14 @@ async def get_products_paginated(req: Request, body: InputPaginatedRequestFilter
                 "name": p.name,
                 "price": p.price,
                 "weight": p.weight,
+                "fixed_weight": p.fixed_weight,
                 "brand": p.brand,
                 "category": p.category,
                 "has_tiered_pricing": p.has_tiered_pricing,
                 "img": p.img,
                 "active": p.active,
                 "price_tiers": [
-                    {"id": t.id, "min_quantity": t.min_quantity, "unit_price": t.unit_price}
+                    {"id": t.id, "min_kg": t.min_kg, "price_per_kg": t.price_per_kg}
                     for t in p.price_tiers
                 ],
             })
@@ -158,13 +159,14 @@ async def get_product(req: Request, product_id: int):
                 "name": p.name,
                 "price": p.price,
                 "weight": p.weight,
+                "fixed_weight": p.fixed_weight,
                 "brand": p.brand,
                 "category": p.category,
                 "has_tiered_pricing": p.has_tiered_pricing,
                 "img": p.img,
                 "active": p.active,
                 "price_tiers": [
-                    {"id": t.id, "min_quantity": t.min_quantity, "unit_price": t.unit_price}
+                    {"id": t.id, "min_kg": t.min_kg, "price_per_kg": t.price_per_kg}
                     for t in p.price_tiers
                 ],
             },
@@ -184,6 +186,7 @@ async def create_product(req: Request, body: InputProduct):
                 name=body.name,
                 price=body.price,
                 weight=body.weight,
+                fixed_weight=body.fixed_weight,
                 brand=body.brand,
                 category=body.category,
                 has_tiered_pricing=body.has_tiered_pricing,
@@ -222,6 +225,8 @@ async def update_product(req: Request, body: InputProductUpdate):
                 p.price = body.price
             if body.weight is not None:
                 p.weight = body.weight
+            if body.fixed_weight is not None:
+                p.fixed_weight = body.fixed_weight
             if body.brand is not None:
                 p.brand = body.brand
             if body.category is not None:

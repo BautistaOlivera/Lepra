@@ -88,8 +88,8 @@ async def get_dashboard_stats(req: Request):
                 select(
                     OrderProduct.id_product,
                     Product.name,
-                    OrderProduct.quantity,
-                    (OrderProduct.quantity * OrderProduct.unit_price).label("line_total"),
+                    OrderProduct.weight,
+                    (OrderProduct.weight * OrderProduct.price_per_kg).label("line_total"),
                 )
                 .join(Order, Order.id == OrderProduct.id_order)
                 .join(Product, Product.id == OrderProduct.id_product)
@@ -108,7 +108,7 @@ async def get_dashboard_stats(req: Request):
             {
                 "id_product": r[0],
                 "name": r[1],
-                "quantity": r[2],
+                "quantity": float(r[2] or 0),
                 "revenue": float(r[3] or 0),
             }
             for r in line_rows
@@ -198,8 +198,8 @@ async def get_sales_stats(
                     OrderProduct.id_product,
                     Product.name.label("product_name"),
                     Product.category,
-                    OrderProduct.quantity,
-                    OrderProduct.unit_price,
+                    OrderProduct.weight,
+                    OrderProduct.price_per_kg,
                 )
                 .join(OrderProduct, OrderProduct.id_order == Order.id)
                 .join(Product, Product.id == OrderProduct.id_product)
@@ -223,8 +223,8 @@ async def get_sales_stats(
                 "id_product": r[6],
                 "product_name": r[7],
                 "category": r[8],
-                "quantity": r[9],
-                "unit_price": r[10],
+                "weight": r[9],
+                "price_per_kg": r[10],
             }
             for r in line_rows
         ]

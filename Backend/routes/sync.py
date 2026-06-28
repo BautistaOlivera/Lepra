@@ -84,6 +84,7 @@ async def sync_products(req: Request, since: int | None = None):
                     "name": p.name,
                     "price": p.price,
                     "weight": p.weight,
+                    "fixed_weight": p.fixed_weight,
                     "brand": p.brand,
                     "category": p.category,
                     "has_tiered_pricing": p.has_tiered_pricing,
@@ -93,8 +94,8 @@ async def sync_products(req: Request, since: int | None = None):
                     "price_tiers": [
                         {
                             "id": t.id,
-                            "min_quantity": t.min_quantity,
-                            "unit_price": t.unit_price,
+                            "min_kg": t.min_kg,
+                            "price_per_kg": t.price_per_kg,
                         }
                         for t in p.price_tiers
                     ],
@@ -150,9 +151,8 @@ async def sync_orders(req: Request, since: int | None = None):
                         {
                             "id": op.id,
                             "id_product": op.id_product,
-                            "quantity": op.quantity,
-                            "unit_price": op.unit_price,
                             "weight": op.weight,
+                            "price_per_kg": op.price_per_kg,
                         }
                         for op in o.order_products
                     ],

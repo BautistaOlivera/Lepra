@@ -233,8 +233,8 @@ export function DashboardCharts({ stats }: Props) {
                         width={120}
                         tick={{ fill: CHART.black, fontSize: 12 }}
                       />
-                      <Tooltip formatter={(value) => [`${value ?? 0} u.`, 'Cantidad']} />
-                      <Bar dataKey="quantity" name="Cantidad" fill={CHART.yellow} radius={[0, 4, 4, 0]} />
+                      <Tooltip formatter={(value) => [`${value ?? 0} kg`, 'Peso']} />
+                      <Bar dataKey="total_kg" name="Peso (kg)" fill={CHART.yellow} radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

@@ -16,7 +16,7 @@ export interface DashboardDailyPoint {
 export interface DashboardTopProduct {
   id_product: number
   name: string
-  quantity: number
+  total_kg: number
   revenue: number
 }
 

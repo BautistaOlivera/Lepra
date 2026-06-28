@@ -1,21 +1,32 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Button } from 'react-bootstrap'
+import { Button, Form } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
-import { ArrowLeft, Minus, Plus, ShoppingCart } from 'lucide-react'
+import { ArrowLeft, ShoppingCart } from 'lucide-react'
 import { getProduct } from '@/api/product'
 import { Product } from '@/types'
 import { useCart } from '@/context/CartContext'
 import { ProductImage } from '@/components/ProductImage'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
-import { formatWeight, hasWeight } from '@/lib/formatWeight'
+import { formatWeight, hasWeight, parseWeightInput } from '@/lib/formatWeight'
+import {
+  defaultLineWeightKg,
+  isFixedWeightProduct,
+  minKgFromPieces,
+  pieceWeightKg,
+  tierLabel,
+  validateLineWeightKg,
+} from '@/lib/pricing'
+import { QuantityStepper } from '@/components/QuantityStepper'
+import toast from 'react-hot-toast'
 
 export function ProductoDetalle() {
   const { id } = useParams()
-  const { addItem } = useCart()
+  const { addItem, updateWeight, items } = useCart()
   const [product, setProduct] = useState<Product | undefined>(undefined)
   const [loading, setLoading] = useState(true)
-  const [quantity, setQuantity] = useState(1)
+  const [weightInput, setWeightInput] = useState('')
+  const [pieces, setPieces] = useState(1)
 
   useEffect(() => {
     if (!id) return
@@ -24,6 +35,16 @@ export function ProductoDetalle() {
       setLoading(false)
     })
   }, [id])
+
+  useEffect(() => {
+    if (!product) return
+    const defaultW = defaultLineWeightKg(product)
+    setWeightInput(String(defaultW))
+    const piece = pieceWeightKg(product)
+    if (isFixedWeightProduct(product) && piece) {
+      setPieces(Math.max(1, Math.round(defaultW / piece)))
+    }
+  }, [product])
 
   if (loading) {
     return (
@@ -44,44 +65,51 @@ export function ProductoDetalle() {
     )
   }
 
-  const decrementQuantity = () => setQuantity((q) => Math.max(1, q - 1))
-  const incrementQuantity = () => setQuantity((q) => q + 1)
+  const detailProduct = product
+  const piece = pieceWeightKg(detailProduct)
+  const fixed = isFixedWeightProduct(detailProduct)
+  const inCart = items.find((i) => i.id_product === detailProduct.id)
 
-  const releaseQtyBtn = (btn: HTMLButtonElement) => {
-    window.setTimeout(() => {
-      btn.classList.remove('product-detail-qty-btn--pressed')
-      btn.blur()
-    }, 150)
-  }
-
-  const handleQtyPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
-    if (e.currentTarget.disabled) return
-    e.currentTarget.classList.add('product-detail-qty-btn--pressed')
-  }
-
-  const handleQtyPointerUp = (
-    e: React.PointerEvent<HTMLButtonElement>,
-    action: () => void,
-  ) => {
-    const btn = e.currentTarget
-    if (btn.disabled) return
-    action()
-    releaseQtyBtn(btn)
-  }
-
-  const handleQtyPointerLeave = (e: React.PointerEvent<HTMLButtonElement>) => {
-    releaseQtyBtn(e.currentTarget)
+  function handleAddToCart() {
+    let weightKg: number
+    if (fixed && piece) {
+      weightKg = minKgFromPieces(pieces, piece)
+    } else {
+      const parsed = parseWeightInput(weightInput)
+      if (!parsed.ok) {
+        toast.error(parsed.message)
+        return
+      }
+      if (parsed.value == null) {
+        toast.error('Indicá el peso en kg')
+        return
+      }
+      weightKg = parsed.value
+    }
+    const valid = validateLineWeightKg(detailProduct, weightKg)
+    if (!valid.ok) {
+      toast.error(valid.message)
+      return
+    }
+    if (inCart) {
+      updateWeight(detailProduct.id, weightKg)
+    } else {
+      addItem(detailProduct)
+      updateWeight(detailProduct.id, weightKg)
+    }
+    toast.success(inCart ? 'Carrito actualizado' : 'Agregado al carrito')
   }
 
   const specs: { label: string; value: string }[] = []
   if (product.brand) specs.push({ label: 'Marca', value: product.brand })
   if (product.category) specs.push({ label: 'Categoría', value: product.category })
-  if (hasWeight(product.weight)) specs.push({ label: 'Peso', value: formatWeight(product.weight) })
+  if (hasWeight(product.weight)) specs.push({ label: 'Peso por pieza', value: formatWeight(product.weight) })
+  if (fixed) specs.push({ label: 'Venta', value: 'Por pieza' })
   if (product.has_tiered_pricing) specs.push({ label: 'Precio', value: 'Por volumen' })
 
   const sortedTiers =
     product.has_tiered_pricing && product.price_tiers?.length
-      ? [...product.price_tiers].sort((a, b) => a.min_quantity - b.min_quantity)
+      ? [...product.price_tiers].sort((a, b) => a.min_kg - b.min_kg)
       : []
 
   return (
@@ -112,7 +140,8 @@ export function ProductoDetalle() {
               ) : null}
 
               <p className="product-detail-price fw-bold text-dark mb-0">
-                {formatMoneyWithSymbol(product.price)}
+                {formatMoneyWithSymbol(detailProduct.price)}
+                {fixed ? '' : '/kg'}
               </p>
 
               {sortedTiers.length > 0 ? (
@@ -121,7 +150,8 @@ export function ProductoDetalle() {
                   <ul className="list-unstyled small mb-0 product-detail-tiers-list">
                     {sortedTiers.map((t) => (
                       <li key={t.id}>
-                        Desde {t.min_quantity} u: {formatMoneyWithSymbol(t.unit_price)}/u
+                        Desde {tierLabel(t, piece, fixed)}: {formatMoneyWithSymbol(t.price_per_kg)}
+                        {fixed ? '' : '/kg'}
                       </li>
                     ))}
                   </ul>
@@ -131,42 +161,32 @@ export function ProductoDetalle() {
 
             <div className="product-detail-actions">
               <div className="product-detail-quantity">
-                <span className="product-detail-qty-label">Cantidad</span>
-                <div
-                  className="product-detail-qty-stepper"
-                  role="group"
-                  aria-label="Cantidad del producto"
-                >
-                  <button
-                    type="button"
-                    className="btn btn-outline-dark product-detail-qty-btn"
-                    onPointerDown={handleQtyPointerDown}
-                    onPointerUp={(e) => handleQtyPointerUp(e, decrementQuantity)}
-                    onPointerLeave={handleQtyPointerLeave}
-                    disabled={quantity <= 1}
-                    aria-label="Reducir cantidad"
-                  >
-                    <Minus size={20} aria-hidden />
-                  </button>
-                  <span className="product-detail-qty-value" aria-live="polite" aria-atomic="true">
-                    {quantity}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn btn-outline-dark product-detail-qty-btn"
-                    onPointerDown={handleQtyPointerDown}
-                    onPointerUp={(e) => handleQtyPointerUp(e, incrementQuantity)}
-                    onPointerLeave={handleQtyPointerLeave}
-                    aria-label="Aumentar cantidad"
-                  >
-                    <Plus size={20} aria-hidden />
-                  </button>
-                </div>
+                <span className="product-detail-qty-label">
+                  {fixed ? 'Piezas' : 'Peso (kg)'}
+                </span>
+                {fixed ? (
+                  <QuantityStepper
+                    value={pieces}
+                    onChange={setPieces}
+                    ariaLabel="Piezas del producto"
+                  />
+                ) : (
+                  <Form.Control
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    className="input-kg"
+                    value={weightInput}
+                    onChange={(e) => setWeightInput(e.target.value)}
+                    aria-label="Peso en kg"
+                  />
+                )}
               </div>
 
               <div className="product-detail-buttons">
-                <Button className="btn-lepra w-100" onClick={() => addItem(product, quantity)}>
-                  <ShoppingCart size={18} className="me-1" aria-hidden /> Agregar al carrito
+                <Button className="btn-lepra w-100" onClick={handleAddToCart}>
+                  <ShoppingCart size={18} className="me-1" aria-hidden />
+                  {inCart ? 'Actualizar carrito' : 'Agregar al carrito'}
                 </Button>
                 <Link to="/carrito" className="btn btn-outline-dark w-100">
                   Ver carrito

@@ -12,7 +12,7 @@ export async function getOrder(id: number) {
   return api<Order>(`/order/${id}`)
 }
 
-export async function createOrderClient(data: { date?: string; payment?: string; lines: { id_product: number; quantity: number; weight?: number | null }[] }) {
+export async function createOrderClient(data: { date?: string; payment?: string; lines: { id_product: number; weight: number }[] }) {
   return api<{ message: string; id: number; total: number }>('/order/create-client', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -24,7 +24,7 @@ export async function createOrder(data: {
   customer_name?: string | null
   date?: string
   payment?: string
-  lines: OrderProduct[]
+  lines: { id_product: number; weight: number; price_per_kg?: number }[]
 }) {
   return api<{ message: string; id: number; total: number }>('/order/create-admin', {
     method: 'POST',

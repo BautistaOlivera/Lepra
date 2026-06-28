@@ -178,8 +178,8 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
           for (const row of tiers) {
             const tierRes = await createProductPriceTier({
               id_product: newId,
-              min_quantity: Number(row.min_quantity),
-              unit_price: Number(row.unit_price),
+              min_kg: Number(row.min_kg),
+              price_per_kg: Number(row.price_per_kg),
             })
             if (tierRes.error) {
               return { ok: false, status: tierRes.error.status, message: tierRes.error.message }
@@ -187,8 +187,8 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
             const tierId = Number(tierRes.data?.id)
             created.push({
               id: tierId,
-              min_quantity: Number(row.min_quantity),
-              unit_price: Number(row.unit_price),
+              min_kg: Number(row.min_kg),
+              price_per_kg: Number(row.price_per_kg),
             })
           }
           price_tiers = created

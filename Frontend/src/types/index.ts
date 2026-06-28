@@ -1,8 +1,12 @@
 export interface Product {
   id: number
   name: string
+  /** Precio por kg */
   price: number
+  /** Peso por pieza estándar (kg). Obligatorio si fixed_weight. */
   weight?: number | null
+  /** Si true, se vende solo en múltiplos de weight (no se escribe kg libre). */
+  fixed_weight?: boolean
   brand?: string | null
   category?: string | null
   has_tiered_pricing: boolean
@@ -14,8 +18,8 @@ export interface Product {
 
 export interface PriceTier {
   id: number
-  min_quantity: number
-  unit_price: number
+  min_kg: number
+  price_per_kg: number
 }
 
 export interface User {
@@ -31,9 +35,11 @@ export interface User {
 export interface OrderProduct {
   id?: number
   id_product: number
-  quantity: number
-  unit_price: number
-  weight?: number | null
+  /** Peso total de la línea en kg */
+  weight: number
+  /** Precio unitario: $/kg o $/pieza según el producto */
+  price_per_kg: number
+  sold_by_piece?: boolean
 }
 
 export interface Order {

@@ -25,8 +25,8 @@ async def create_tier(req: Request, body: InputProductPriceTier):
         async with AsyncSessionLocal() as session:
             t = ProductPriceTier(
                 id_product=body.id_product,
-                min_quantity=body.min_quantity,
-                unit_price=body.unit_price,
+                min_kg=body.min_kg,
+                price_per_kg=body.price_per_kg,
             )
             session.add(t)
             await session.commit()
@@ -51,10 +51,10 @@ async def update_tier(req: Request, body: InputProductPriceTierUpdate):
             t = result.scalar_one_or_none()
             if not t:
                 return JSONResponse(status_code=404, content={"message": "Precio por volumen no encontrado"})
-            if body.min_quantity is not None:
-                t.min_quantity = body.min_quantity
-            if body.unit_price is not None:
-                t.unit_price = body.unit_price
+            if body.min_kg is not None:
+                t.min_kg = body.min_kg
+            if body.price_per_kg is not None:
+                t.price_per_kg = body.price_per_kg
             await session.commit()
             return JSONResponse(status_code=200, content={"message": "Precio por volumen actualizado"})
     except Exception as e:

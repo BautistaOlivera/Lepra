@@ -45,6 +45,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   const [weight, setWeight] = useState('')
+  const [fixedWeight, setFixedWeight] = useState(false)
   const [brand, setBrand] = useState('')
   const [category, setCategory] = useState('')
   const [img, setImg] = useState('')
@@ -75,10 +76,23 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
   const isPriceValid = price.trim() !== '' && !isNaN(priceNumPreview) && priceNumPreview >= 0
   const isFormValid = name.trim() !== '' && isPriceValid
 
+  const weightNumPreview = parseWeightInput(weight)
+  const pieceWeightForTiers =
+    weightNumPreview.ok && weightNumPreview.value != null && weightNumPreview.value > 0
+      ? weightNumPreview.value
+      : null
+
+  const tierCtx = { pieceWeightKg: pieceWeightForTiers, fixedWeight }
+
   function resetTierStateFromProduct(product: Product | null) {
     const tiers = product?.price_tiers ?? []
     initialTiersRef.current = snapshotTiers(tiers)
-    setTierRows(tierDraftsFromProduct(tiers))
+    setTierRows(
+      tierDraftsFromProduct(tiers, {
+        pieceWeightKg: product?.weight,
+        fixedWeight: !!product?.fixed_weight,
+      }),
+    )
   }
 
   useEffect(() => {
@@ -86,6 +100,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       setName(editingProduct.name)
       setPrice(String(editingProduct.price))
       setWeight(editingProduct.weight != null ? String(editingProduct.weight) : '')
+      setFixedWeight(!!editingProduct.fixed_weight)
       setBrand(editingProduct.brand || '')
       setCategory(editingProduct.category || '')
       setImg(editingProduct.img || '')
@@ -95,6 +110,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       setName('')
       setPrice('')
       setWeight('')
+      setFixedWeight(false)
       setBrand('')
       setCategory('')
       setImg('')
@@ -113,6 +129,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       editingProduct.name !== name.trim() ||
       editingProduct.price !== priceNum ||
       prevWeight !== weightNum ||
+      !!editingProduct.fixed_weight !== fixedWeight ||
       (editingProduct.brand || '') !== brand ||
       (editingProduct.category || '') !== (category || '') ||
       (editingProduct.img || '') !== img ||
@@ -128,7 +145,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     }
 
     const serverCount = initialTiersRef.current.length
-    const formCount = tierRows.filter((r) => r.min_quantity.trim() || r.unit_price.trim()).length
+    const formCount = tierRows.filter((r) => r.min_kg.trim() || r.price_per_kg.trim()).length
     if (serverCount === 0 && formCount === 0) {
       setHasTieredPricing(false)
       setTierRows([])
@@ -208,7 +225,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     setDisableConfirmChecked(false)
   }
 
-  function updateTierRow(key: string, field: 'min_quantity' | 'unit_price', value: string) {
+  function updateTierRow(key: string, field: 'min_kg' | 'price_per_kg', value: string) {
     setTierRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)))
   }
 
@@ -274,8 +291,8 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     for (const row of tiers.tiers) {
       const res = await createProductPriceTier({
         id_product: productId,
-        min_quantity: row.min_quantity,
-        unit_price: row.unit_price,
+        min_kg: row.min_kg,
+        price_per_kg: row.price_per_kg,
       })
       if (res.error) return res.error.message
     }
@@ -297,9 +314,14 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     }
     const weightNum = weightParsed.value
 
+    if (fixedWeight && (weightNum == null || weightNum <= 0)) {
+      toast.error('El peso por pieza es obligatorio si vendés solo por pieza')
+      return
+    }
+
     let validatedTiers: ReturnType<typeof validateTierDrafts> | null = null
     if (hasTieredPricing) {
-      validatedTiers = validateTierDrafts(tierRows)
+      validatedTiers = validateTierDrafts(tierRows, tierCtx)
       if (!validatedTiers.ok) {
         toast.error(validatedTiers.message)
         return
@@ -315,6 +337,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           name,
           price: priceNum,
           weight: weightNum ?? undefined,
+          fixed_weight: fixedWeight,
           brand: brand || undefined,
           category: category || undefined,
           img: img || undefined,
@@ -334,6 +357,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           name,
           price: priceNum,
           weight: weightNum,
+          fixed_weight: fixedWeight,
           brand: brand || null,
           category: category || null,
           img: img || null,
@@ -354,6 +378,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         name,
         price: priceNum,
         weight: weightNum ?? undefined,
+        fixed_weight: fixedWeight,
         brand: brand || undefined,
         category: category || undefined,
         img: img || undefined,
@@ -391,6 +416,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           name,
           price: priceNum,
           weight: weightNum ?? undefined,
+          fixed_weight: fixedWeight,
           brand: brand || undefined,
           category: category || undefined,
           img: undefined,
@@ -399,8 +425,8 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         const tiersPayload =
           hasTieredPricing && validatedTiers?.ok
             ? validatedTiers.tiers.map((t) => ({
-                min_quantity: t.min_quantity,
-                unit_price: t.unit_price,
+                min_kg: t.min_kg,
+                price_per_kg: t.price_per_kg,
               }))
             : undefined
         await enqueueCommand('PRODUCT_CREATE', { tempId, data, tiers: tiersPayload })
@@ -409,6 +435,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           name,
           price: priceNum,
           weight: weightNum,
+          fixed_weight: fixedWeight,
           brand: brand || null,
           category: category || null,
           has_tiered_pricing: hasTieredPricing,
@@ -427,6 +454,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         name,
         price: priceNum,
         weight: weightNum ?? undefined,
+        fixed_weight: fixedWeight,
         brand: brand || undefined,
         category: category || undefined,
         img: img || undefined,
@@ -459,7 +487,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
 
   const disableTierCount = isEditing
     ? initialTiersRef.current.length
-    : tierRows.filter((r) => r.min_quantity.trim() || r.unit_price.trim()).length
+    : tierRows.filter((r) => r.min_kg.trim() || r.price_per_kg.trim()).length
 
   const busy = loading || uploading
   const busyMessage = uploading ? 'Subiendo imagen...' : isEditing ? 'Guardando cambios...' : 'Creando producto...'
@@ -478,7 +506,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
               <Form.Control value={name} onChange={(e) => setName(e.target.value)} required />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Precio base</Form.Label>
+              <Form.Label>{fixedWeight ? 'Precio base ($/pieza)' : 'Precio base ($/kg)'}</Form.Label>
               <Form.Control
                 type="number"
                 step="0.01"
@@ -489,7 +517,9 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                 required
               />
               <Form.Text className="text-muted">
-                Se usa si la cantidad es menor a 2 o no alcanza ningún precio por volumen.
+                {fixedWeight
+                  ? 'Precio por unidad entera. Los precios por volumen también son por pieza.'
+                  : 'Se usa si no alcanza ningún precio por volumen (por kg).'}
               </Form.Text>
             </Form.Group>
             <Form.Group className="mb-3">
@@ -497,15 +527,28 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
               <Form.Control value={brand} onChange={(e) => setBrand(e.target.value)} />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Peso (kg)</Form.Label>
+              <Form.Label>Peso por pieza (kg)</Form.Label>
               <Form.Control
                 type="number"
                 step="0.001"
                 min="0"
+                className="input-kg"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
                 placeholder="Opcional"
+                required={fixedWeight}
               />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Check
+                type="checkbox"
+                label="Vender solo por pieza (múltiplos del peso por pieza)"
+                checked={fixedWeight}
+                onChange={(e) => setFixedWeight(e.target.checked)}
+              />
+              <Form.Text className="text-muted">
+                Requiere peso por pieza. El cliente elige cantidad de piezas, no kg libres.
+              </Form.Text>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Categoría</Form.Label>
@@ -581,7 +624,11 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                   </Button>
                 </div>
                 <p className="small text-muted mb-3">
-                  Precio unitario desde cada cantidad mínima (entero ≥ 2). Cantidad 0–1 usa siempre el precio base.
+                  {fixedWeight
+                    ? 'Precio por pieza desde cada mínimo (≥ 2 piezas).'
+                    : pieceWeightForTiers
+                      ? 'Mínimo en piezas; se convierte a kg para el umbral. Precio por kg.'
+                      : 'Precio por kg desde cada mínimo (≥ 2 kg).'}
                 </p>
                 {tierRows.length === 0 ? (
                   <p className="small text-muted mb-0">Sin precios por volumen. Agregá al menos uno.</p>
@@ -589,8 +636,8 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                   <Table responsive size="sm" className="mb-0 align-middle table-lepra">
                     <thead className="table-dark">
                       <tr>
-                        <th>Desde (u)</th>
-                        <th>Precio unitario</th>
+                        <th>{fixedWeight || pieceWeightForTiers ? 'Desde (piezas)' : 'Desde (kg)'}</th>
+                        <th>{fixedWeight ? 'Precio ($/pieza)' : 'Precio ($/kg)'}</th>
                         <th style={{ width: 48 }} />
                       </tr>
                     </thead>
@@ -601,10 +648,11 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                             <Form.Control
                               type="number"
                               min={2}
-                              step={1}
-                              value={row.min_quantity}
-                              onChange={(e) => updateTierRow(row.key, 'min_quantity', e.target.value)}
-                              placeholder="Ej. 5"
+                              step={fixedWeight || pieceWeightForTiers ? 1 : 0.001}
+                              className={fixedWeight || pieceWeightForTiers ? undefined : 'input-kg'}
+                              value={row.min_kg}
+                              onChange={(e) => updateTierRow(row.key, 'min_kg', e.target.value)}
+                              placeholder={pieceWeightForTiers ? 'Ej. 5' : 'Ej. 2.5'}
                             />
                           </td>
                           <td>
@@ -612,8 +660,8 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                               type="number"
                               step="0.01"
                               min="0"
-                              value={row.unit_price}
-                              onChange={(e) => updateTierRow(row.key, 'unit_price', e.target.value)}
+                              value={row.price_per_kg}
+                              onChange={(e) => updateTierRow(row.key, 'price_per_kg', e.target.value)}
                               placeholder="Ej. 9.50"
                             />
                           </td>

@@ -15,8 +15,8 @@ def _line(
     when: datetime,
     product_id: int,
     name: str,
-    qty: int,
-    price: float,
+    weight_kg: float,
+    price_per_kg: float,
     *,
     status: str = "FULFILLED",
     customer_key: str = "user:1",
@@ -32,8 +32,8 @@ def _line(
         id_product=product_id,
         product_name=name,
         category=category,
-        quantity=qty,
-        line_revenue=round(qty * price, 2),
+        weight_kg=weight_kg,
+        line_revenue=round(weight_kg * price_per_kg, 2),
     )
 
 
@@ -46,7 +46,7 @@ def test_aggregate_summary_excludes_canceled():
     s = aggregate_summary(lines, filters)
     assert s["orders"] == 1
     assert s["revenue"] == 20.0
-    assert s["quantity"] == 2
+    assert s["total_kg"] == 2.0
 
 
 def test_aggregate_summary_product_filter():
@@ -58,7 +58,7 @@ def test_aggregate_summary_product_filter():
     s = aggregate_summary(lines, filters)
     assert s["orders"] == 1
     assert s["revenue"] == 15.0
-    assert s["quantity"] == 3
+    assert s["total_kg"] == 3.0
 
 
 def test_aggregate_time_series_month():
@@ -71,7 +71,7 @@ def test_aggregate_time_series_month():
     assert len(series) == 1
     assert series[0]["period"] == "2026-05"
     assert series[0]["orders"] == 2
-    assert series[0]["quantity"] == 3
+    assert series[0]["total_kg"] == 3.0
 
 
 def test_product_by_customer_matrix():
@@ -83,7 +83,7 @@ def test_product_by_customer_matrix():
     ]
     matrix = aggregate_product_by_customer(lines, filters)
     cremoso = next(r for r in matrix if r["name"] == "Cremoso")
-    assert cremoso["total_quantity"] == 41
+    assert cremoso["total_weight_kg"] == 41.0
     assert len(cremoso["customers"]) == 2
 
 

@@ -202,7 +202,7 @@ def tier_create(product_id: int = 2):
     r = requests.post(
         f"{BASE_URL}/product-price-tier/create",
         headers=headers(auth=True),
-        json={"id_product": product_id, "min_quantity": 10, "unit_price": 7.0},
+        json={"id_product": product_id, "min_kg": 40.0, "price_per_kg": 7.0},
     )
     log("Precio por volumen Crear", r)
     if r.status_code == 201:
@@ -214,7 +214,7 @@ def tier_update(tier_id: int = 1):
     r = requests.put(
         f"{BASE_URL}/product-price-tier/update",
         headers=headers(auth=True),
-        json={"id": tier_id, "min_quantity": 5, "unit_price": 8.5},
+        json={"id": tier_id, "min_kg": 20.0, "price_per_kg": 8.5},
     )
     log("Precio por volumen Actualizar", r)
     return r
@@ -255,8 +255,8 @@ def order_create_client():
         json={
             "payment": "efectivo",
             "lines": [
-                {"id_product": 1, "quantity": 2},
-                {"id_product": 2, "quantity": 5},
+                {"id_product": 1, "weight": 2.0},
+                {"id_product": 2, "weight": 5.0},
             ],
         },
     )
@@ -275,8 +275,8 @@ def order_create_admin(user_id: int = 2):
             "id_user": user_id,
             "payment": "efectivo",
             "lines": [
-                {"id_product": 1, "quantity": 2},
-                {"id_product": 2, "quantity": 5, "unit_price": 7.5},
+                {"id_product": 1, "weight": 2.0},
+                {"id_product": 2, "weight": 5.0, "price_per_kg": 7.5},
             ],
         },
     )

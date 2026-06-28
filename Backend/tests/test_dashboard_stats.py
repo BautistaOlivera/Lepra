@@ -60,11 +60,11 @@ def test_aggregate_status_merges_cancelled():
 
 def test_aggregate_top_products():
     lines = [
-        {"id_product": 1, "name": "Queso", "quantity": 2, "revenue": 20.0},
-        {"id_product": 1, "name": "Queso", "quantity": 3, "revenue": 30.0},
-        {"id_product": 2, "name": "Yogur", "quantity": 1, "revenue": 5.0},
+        {"id_product": 1, "name": "Queso", "quantity": 2.0, "revenue": 20.0},
+        {"id_product": 1, "name": "Queso", "quantity": 3.0, "revenue": 30.0},
+        {"id_product": 2, "name": "Yogur", "quantity": 1.0, "revenue": 5.0},
     ]
     top = aggregate_top_products(lines, limit=2)
     assert top[0]["id_product"] == 1
-    assert top[0]["quantity"] == 5
+    assert top[0]["quantity"] == 5.0
     assert len(top) == 2

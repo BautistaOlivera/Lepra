@@ -6,7 +6,9 @@ import { getImageUrl } from '@/api/client'
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { formatDateTimeAR } from '@/lib/formatDate'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
-import { formatWeight, hasWeight } from '@/lib/formatWeight'
+import { formatWeight } from '@/lib/formatWeight'
+import { lineTotal, lineTotalFallback } from '@/lib/pricing'
+import type { Product } from '@/types'
 
 const STATUS_ES: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -22,7 +24,10 @@ const PDF_PT_TO_MM = 25.4 / 72
 
 const LOGO_PNG_NAME = 'lepra-logo-watermark.png'
 
-export type PedidoPdfProductById = Record<number, { name: string; brand?: string | null }>
+export type PedidoPdfProductById = Record<
+  number,
+  { name: string; brand?: string | null; fixed_weight?: boolean; weight?: number | null }
+>
 
 function productName(info: PedidoPdfProductById[number] | undefined, id: number): string {
   return (info?.name && String(info.name).trim()) || `Producto #${id}`
@@ -32,16 +37,38 @@ function productBrand(info: PedidoPdfProductById[number] | undefined): string {
   return (info?.brand && String(info.brand).trim()) || ''
 }
 
-function distributeColumnWidths(showBrandCol: boolean, showWeightCol: boolean, tableW: number): number[] {
+function pdfLineSubtotal(
+  weightKg: number,
+  unitPrice: number,
+  info: PedidoPdfProductById[number] | undefined,
+): number {
+  if (info?.fixed_weight) {
+    const stub = {
+      fixed_weight: true,
+      weight: info.weight,
+      price: unitPrice,
+      has_tiered_pricing: false,
+    } as Product
+    return lineTotal(stub, weightKg, unitPrice)
+  }
+  if (info) {
+    return lineTotal(
+      { fixed_weight: false, price: unitPrice, has_tiered_pricing: false } as Product,
+      weightKg,
+      unitPrice,
+    )
+  }
+  return lineTotalFallback(weightKg, unitPrice)
+}
+
+function distributeColumnWidths(showBrandCol: boolean, tableW: number): number[] {
   const weights: number[] = []
   if (showBrandCol) {
     weights.push(52, 28)
   } else {
-    weights.push(showWeightCol ? 58 : 80)
+    weights.push(58)
   }
-  weights.push(18)
-  if (showWeightCol) weights.push(22)
-  weights.push(35, 35)
+  weights.push(22, 35, 35)
   const sum = weights.reduce((a, b) => a + b, 0)
   return weights.map((w) => (w / sum) * tableW)
 }
@@ -216,33 +243,34 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
 
   const lines = order.lines || []
   const showBrandCol = lines.some((l) => productBrand(productById[l.id_product]))
-  const showWeightCol = lines.some((l) => hasWeight(l.weight))
 
   const head: string[] = ['Producto']
   if (showBrandCol) head.push('Marca')
-  head.push('Cant.')
-  if (showWeightCol) head.push('Peso')
-  head.push('P. unit.', 'Subtotal')
+  head.push('Cant./kg', 'Precio', 'Subtotal')
 
-  const qtyCol = 1 + (showBrandCol ? 1 : 0)
-  const weightCol = showWeightCol ? qtyCol + 1 : -1
-  const subCol = qtyCol + 1 + (showWeightCol ? 1 : 0) + 1
+  const weightCol = 1 + (showBrandCol ? 1 : 0)
+  const priceCol = weightCol + 1
+  const subCol = priceCol + 1
 
   const body = lines.map((l) => {
     const info = productById[l.id_product]
-    const sub = l.quantity * l.unit_price
+    const fixed = info?.fixed_weight || l.sold_by_piece
+    const sub = pdfLineSubtotal(l.weight || 0, l.price_per_kg || 0, info)
+    const qtyCell =
+      fixed && info?.weight
+        ? String(Math.max(1, Math.round((l.weight || 0) / info.weight)))
+        : formatWeight(l.weight)
+    const priceCell = fixed
+      ? formatMoneyWithSymbol(l.price_per_kg)
+      : `${formatMoneyWithSymbol(l.price_per_kg)}/kg`
     const row: string[] = [productName(info, l.id_product)]
     if (showBrandCol) row.push(productBrand(info))
-    row.push(String(l.quantity))
-    if (showWeightCol) {
-      row.push(hasWeight(l.weight) ? formatWeight(l.weight) : '')
-    }
-    row.push(formatMoneyWithSymbol(l.unit_price), formatMoneyWithSymbol(sub))
+    row.push(qtyCell, priceCell, formatMoneyWithSymbol(sub))
     return row
   })
 
   const tableW = pageW - margin * 2
-  const colWidths = distributeColumnWidths(showBrandCol, showWeightCol, tableW)
+  const colWidths = distributeColumnWidths(showBrandCol, tableW)
   const emptyDash = '—'
   const emptyRow = head.map(() => emptyDash)
   if (emptyRow.length) emptyRow[0] = '(Sin líneas registradas)'
@@ -250,7 +278,7 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
   const columnStyles: Record<number, { cellWidth: number; halign: 'left' | 'center' | 'right' }> = {}
   colWidths.forEach((width, index) => {
     let halign: 'left' | 'center' | 'right' = 'left'
-    if (index === qtyCol || index === weightCol) halign = 'center'
+    if (index === weightCol || index === priceCol) halign = 'center'
     else if (index === subCol) halign = 'right'
     columnStyles[index] = { cellWidth: width, halign }
   })
@@ -267,9 +295,8 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
         data.cell.styles.fillColor = false
       }
       const ci = data.column.index
-      if (ci === qtyCol) data.cell.styles.halign = 'center'
+      if (ci === weightCol || ci === priceCol) data.cell.styles.halign = 'center'
       else if (ci === subCol) data.cell.styles.halign = 'right'
-      else if (ci === weightCol) data.cell.styles.halign = 'center'
       else data.cell.styles.halign = 'left'
     },
     styles: {

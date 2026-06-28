@@ -1,21 +1,25 @@
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react'
 import { Product } from '@/types'
 import { loadCartFromStorage, saveCartToStorage } from '@/lib/cartStorage'
+import {
+  defaultLineWeightKg,
+  isFixedWeightProduct,
+  minKgFromPieces,
+  pieceWeightKg,
+} from '@/lib/pricing'
 
 export interface CartItem {
   id_product: number
-  quantity: number
+  weight: number
   product: Product
-  /** Peso por línea (kg); opcional, editable al confirmar pedido. */
-  weight?: number | null
 }
 
 interface CartContextValue {
   items: CartItem[]
-  addItem: (product: Product, quantity?: number) => void
+  addItem: (product: Product) => void
   removeItem: (id_product: number) => void
-  updateQuantity: (id_product: number, quantity: number) => void
-  updateLineWeight: (id_product: number, weight: number | null) => void
+  updateWeight: (id_product: number, weight: number) => void
+  adjustPieces: (id_product: number, delta: number) => void
   clearCart: () => void
   itemCount: number
 }
@@ -29,20 +33,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     saveCartToStorage(items)
   }, [items])
 
-  const addItem = useCallback((product: Product, quantity = 1) => {
+  const addItem = useCallback((product: Product) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.id_product === product.id)
+      const defaultWeight = defaultLineWeightKg(product)
       if (existing) {
+        const piece = pieceWeightKg(product)
+        const added =
+          isFixedWeightProduct(product) && piece ? piece : defaultWeight
         return prev.map((i) =>
-          i.id_product === product.id ? { ...i, quantity: i.quantity + quantity } : i
+          i.id_product === product.id ? { ...i, weight: i.weight + added } : i
         )
       }
-      return [...prev, {
-        id_product: product.id,
-        quantity,
-        product,
-        weight: product.weight ?? null,
-      }]
+      return [...prev, { id_product: product.id, weight: defaultWeight, product }]
     })
   }, [])
 
@@ -50,28 +53,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) => prev.filter((i) => i.id_product !== id_product))
   }, [])
 
-  const updateQuantity = useCallback((id_product: number, quantity: number) => {
-    if (quantity < 1) {
+  const updateWeight = useCallback((id_product: number, weight: number) => {
+    if (weight <= 0) {
       setItems((prev) => prev.filter((i) => i.id_product !== id_product))
       return
     }
-    setItems((prev) =>
-      prev.map((i) => (i.id_product === id_product ? { ...i, quantity } : i))
-    )
-  }, [])
-
-  const updateLineWeight = useCallback((id_product: number, weight: number | null) => {
     setItems((prev) =>
       prev.map((i) => (i.id_product === id_product ? { ...i, weight } : i))
     )
   }, [])
 
+  const adjustPieces = useCallback((id_product: number, delta: number) => {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.id_product !== id_product) return i
+        const piece = pieceWeightKg(i.product)
+        if (!piece) return i
+        const nextPieces = Math.max(1, Math.round(i.weight / piece) + delta)
+        return { ...i, weight: minKgFromPieces(nextPieces, piece) }
+      })
+    )
+  }, [])
+
   const clearCart = useCallback(() => setItems([]), [])
 
-  const itemCount = items.reduce((sum, i) => sum + i.quantity, 0)
+  const itemCount = items.length
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, updateLineWeight, clearCart, itemCount }}>
+    <CartContext.Provider
+      value={{ items, addItem, removeItem, updateWeight, adjustPieces, clearCart, itemCount }}
+    >
       {children}
     </CartContext.Provider>
   )
