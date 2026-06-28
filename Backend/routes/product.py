@@ -120,6 +120,7 @@ async def get_products_paginated(req: Request, body: InputPaginatedRequestFilter
                 "id": p.id,
                 "name": p.name,
                 "price": p.price,
+                "weight": p.weight,
                 "brand": p.brand,
                 "category": p.category,
                 "has_tiered_pricing": p.has_tiered_pricing,
@@ -156,6 +157,7 @@ async def get_product(req: Request, product_id: int):
                 "id": p.id,
                 "name": p.name,
                 "price": p.price,
+                "weight": p.weight,
                 "brand": p.brand,
                 "category": p.category,
                 "has_tiered_pricing": p.has_tiered_pricing,
@@ -181,6 +183,7 @@ async def create_product(req: Request, body: InputProduct):
             p = Product(
                 name=body.name,
                 price=body.price,
+                weight=body.weight,
                 brand=body.brand,
                 category=body.category,
                 has_tiered_pricing=body.has_tiered_pricing,
@@ -217,6 +220,8 @@ async def update_product(req: Request, body: InputProductUpdate):
                 p.name = body.name
             if body.price is not None:
                 p.price = body.price
+            if body.weight is not None:
+                p.weight = body.weight
             if body.brand is not None:
                 p.brand = body.brand
             if body.category is not None:

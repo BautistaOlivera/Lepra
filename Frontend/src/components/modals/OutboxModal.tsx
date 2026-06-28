@@ -171,9 +171,9 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
           </div>
         </div>
 
-        <div className="table-responsive">
-          <Table size="sm" hover>
-            <thead>
+        <div className="table-lepra-wrap table-responsive">
+          <Table size="sm" className="table-lepra mb-0">
+            <thead className="table-dark">
               <tr>
                 <th>Fecha</th>
                 <th>Tipo / acción</th>

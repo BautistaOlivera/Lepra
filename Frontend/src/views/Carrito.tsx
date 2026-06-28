@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Container, Button, Card } from 'react-bootstrap'
+import { Container, Button, Card, Form } from 'react-bootstrap'
 import { LoadingOverlay } from '@/components/LoadingOverlay'
 import { Link, useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { useCart } from '@/context/CartContext'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import { parseWeightInput } from '@/lib/formatWeight'
 import { createOrderClient, createOrder } from '@/api/order'
 import { Product } from '@/types'
 import { ProductImage } from '@/components/ProductImage'
@@ -27,7 +28,7 @@ type CartRow = ReturnType<typeof useCart>['items'][0] & { unitPrice: number; sub
 const cartPageClass = 'cart-page px-3 px-sm-4 py-3 py-sm-4 pb-4 pb-sm-5'
 
 export function Carrito() {
-  const { items, updateQuantity, removeItem, clearCart } = useCart()
+  const { items, updateQuantity, updateLineWeight, removeItem, clearCart } = useCart()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
 
@@ -36,6 +37,15 @@ export function Carrito() {
     return { ...i, unitPrice, subtotal: i.quantity * unitPrice }
   })
   const total = totals.reduce((s, t) => s + t.subtotal, 0)
+
+  function handleLineWeightChange(id_product: number, raw: string) {
+    if (!raw.trim()) {
+      updateLineWeight(id_product, null)
+      return
+    }
+    const parsed = parseWeightInput(raw)
+    if (parsed.ok) updateLineWeight(id_product, parsed.value)
+  }
 
   const columnHelper = createColumnHelper<CartRow>()
   const columns = [
@@ -52,7 +62,27 @@ export function Carrito() {
         />
       ),
     }),
-    columnHelper.accessor((r) => r.product.name, { id: 'product', header: 'Producto' }),
+    columnHelper.accessor((r) => r.product.name, {
+      id: 'product',
+      header: 'Producto',
+      cell: (info) => <span>{info.row.original.product.name}</span>,
+    }),
+    columnHelper.display({
+      id: 'weight',
+      header: 'Peso (kg)',
+      cell: ({ row }) => (
+        <Form.Control
+          type="number"
+          step="0.001"
+          min="0"
+          size="sm"
+          value={row.original.weight != null ? String(row.original.weight) : ''}
+          onChange={(e) => handleLineWeightChange(row.original.id_product, e.target.value)}
+          placeholder="—"
+          aria-label={`Peso de ${row.original.product.name}`}
+        />
+      ),
+    }),
     columnHelper.display({
       id: 'quantity',
       header: 'Cantidad',
@@ -104,14 +134,23 @@ export function Carrito() {
     const isAdmin = user?.rol === 'ADMIN'
 
     setLoading(true)
-    const lines = totals.map((t) => ({
-      id_product: t.id_product,
-      quantity: t.quantity,
-      unit_price: t.unitPrice,
-    }))
     const { error } = isAdmin
-      ? await createOrder({ id_user: user.id, lines })
-      : await createOrderClient({ lines: items.map((i) => ({ id_product: i.id_product, quantity: i.quantity })) })
+      ? await createOrder({
+          id_user: user.id,
+          lines: totals.map((t) => ({
+            id_product: t.id_product,
+            quantity: t.quantity,
+            unit_price: t.unitPrice,
+            ...(t.weight != null ? { weight: t.weight } : {}),
+          })),
+        })
+      : await createOrderClient({
+          lines: totals.map((t) => ({
+            id_product: t.id_product,
+            quantity: t.quantity,
+            ...(t.weight != null ? { weight: t.weight } : {}),
+          })),
+        })
     setLoading(false)
     if (error) {
       toast.error(error.message || 'Error al crear el pedido')
@@ -165,7 +204,21 @@ export function Carrito() {
                     >
                       {row.product.name}
                     </Link>
-                    <p className="small text-muted mb-0 mt-1">
+                    <div className="d-flex align-items-center gap-2 mt-2">
+                      <span className="small text-muted flex-shrink-0">Peso (kg)</span>
+                      <Form.Control
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        size="sm"
+                        className="cart-item-weight-input"
+                        value={row.weight != null ? String(row.weight) : ''}
+                        onChange={(e) => handleLineWeightChange(row.id_product, e.target.value)}
+                        placeholder="—"
+                        aria-label={`Peso de ${row.product.name}`}
+                      />
+                    </div>
+                    <p className="small text-muted mb-0 mt-2">
                       {formatMoneyWithSymbol(row.unitPrice)} c/u
                     </p>
                   </div>

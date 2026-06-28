@@ -38,6 +38,7 @@ class OrderProduct(Base):
     id_product = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)
+    weight = Column(Float, nullable=True)
 
     order = relationship("Order", back_populates="order_products")
     product = relationship("Product", back_populates="order_products")
@@ -49,12 +50,14 @@ class OrderProductCreate(BaseModel):
     id_product: int
     quantity: int
     unit_price: float
+    weight: Optional[float] = None
 
 
 class OrderLineClientInput(BaseModel):
     """Solo id_product y quantity; unit_price se calcula en backend."""
     id_product: int
     quantity: int
+    weight: Optional[float] = None
 
 
 class OrderLineAdminInput(BaseModel):
@@ -62,6 +65,7 @@ class OrderLineAdminInput(BaseModel):
     id_product: int
     quantity: int
     unit_price: Optional[float] = None
+    weight: Optional[float] = None
 
 
 class OrderCreateClient(BaseModel):
@@ -86,6 +90,7 @@ class OrderProductResponse(BaseModel):
     id_product: int
     quantity: int
     unit_price: float
+    weight: Optional[float] = None
 
     class Config:
         from_attributes = True

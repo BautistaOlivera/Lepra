@@ -28,8 +28,9 @@ export function DataTable<T>({ columns, data, getRowId }: DataTableProps<T>) {
   })
 
   return (
-    <Table responsive hover className="align-middle">
-      <thead className="table-dark">
+    <div className="table-lepra-wrap">
+      <Table responsive className="align-middle table-lepra mb-0">
+        <thead className="table-dark">
         {table.getHeaderGroups().map((headerGroup) => (
           <tr key={headerGroup.id}>
             {headerGroup.headers.map((header) => (
@@ -50,5 +51,6 @@ export function DataTable<T>({ columns, data, getRowId }: DataTableProps<T>) {
         ))}
       </tbody>
     </Table>
+    </div>
   )
 }

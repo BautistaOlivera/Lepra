@@ -26,6 +26,7 @@ import {
   applyTierDiffOnline,
 } from '@/lib/productTiers'
 import { tiersFromPayload } from '@/lib/productMerge'
+import { parseWeightInput } from '@/lib/formatWeight'
 
 interface ProductoModalProps {
   show: boolean
@@ -43,6 +44,7 @@ const PRICE_DECIMALS_MSG = 'Solo 2 números después del punto'
 export function ProductoModal({ show, onClose, editingProduct }: ProductoModalProps) {
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
+  const [weight, setWeight] = useState('')
   const [brand, setBrand] = useState('')
   const [category, setCategory] = useState('')
   const [img, setImg] = useState('')
@@ -83,6 +85,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     if (editingProduct) {
       setName(editingProduct.name)
       setPrice(String(editingProduct.price))
+      setWeight(editingProduct.weight != null ? String(editingProduct.weight) : '')
       setBrand(editingProduct.brand || '')
       setCategory(editingProduct.category || '')
       setImg(editingProduct.img || '')
@@ -91,6 +94,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     } else {
       setName('')
       setPrice('')
+      setWeight('')
       setBrand('')
       setCategory('')
       setImg('')
@@ -102,11 +106,13 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     setDisableConfirmChecked(false)
   }, [editingProduct, show])
 
-  function productFieldsChanged(priceNum: number): boolean {
+  function productFieldsChanged(priceNum: number, weightNum: number | null): boolean {
     if (!editingProduct) return true
+    const prevWeight = editingProduct.weight ?? null
     return (
       editingProduct.name !== name.trim() ||
       editingProduct.price !== priceNum ||
+      prevWeight !== weightNum ||
       (editingProduct.brand || '') !== brand ||
       (editingProduct.category || '') !== (category || '') ||
       (editingProduct.img || '') !== img ||
@@ -284,6 +290,12 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       return
     }
     const priceNum = parsed.value
+    const weightParsed = parseWeightInput(weight)
+    if (!weightParsed.ok) {
+      toast.error(weightParsed.message)
+      return
+    }
+    const weightNum = weightParsed.value
 
     let validatedTiers: ReturnType<typeof validateTierDrafts> | null = null
     if (hasTieredPricing) {
@@ -302,12 +314,13 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           id: editingProduct!.id,
           name,
           price: priceNum,
+          weight: weightNum ?? undefined,
           brand: brand || undefined,
           category: category || undefined,
           img: img || undefined,
           has_tiered_pricing: hasTieredPricing,
         }
-        if (productFieldsChanged(priceNum)) {
+        if (productFieldsChanged(priceNum, weightNum)) {
           await enqueueCommand('PRODUCT_UPDATE', patch)
         }
         if (hasTieredPricing && validatedTiers?.ok && tiersChanged(initialTiersRef.current, validatedTiers.tiers)) {
@@ -320,6 +333,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         await lepraDb.products.update(editingProduct!.id, {
           name,
           price: priceNum,
+          weight: weightNum,
           brand: brand || null,
           category: category || null,
           img: img || null,
@@ -339,6 +353,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         id: editingProduct!.id,
         name,
         price: priceNum,
+        weight: weightNum ?? undefined,
         brand: brand || undefined,
         category: category || undefined,
         img: img || undefined,
@@ -375,6 +390,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         const data = {
           name,
           price: priceNum,
+          weight: weightNum ?? undefined,
           brand: brand || undefined,
           category: category || undefined,
           img: undefined,
@@ -392,6 +408,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           id: tempId,
           name,
           price: priceNum,
+          weight: weightNum,
           brand: brand || null,
           category: category || null,
           has_tiered_pricing: hasTieredPricing,
@@ -409,6 +426,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       const { data, error } = await createProduct({
         name,
         price: priceNum,
+        weight: weightNum ?? undefined,
         brand: brand || undefined,
         category: category || undefined,
         img: img || undefined,
@@ -477,6 +495,17 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             <Form.Group className="mb-3">
               <Form.Label>Marca</Form.Label>
               <Form.Control value={brand} onChange={(e) => setBrand(e.target.value)} />
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Peso (kg)</Form.Label>
+              <Form.Control
+                type="number"
+                step="0.001"
+                min="0"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                placeholder="Opcional"
+              />
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Categoría</Form.Label>
@@ -557,8 +586,8 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                 {tierRows.length === 0 ? (
                   <p className="small text-muted mb-0">Sin precios por volumen. Agregá al menos uno.</p>
                 ) : (
-                  <Table responsive size="sm" className="mb-0 align-middle">
-                    <thead>
+                  <Table responsive size="sm" className="mb-0 align-middle table-lepra">
+                    <thead className="table-dark">
                       <tr>
                         <th>Desde (u)</th>
                         <th>Precio unitario</th>

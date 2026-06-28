@@ -15,6 +15,7 @@ import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { nextTempId } from '@/offline/ids'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import { formatWeight, hasWeight, parseWeightInput } from '@/lib/formatWeight'
 import { buildQuickClientEmail, buildQuickClientPassword, findUserByClientQuery } from '@/lib/quickClient'
 
 type SubmitPhase = 'idle' | 'client' | 'order'
@@ -48,7 +49,9 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
   const [users, setUsers] = useState<User[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [clientValue, setClientValue] = useState<ClientePedidoValue | null>(null)
-  const [lines, setLines] = useState<{ id_product: number; quantity: number; unit_price: number; product?: Product }[]>([])
+  const [lines, setLines] = useState<
+    { id_product: number; quantity: number; unit_price: number; weight: string; product?: Product }[]
+  >([])
 
   const validLines = lines.filter((l) => l.id_product !== 0)
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle')
@@ -82,10 +85,14 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       toast.error('No hay productos cargados')
       return
     }
-    setLines([...lines, { id_product: 0, quantity: 1, unit_price: 0 }])
+    setLines([...lines, { id_product: 0, quantity: 1, unit_price: 0, weight: '' }])
   }
 
-  function updateLine(index: number, field: 'id_product' | 'quantity', value: number | null) {
+  function updateLine(
+    index: number,
+    field: 'id_product' | 'quantity' | 'weight',
+    value: number | string | null,
+  ) {
     const newLines = [...lines]
     const line = newLines[index]
     if (field === 'id_product') {
@@ -93,17 +100,21 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
         line.id_product = 0
         line.unit_price = 0
         line.product = undefined
+        line.weight = ''
       } else {
         const product = products.find((x) => x.id === value)
         if (product) {
           line.id_product = product.id
           line.unit_price = getUnitPrice(product, line.quantity)
           line.product = product
+          line.weight = hasWeight(product.weight) ? String(product.weight) : ''
         }
       }
-    } else if (typeof value === 'number') {
+    } else if (field === 'quantity' && typeof value === 'number') {
       line.quantity = Math.max(1, value)
       if (line.product) line.unit_price = getUnitPrice(line.product, line.quantity)
+    } else if (field === 'weight' && typeof value === 'string') {
+      line.weight = value
     }
     setLines(newLines)
   }
@@ -118,10 +129,12 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     value: u.id,
     label: [u.name, u.email].filter(Boolean).join(' — ') || u.email,
   }))
-  const productOptions: SelectOption<number>[] = products.map((p) => ({
-    value: p.id,
-    label: p.brand ? `${p.name} (${p.brand})` : p.name,
-  }))
+  const productOptions: SelectOption<number>[] = products.map((p) => {
+    const parts = [p.name]
+    if (p.brand) parts[0] = `${p.name} (${p.brand})`
+    if (hasWeight(p.weight)) parts.push(formatWeight(p.weight))
+    return { value: p.id, label: parts.join(' · ') }
+  })
 
   function resolveClient(): { idUser: number; displayName: string; createNew: false } | { newName: string; createNew: true } | null {
     if (!clientValue) return null
@@ -156,6 +169,21 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     if (validLines.length === 0) {
       toast.error('Agregá al menos un producto')
       return
+    }
+
+    const parsedLines: { id_product: number; quantity: number; unit_price: number; weight?: number }[] = []
+    for (const l of validLines) {
+      const w = parseWeightInput(l.weight)
+      if (!w.ok) {
+        toast.error(w.message)
+        return
+      }
+      parsedLines.push({
+        id_product: l.id_product,
+        quantity: l.quantity,
+        unit_price: l.unit_price,
+        ...(w.value != null ? { weight: w.value } : {}),
+      })
     }
 
     let createdNewUser = false
@@ -209,11 +237,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
         setSubmitPhase('order')
       }
 
-      const linePayload = validLines.map((l) => ({
-        id_product: l.id_product,
-        quantity: l.quantity,
-        unit_price: l.unit_price,
-      }))
+      const linePayload = parsedLines
 
       const body = { id_user: idUser!, lines: linePayload }
 
@@ -300,18 +324,21 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
             </Button>
           </div>
 
-          <Table size="sm" className="mb-4" style={{ tableLayout: 'fixed' }}>
+          <div className="table-lepra-wrap mb-4">
+          <Table size="sm" className="table-lepra pedido-lines-table mb-0" style={{ tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: '45%' }} />
-              <col style={{ width: '12%' }} />
+              <col style={{ width: '34%' }} />
+              <col style={{ width: '10%' }} />
+              <col style={{ width: '14%' }} />
               <col style={{ width: '14%' }} />
               <col style={{ width: '14%' }} />
               <col style={{ width: '5%' }} />
             </colgroup>
-            <thead>
+            <thead className="table-dark">
               <tr>
                 <th>Producto</th>
                 <th className="text-center">Cant.</th>
+                <th className="text-center">Peso (kg)</th>
                 <th className="text-end">Precio u.</th>
                 <th className="text-end">Subtotal</th>
                 <th></th>
@@ -341,6 +368,19 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                       onChange={(e) => updateLine(i, 'quantity', parseInt(e.target.value) || 1)}
                     />
                   </td>
+                  <td className="align-middle">
+                    <Form.Control
+                      type="number"
+                      step="0.001"
+                      min="0"
+                      size="sm"
+                      className="w-100"
+                      style={{ minHeight: 31 }}
+                      value={l.weight}
+                      onChange={(e) => updateLine(i, 'weight', e.target.value)}
+                      placeholder="—"
+                    />
+                  </td>
                   <td className="text-end align-middle">{formatMoneyWithSymbol(l.unit_price)}</td>
                   <td className="text-end align-middle">{formatMoneyWithSymbol(l.quantity * l.unit_price)}</td>
                   <td className="align-middle">
@@ -352,6 +392,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
               ))}
             </tbody>
           </Table>
+          </div>
 
           <p className="fw-bold">Total: {formatMoneyWithSymbol(total)}</p>
 

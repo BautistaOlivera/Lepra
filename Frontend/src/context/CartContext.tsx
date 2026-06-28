@@ -6,6 +6,8 @@ export interface CartItem {
   id_product: number
   quantity: number
   product: Product
+  /** Peso por línea (kg); opcional, editable al confirmar pedido. */
+  weight?: number | null
 }
 
 interface CartContextValue {
@@ -13,6 +15,7 @@ interface CartContextValue {
   addItem: (product: Product, quantity?: number) => void
   removeItem: (id_product: number) => void
   updateQuantity: (id_product: number, quantity: number) => void
+  updateLineWeight: (id_product: number, weight: number | null) => void
   clearCart: () => void
   itemCount: number
 }
@@ -34,7 +37,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
           i.id_product === product.id ? { ...i, quantity: i.quantity + quantity } : i
         )
       }
-      return [...prev, { id_product: product.id, quantity, product }]
+      return [...prev, {
+        id_product: product.id,
+        quantity,
+        product,
+        weight: product.weight ?? null,
+      }]
     })
   }, [])
 
@@ -52,12 +60,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  const updateLineWeight = useCallback((id_product: number, weight: number | null) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id_product === id_product ? { ...i, weight } : i))
+    )
+  }, [])
+
   const clearCart = useCallback(() => setItems([]), [])
 
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0)
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, itemCount }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, updateLineWeight, clearCart, itemCount }}>
       {children}
     </CartContext.Provider>
   )

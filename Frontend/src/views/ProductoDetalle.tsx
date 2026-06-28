@@ -8,6 +8,7 @@ import { Product } from '@/types'
 import { useCart } from '@/context/CartContext'
 import { ProductImage } from '@/components/ProductImage'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import { formatWeight, hasWeight } from '@/lib/formatWeight'
 
 export function ProductoDetalle() {
   const { id } = useParams()
@@ -75,6 +76,7 @@ export function ProductoDetalle() {
   const specs: { label: string; value: string }[] = []
   if (product.brand) specs.push({ label: 'Marca', value: product.brand })
   if (product.category) specs.push({ label: 'Categoría', value: product.category })
+  if (hasWeight(product.weight)) specs.push({ label: 'Peso', value: formatWeight(product.weight) })
   if (product.has_tiered_pricing) specs.push({ label: 'Precio', value: 'Por volumen' })
 
   const sortedTiers =

@@ -29,6 +29,14 @@ def _order_display_name(order: Order) -> Optional[str]:
     return None
 
 
+def _line_weight(line_weight: Optional[float], product: Product) -> Optional[float]:
+    if line_weight is not None:
+        return float(line_weight)
+    if product.weight is not None:
+        return float(product.weight)
+    return None
+
+
 def _unit_price_from_product(product: Product, quantity: int) -> float:
     """Precio unitario según producto: base o mejor volumen si has_tiered_pricing."""
     if not product.has_tiered_pricing or not product.price_tiers:
@@ -121,6 +129,7 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
                         "id_product": op.id_product,
                         "quantity": op.quantity,
                         "unit_price": op.unit_price,
+                        "weight": op.weight,
                     }
                     for op in o.order_products
                 ],
@@ -176,6 +185,7 @@ async def get_order(req: Request, order_id: int):
                         "id_product": op.id_product,
                         "quantity": op.quantity,
                         "unit_price": op.unit_price,
+                        "weight": op.weight,
                     }
                     for op in o.order_products
                 ],
@@ -226,6 +236,7 @@ async def create_order_client(req: Request, body: OrderCreateClient):
                     id_product=line.id_product,
                     quantity=line.quantity,
                     unit_price=unit_price,
+                    weight=_line_weight(line.weight, product),
                 )
                 session.add(op)
                 total += line.quantity * unit_price
@@ -306,11 +317,19 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
                         )
                     unit_price = _unit_price_from_product(product, line.quantity)
 
+                product = products.get(line.id_product)
+                line_weight = None
+                if product:
+                    line_weight = _line_weight(line.weight, product)
+                elif line.weight is not None:
+                    line_weight = float(line.weight)
+
                 op = OrderProduct(
                     id_order=order.id,
                     id_product=line.id_product,
                     quantity=line.quantity,
                     unit_price=unit_price,
+                    weight=line_weight,
                 )
                 session.add(op)
                 total += line.quantity * unit_price
@@ -372,6 +391,7 @@ async def update_order(req: Request, body: InputOrderUpdate):
                         id_product=line.id_product,
                         quantity=line.quantity,
                         unit_price=line.unit_price,
+                        weight=line.weight,
                     )
                     session.add(op)
                     total += line.quantity * line.unit_price

@@ -83,6 +83,7 @@ async def sync_products(req: Request, since: int | None = None):
                     "id": p.id,
                     "name": p.name,
                     "price": p.price,
+                    "weight": p.weight,
                     "brand": p.brand,
                     "category": p.category,
                     "has_tiered_pricing": p.has_tiered_pricing,
@@ -151,6 +152,7 @@ async def sync_orders(req: Request, since: int | None = None):
                             "id_product": op.id_product,
                             "quantity": op.quantity,
                             "unit_price": op.unit_price,
+                            "weight": op.weight,
                         }
                         for op in o.order_products
                     ],

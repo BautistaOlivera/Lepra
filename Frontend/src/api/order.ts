@@ -12,7 +12,7 @@ export async function getOrder(id: number) {
   return api<Order>(`/order/${id}`)
 }
 
-export async function createOrderClient(data: { date?: string; payment?: string; lines: { id_product: number; quantity: number }[] }) {
+export async function createOrderClient(data: { date?: string; payment?: string; lines: { id_product: number; quantity: number; weight?: number | null }[] }) {
   return api<{ message: string; id: number; total: number }>('/order/create-client', {
     method: 'POST',
     body: JSON.stringify(data),

@@ -14,6 +14,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     price = Column(Float, nullable=False)
+    weight = Column(Float, nullable=True)
     brand = Column(String, nullable=True)
     category = Column(String, nullable=True)
     has_tiered_pricing = Column(Boolean, default=False)
@@ -28,6 +29,7 @@ class Product(Base):
 class ProductBase(BaseModel):
     name: str
     price: float
+    weight: Optional[float] = None
     brand: Optional[str] = None
     category: Optional[str] = None
     has_tiered_pricing: bool = False
@@ -45,6 +47,7 @@ class ProductResponse(ProductBase):
 class InputProduct(BaseModel):
     name: str
     price: float
+    weight: Optional[float] = None
     brand: Optional[str] = None
     category: Optional[str] = None
     has_tiered_pricing: bool = False
@@ -55,6 +58,7 @@ class InputProductUpdate(BaseModel):
     id: int
     name: Optional[str] = None
     price: Optional[float] = None
+    weight: Optional[float] = None
     brand: Optional[str] = None
     category: Optional[str] = None
     has_tiered_pricing: Optional[bool] = None

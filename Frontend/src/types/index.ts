@@ -2,6 +2,7 @@ export interface Product {
   id: number
   name: string
   price: number
+  weight?: number | null
   brand?: string | null
   category?: string | null
   has_tiered_pricing: boolean
@@ -32,6 +33,7 @@ export interface OrderProduct {
   id_product: number
   quantity: number
   unit_price: number
+  weight?: number | null
 }
 
 export interface Order {

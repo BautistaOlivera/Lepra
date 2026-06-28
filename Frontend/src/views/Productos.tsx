@@ -9,6 +9,7 @@ import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import { formatWeight, hasWeight } from '@/lib/formatWeight'
 import { ProductoModal } from '@/components/modals/ProductoModal'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
@@ -135,6 +136,13 @@ export function Productos() {
     columnHelper.accessor('name', { header: 'Nombre' }),
     columnHelper.accessor('brand', { header: 'Marca', cell: (info) => info.getValue() || '-' }),
     columnHelper.accessor('category', { header: 'Categoría', cell: (info) => info.getValue() || '-' }),
+    columnHelper.accessor('weight', {
+      header: 'Peso',
+      cell: (info) => {
+        const w = info.getValue()
+        return hasWeight(w) ? formatWeight(w) : ''
+      },
+    }),
     columnHelper.accessor('price', {
       header: 'Precio',
       cell: (info) => formatMoneyWithSymbol(info.getValue()),
@@ -271,6 +279,9 @@ export function Productos() {
                             <div className="fw-semibold text-dark admin-list-card-title">{p.name}</div>
                             {p.brand && (
                               <div className="text-muted small mt-1 admin-list-card-subtitle">{p.brand}</div>
+                            )}
+                            {hasWeight(p.weight) && (
+                              <div className="text-muted small admin-list-card-subtitle">{formatWeight(p.weight)}</div>
                             )}
                             <div className="fw-bold text-dark mt-1">{formatMoneyWithSymbol(p.price)}</div>
                           </div>

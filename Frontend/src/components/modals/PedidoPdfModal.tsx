@@ -5,7 +5,7 @@ import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { Printer, Share2, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Order } from '@/types'
-import { buildPedidoPdfBlob, pedidoPdfFilename } from '@/lib/pedidoPdf'
+import { buildPedidoPdfBlob, pedidoPdfFilename, type PedidoPdfProductById } from '@/lib/pedidoPdf'
 import { lepraDb } from '@/offline/db'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
@@ -43,21 +43,24 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
     ;(async () => {
       const lines = order.lines || []
       const ids = [...new Set(lines.map((l) => l.id_product))]
-      const nameById: Record<number, string> = {}
+      const productById: PedidoPdfProductById = {}
       await Promise.all(
         ids.map(async (id) => {
           try {
             const p = await lepraDb.products.get(id)
-            nameById[id] = (p?.name && String(p.name).trim()) || ''
+            productById[id] = {
+              name: (p?.name && String(p.name).trim()) || '',
+              brand: p?.brand ?? null,
+            }
           } catch {
-            nameById[id] = ''
+            productById[id] = { name: '', brand: null }
           }
         }),
       )
       if (cancelled) return
       let blob: Blob
       try {
-        blob = await buildPedidoPdfBlob(order, nameById)
+        blob = await buildPedidoPdfBlob(order, productById)
       } catch (e) {
         console.error(e)
         if (!cancelled) {

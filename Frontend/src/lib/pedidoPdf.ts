@@ -6,6 +6,7 @@ import { getImageUrl } from '@/api/client'
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { formatDateTimeAR } from '@/lib/formatDate'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import { formatWeight, hasWeight } from '@/lib/formatWeight'
 
 const STATUS_ES: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -20,6 +21,37 @@ const LOGO_WATERMARK_ALPHA = 0.50
 const PDF_PT_TO_MM = 25.4 / 72
 
 const LOGO_PNG_NAME = 'lepra-logo-watermark.png'
+
+export type PedidoPdfProductById = Record<number, { name: string; brand?: string | null }>
+
+function productName(info: PedidoPdfProductById[number] | undefined, id: number): string {
+  return (info?.name && String(info.name).trim()) || `Producto #${id}`
+}
+
+function productBrand(info: PedidoPdfProductById[number] | undefined): string {
+  return (info?.brand && String(info.brand).trim()) || ''
+}
+
+function distributeColumnWidths(showBrandCol: boolean, showWeightCol: boolean, tableW: number): number[] {
+  const weights: number[] = []
+  if (showBrandCol) {
+    weights.push(52, 28)
+  } else {
+    weights.push(showWeightCol ? 58 : 80)
+  }
+  weights.push(18)
+  if (showWeightCol) weights.push(22)
+  weights.push(35, 35)
+  const sum = weights.reduce((a, b) => a + b, 0)
+  return weights.map((w) => (w / sum) * tableW)
+}
+
+function tableCellAt(
+  row: { cells: Record<string | number, { x: number; width: number }> },
+  index: number,
+) {
+  return row.cells[index] ?? row.cells[String(index)]
+}
 
 export function pedidoPdfFilename(order: Order): string {
   const safeId = order.id < 0 ? `temp-${Math.abs(order.id)}` : String(order.id)
@@ -137,7 +169,7 @@ function drawWatermarkBehind(
 }
 
 /** PDF del comprobante (una sola fuente de verdad para vista previa, imprimir y compartir). */
-export async function buildPedidoPdfBlob(order: Order, productNameById: Record<number, string>): Promise<Blob> {
+export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfProductById): Promise<Blob> {
   const wm = await loadCompanyLogoWatermark()
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
@@ -183,31 +215,66 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
   if (order.payment?.trim()) metaLine('Notas de pago', String(order.payment).trim())
 
   const lines = order.lines || []
+  const showBrandCol = lines.some((l) => productBrand(productById[l.id_product]))
+  const showWeightCol = lines.some((l) => hasWeight(l.weight))
+
+  const head: string[] = ['Producto']
+  if (showBrandCol) head.push('Marca')
+  head.push('Cant.')
+  if (showWeightCol) head.push('Peso')
+  head.push('P. unit.', 'Subtotal')
+
+  const qtyCol = 1 + (showBrandCol ? 1 : 0)
+  const weightCol = showWeightCol ? qtyCol + 1 : -1
+  const subCol = qtyCol + 1 + (showWeightCol ? 1 : 0) + 1
+
   const body = lines.map((l) => {
-    const nm = (productNameById[l.id_product] && productNameById[l.id_product].trim()) || `Producto #${l.id_product}`
+    const info = productById[l.id_product]
     const sub = l.quantity * l.unit_price
-    return [nm, String(l.quantity), formatMoneyWithSymbol(l.unit_price), formatMoneyWithSymbol(sub)]
+    const row: string[] = [productName(info, l.id_product)]
+    if (showBrandCol) row.push(productBrand(info))
+    row.push(String(l.quantity))
+    if (showWeightCol) {
+      row.push(hasWeight(l.weight) ? formatWeight(l.weight) : '')
+    }
+    row.push(formatMoneyWithSymbol(l.unit_price), formatMoneyWithSymbol(sub))
+    return row
   })
 
   const tableW = pageW - margin * 2
+  const colWidths = distributeColumnWidths(showBrandCol, showWeightCol, tableW)
+  const emptyDash = '—'
+  const emptyRow = head.map(() => emptyDash)
+  if (emptyRow.length) emptyRow[0] = '(Sin líneas registradas)'
+
+  const columnStyles: Record<number, { cellWidth: number; halign: 'left' | 'center' | 'right' }> = {}
+  colWidths.forEach((width, index) => {
+    let halign: 'left' | 'center' | 'right' = 'left'
+    if (index === qtyCol || index === weightCol) halign = 'center'
+    else if (index === subCol) halign = 'right'
+    columnStyles[index] = { cellWidth: width, halign }
+  })
+
+  const cellPadding = 2
 
   const table = __createTable(doc, {
     startY: y + 4,
-    head: [['Producto', 'Cant.', 'P. unit.', 'Subtotal']],
-    body: body.length ? body : [['(Sin líneas registradas)', '—', '—', '—']],
+    head: [head],
+    body: body.length ? body : [emptyRow],
     tableWidth: tableW,
     didParseCell: (data) => {
       if (data.section === 'body') {
         data.cell.styles.fillColor = false
       }
       const ci = data.column.index
-      if (ci === 1) data.cell.styles.halign = 'center'
-      else if (ci === 3) data.cell.styles.halign = 'right'
+      if (ci === qtyCol) data.cell.styles.halign = 'center'
+      else if (ci === subCol) data.cell.styles.halign = 'right'
+      else if (ci === weightCol) data.cell.styles.halign = 'center'
       else data.cell.styles.halign = 'left'
     },
     styles: {
       fontSize: 9,
-      cellPadding: 2,
+      cellPadding,
       overflow: 'linebreak',
       textColor: [22, 22, 22],
     },
@@ -216,31 +283,31 @@ export async function buildPedidoPdfBlob(order: Order, productNameById: Record<n
       textColor: 255,
       fontStyle: 'bold',
     },
-    columnStyles: {
-      0: { cellWidth: 80, halign: 'left' },
-      1: { cellWidth: 24, halign: 'center' },
-      2: { cellWidth: 39, halign: 'left' },
-      3: { cellWidth: 39, halign: 'right' },
-    },
+    columnStyles,
     margin: { left: margin, right: margin },
   })
   __drawTable(doc, table)
 
+  const tableLeft = table.settings.margin.left
+  const tableWidth = table.getWidth(pageW)
   const finalY = table.finalY ?? y + 40
   const totalBoxY = finalY + 2
   const totalBoxH = 9
-  const padX = 2.5
 
   doc.setDrawColor(0, 0, 0)
   doc.setLineWidth(0.45)
-  doc.rect(margin, totalBoxY, tableW, totalBoxH, 'S')
+  doc.rect(tableLeft, totalBoxY, tableWidth, totalBoxH, 'S')
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
   doc.setTextColor(26, 26, 26)
   const textBaseline = totalBoxY + totalBoxH - 2.8
-  doc.text('Total', margin + padX, textBaseline)
-  doc.text(formatMoneyWithSymbol(order.total), margin + tableW - padX, textBaseline, { align: 'right' })
+  doc.text('Total', tableLeft + cellPadding, textBaseline)
+
+  const refRow = table.body[0] ?? table.head[0]
+  const subCell = refRow ? tableCellAt(refRow, subCol) : undefined
+  const totalX = subCell ? subCell.x + subCell.width - cellPadding : tableLeft + tableWidth - cellPadding
+  doc.text(formatMoneyWithSymbol(order.total), totalX, textBaseline, { align: 'right' })
 
   return doc.output('blob')
 }

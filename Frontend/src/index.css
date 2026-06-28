@@ -395,6 +395,52 @@ body {
   --bs-table-border-color: #333;
 }
 
+/* Tablas de listados y formularios: filas alternadas + hover suave */
+.table-lepra-wrap {
+  border: 1px solid #e2e2de;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--lepra-white);
+}
+
+.table-lepra {
+  --lepra-table-stripe: #f4f3ef;
+  --lepra-table-hover: rgba(230, 184, 0, 0.12);
+  --lepra-table-border: #e2e2de;
+  margin-bottom: 0;
+}
+
+.table-lepra > :not(caption) > * > * {
+  border-bottom-color: var(--lepra-table-border);
+  vertical-align: middle;
+}
+
+.table-lepra thead th {
+  border-bottom-width: 2px;
+}
+
+.table-lepra tbody tr:nth-child(even) > * {
+  --bs-table-bg-type: initial;
+  --bs-table-bg-state: initial;
+  --bs-table-color-type: initial;
+  --bs-table-color-state: initial;
+  background-color: var(--lepra-table-stripe);
+}
+
+.table-lepra tbody tr:hover > * {
+  --bs-table-bg-state: initial;
+  background-color: var(--lepra-table-hover);
+}
+
+.table-lepra tbody tr .form-control,
+.table-lepra tbody tr .lepra-select__control {
+  background-color: var(--lepra-white);
+}
+
+.table-lepra tbody tr:last-child > * {
+  border-bottom-width: 0;
+}
+
 .modal-header.border-dark {
   border-bottom-color: #dee2e6 !important;
 }

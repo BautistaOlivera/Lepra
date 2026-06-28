@@ -20,14 +20,14 @@ export async function getProduct(id: number) {
   return api<Product>(`/product/${id}`)
 }
 
-export async function createProduct(data: { name: string; price: number; brand?: string; category?: string; has_tiered_pricing?: boolean; img?: string }) {
+export async function createProduct(data: { name: string; price: number; weight?: number | null; brand?: string; category?: string; has_tiered_pricing?: boolean; img?: string }) {
   return api<{ message: string; id: number }>('/product/create', {
     method: 'POST',
     body: JSON.stringify(data),
   })
 }
 
-export async function updateProduct(data: { id: number; name?: string; price?: number; brand?: string; category?: string; has_tiered_pricing?: boolean; img?: string; active?: boolean }) {
+export async function updateProduct(data: { id: number; name?: string; price?: number; weight?: number | null; brand?: string; category?: string; has_tiered_pricing?: boolean; img?: string; active?: boolean }) {
   return api<{ message: string }>('/product/update', {
     method: 'PUT',
     body: JSON.stringify(data),
