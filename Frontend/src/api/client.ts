@@ -46,8 +46,8 @@ async function request(url: string, options: RequestInit = {}): Promise<{
   const init: RequestInit = {
     ...options,
     headers: buildHeaders(options),
-    // La API en producción puede responder ACA-Credentials:true; Chrome 81 exige include.
-    credentials: 'include',
+    // JWT va en Authorization, no en cookies — omit evita choque CORS con ACAO *.
+    credentials: 'omit',
     mode: 'cors',
   }
 

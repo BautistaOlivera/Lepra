@@ -21,9 +21,12 @@ lepra = FastAPI(title="El Lepra API", description="API para catálogo, pedidos y
 
 Base.metadata.create_all(bind=engine)
 
+_default_cors = "https://store.lepramg.com,http://localhost:5173,http://127.0.0.1:5173"
+_cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", _default_cors).split(",") if o.strip()]
+
 lepra.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
