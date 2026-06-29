@@ -3,9 +3,10 @@ import { Product, PaginatedRequest, PaginatedResponse } from '@/types'
 
 export { getImageUrl }
 
-export async function uploadProductImage(file: File) {
+export async function uploadProductImage(file: File, productName: string) {
   const form = new FormData()
   form.append('file', file)
+  form.append('name', productName.trim())
   return apiUpload<{ url: string }>('/product/upload', form)
 }
 

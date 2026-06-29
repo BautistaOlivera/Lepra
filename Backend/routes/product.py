@@ -1,54 +1,33 @@
-from fastapi import APIRouter, Request, File, UploadFile
+from fastapi import APIRouter, Request, File, UploadFile, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import traceback
 import os
 import uuid
-from io import BytesIO
-from PIL import Image, ImageOps
 
 from models import Product, InputProduct, InputProductUpdate, InputPaginatedRequestFilter
 from models.product_price_tier import ProductPriceTier
 from config.db import AsyncSessionLocal
 from auth.roles import require_roles
+from services.product_image import UPLOAD_DIR, process_product_upload
 
 product_router = APIRouter(prefix="/product", tags=["Product"])
 
-# Carpeta donde se guardan las imágenes subidas (relativa al directorio del backend)
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 ALLOWED_EXTENSIONS = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
-MAX_IMAGE_WIDTH = 1200
-WEBP_QUALITY = 80
-
-
-def _optimize_image_to_webp(content: bytes) -> tuple[bytes, int, int]:
-    """Convierte la imagen a WebP optimizado y retorna bytes + dimensiones finales."""
-    with Image.open(BytesIO(content)) as img:
-        # Corrige rotación/orientación según EXIF (fotos de celular).
-        img = ImageOps.exif_transpose(img)
-
-        if img.mode not in ("RGB", "RGBA"):
-            img = img.convert("RGBA" if "A" in img.getbands() else "RGB")
-
-        if img.width > MAX_IMAGE_WIDTH:
-            ratio = MAX_IMAGE_WIDTH / float(img.width)
-            target_height = int(img.height * ratio)
-            img = img.resize((MAX_IMAGE_WIDTH, target_height), Image.Resampling.LANCZOS)
-
-        output = BytesIO()
-        img.save(output, format="WEBP", quality=WEBP_QUALITY, method=6, optimize=True)
-        optimized = output.getvalue()
-        return optimized, img.width, img.height
 
 
 @product_router.post("/upload")
-async def upload_image(req: Request, file: UploadFile = File(...)):
-    """Subir imagen de producto. Solo ADMIN. Devuelve la URL relativa para guardar en img."""
+async def upload_image(req: Request, file: UploadFile = File(...), name: str = Form(...)):
+    """Subir imagen de producto con logo y nombre. Solo ADMIN."""
     payload = require_roles(req.headers, ["ADMIN"])
     if isinstance(payload, JSONResponse):
         return payload
+
+    product_name = (name or "").strip()
+    if not product_name:
+        return JSONResponse(status_code=400, content={"message": "Indicá el nombre del producto antes de subir la imagen"})
 
     if file.content_type not in ALLOWED_EXTENSIONS:
         return JSONResponse(
@@ -65,7 +44,7 @@ async def upload_image(req: Request, file: UploadFile = File(...)):
         if len(content) > MAX_UPLOAD_BYTES:
             return JSONResponse(status_code=400, content={"message": "La imagen no debe superar 5 MB"})
 
-        optimized_content, width, height = _optimize_image_to_webp(content)
+        optimized_content, width, height = process_product_upload(content, product_name)
         with open(filepath, "wb") as f:
             f.write(optimized_content)
         url = f"/uploads/{filename}"
@@ -78,7 +57,7 @@ async def upload_image(req: Request, file: UploadFile = File(...)):
                 "size_kb": round(len(optimized_content) / 1024, 1),
             },
         )
-    except Exception as e:
+    except Exception:
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": "Error al procesar o guardar la imagen"})
 

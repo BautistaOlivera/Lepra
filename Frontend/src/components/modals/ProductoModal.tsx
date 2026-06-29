@@ -270,8 +270,14 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       toast.error('La imagen no debe superar 5 MB')
       return
     }
+    const productName = name.trim()
+    if (!productName) {
+      toast.error('Completá el nombre del producto antes de subir la imagen')
+      e.target.value = ''
+      return
+    }
     setUploading(true)
-    const { data, error } = await uploadProductImage(file)
+    const { data, error } = await uploadProductImage(file, productName)
     setUploading(false)
     if (error) {
       toast.error(error.message || 'Error al subir la imagen')
@@ -562,6 +568,9 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Imagen del producto</Form.Label>
+              <Form.Text className="text-muted d-block mb-2">
+                Al subir la foto se aplica el logo de El Lepra y el nombre del producto sobre la imagen.
+              </Form.Text>
               <div className="d-flex align-items-start gap-3">
                 <div
                   className="border rounded overflow-hidden bg-light"
