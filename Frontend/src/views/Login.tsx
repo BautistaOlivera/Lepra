@@ -31,8 +31,12 @@ export function Login() {
       markOnlineAuth()
       toast.success('¡Bienvenido!')
       const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
-      const defaultPath = data.user.rol === 'ADMIN' ? '/admin' : '/'
-      const target = from && from !== '/login' ? from : defaultPath
+      const isAdmin = data.user.rol === 'ADMIN'
+      const target = isAdmin
+        ? '/admin'
+        : from && from !== '/login'
+          ? from
+          : '/'
       navigate(target, { replace: true })
     }
   }

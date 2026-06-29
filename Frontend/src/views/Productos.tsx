@@ -179,7 +179,7 @@ export function Productos() {
       meta: { align: 'start' },
       cell: (info) => {
         const w = info.getValue()
-        return hasWeight(w) ? formatWeight(w) : ''
+        return hasWeight(w) ? formatWeight(w) : '-'
       },
     }),
     columnHelper.accessor('price', {
@@ -356,9 +356,8 @@ export function Productos() {
                           {!isProductInactive(p) && (
                             <div className="admin-list-card-actions d-flex gap-1 flex-shrink-0">
                               <Button
-                                variant="outline-light"
+                                variant={isProductInCatalog(p) ? 'outline-success' : 'outline-warning'}
                                 size="sm"
-                                className={`border-0 ${isProductInCatalog(p) ? 'text-success' : 'text-warning'}`}
                                 onClick={() => handleToggleCatalogVisibility(p)}
                                 aria-label={
                                   isProductInCatalog(p)

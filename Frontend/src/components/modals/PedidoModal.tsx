@@ -26,6 +26,7 @@ import {
   pieceWeightKg,
   validateLineWeightKg,
 } from '@/lib/pricing'
+import { parseUnitPriceInput } from '@/lib/productTiers'
 import { QuantityStepper } from '@/components/QuantityStepper'
 
 type SubmitPhase = 'idle' | 'client' | 'order'
@@ -49,13 +50,19 @@ interface PedidoModalProps {
 type PedidoLine = {
   id_product: number
   weight: string
-  price_per_kg: number
+  /** Precio unitario editable ($/kg o $/pieza); solo afecta este pedido. */
+  price: string
   product?: Product
 }
 
 function lineWeightKg(line: PedidoLine): number {
   const parsed = parseWeightInput(line.weight)
   return parsed.ok && parsed.value != null ? parsed.value : 0
+}
+
+function lineUnitPriceNumber(line: PedidoLine): number {
+  const parsed = parseUnitPriceInput(line.price)
+  return parsed.ok ? parsed.value : 0
 }
 
 function linePieces(line: PedidoLine): number {
@@ -101,7 +108,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
   function recalcPrice(line: PedidoLine): void {
     if (!line.product) return
     const w = lineWeightKg(line)
-    line.price_per_kg = lineUnitPrice(line.product, w)
+    line.price = String(lineUnitPrice(line.product, w))
   }
 
   function addLine() {
@@ -109,16 +116,20 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       toast.error('No hay productos cargados')
       return
     }
-    setLines([...lines, { id_product: 0, weight: '', price_per_kg: 0 }])
+    setLines([...lines, { id_product: 0, weight: '', price: '' }])
   }
 
-  function updateLine(index: number, field: 'id_product' | 'weight' | 'pieces', value: number | string | null) {
+  function updateLine(
+    index: number,
+    field: 'id_product' | 'weight' | 'pieces' | 'price',
+    value: number | string | null,
+  ) {
     const newLines = [...lines]
     const line = newLines[index]
     if (field === 'id_product') {
       if (value == null || value === 0) {
         line.id_product = 0
-        line.price_per_kg = 0
+        line.price = ''
         line.product = undefined
         line.weight = ''
       } else {
@@ -128,7 +139,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
           line.product = product
           const defaultW = defaultLineWeightKg(product)
           line.weight = String(defaultW)
-          line.price_per_kg = lineUnitPrice(product, defaultW)
+          line.price = String(lineUnitPrice(product, defaultW))
         }
       }
     } else if (field === 'weight' && typeof value === 'string') {
@@ -140,6 +151,8 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
         line.weight = String(minKgFromPieces(Math.max(1, value), piece))
         recalcPrice(line)
       }
+    } else if (field === 'price' && typeof value === 'string') {
+      line.price = value
     }
     setLines(newLines)
   }
@@ -148,10 +161,10 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     setLines(lines.filter((_, i) => i !== index))
   }
 
-  const total = validLines.reduce(
-    (s, l) => s + (l.product ? lineTotal(l.product, lineWeightKg(l), l.price_per_kg) : 0),
-    0,
-  )
+  const total = validLines.reduce((s, l) => {
+    if (!l.product) return s
+    return s + lineTotal(l.product, lineWeightKg(l), lineUnitPriceNumber(l))
+  }, 0)
 
   const userOptions: SelectOption<number>[] = users.map((u) => ({
     value: u.id,
@@ -217,10 +230,15 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
           return
         }
       }
+      const priceParsed = parseUnitPriceInput(l.price)
+      if (!priceParsed.ok) {
+        toast.error(`${l.product?.name ?? 'Producto'}: ${priceParsed.message}`)
+        return
+      }
       parsedLines.push({
         id_product: l.id_product,
         weight: w.value,
-        price_per_kg: lineUnitPrice(l.product!, w.value),
+        price_per_kg: priceParsed.value,
       })
     }
 
@@ -364,10 +382,10 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
           <div className="table-lepra-wrap mb-4">
           <Table size="sm" className="table-lepra pedido-lines-table mb-0" style={{ tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: '36%' }} />
+              <col style={{ width: '32%' }} />
               <col style={{ width: '18%' }} />
-              <col style={{ width: '16%' }} />
-              <col style={{ width: '16%' }} />
+              <col style={{ width: '20%' }} />
+              <col style={{ width: '14%' }} />
               <col style={{ width: '5%' }} />
             </colgroup>
             <thead className="table-dark">
@@ -382,9 +400,8 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
             <tbody>
               {lines.map((l, i) => {
                 const w = lineWeightKg(l)
-                const sub = l.product
-                  ? lineTotal(l.product, w, l.price_per_kg)
-                  : 0
+                const unitPrice = lineUnitPriceNumber(l)
+                const sub = l.product ? lineTotal(l.product, w, unitPrice) : 0
                 const fixed = l.product ? isFixedWeightProduct(l.product) : false
                 return (
                 <tr key={i}>
@@ -424,8 +441,21 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                     )}
                   </td>
                   <td className="text-end align-middle">
-                    {formatMoneyWithSymbol(l.price_per_kg)}
-                    {!fixed && <span className="text-muted small">/kg</span>}
+                    <div className="d-inline-flex align-items-center justify-content-end gap-1">
+                      <Form.Control
+                        type="text"
+                        inputMode="decimal"
+                        size="sm"
+                        className="input-price text-end"
+                        style={{ minHeight: 31, width: '4.75rem' }}
+                        value={l.price}
+                        onChange={(e) => updateLine(i, 'price', e.target.value)}
+                        placeholder="—"
+                        disabled={!l.product || busy}
+                        aria-label={fixed ? 'Precio por pieza' : 'Precio por kg'}
+                      />
+                      {!fixed && <span className="text-muted small user-select-none">/kg</span>}
+                    </div>
                   </td>
                   <td className="text-end align-middle">{formatMoneyWithSymbol(sub)}</td>
                   <td className="align-middle">

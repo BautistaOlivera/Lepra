@@ -1,4 +1,4 @@
-import { formatNetworkErrorMessage } from '@/lib/networkErrors'
+import { extractApiErrorMessage, formatNetworkErrorMessage } from '@/lib/networkErrors'
 import { httpRequest, xhrRequest } from '@/lib/httpTransport'
 import { isLegacyClient } from '@/lib/legacyBrowser'
 
@@ -72,7 +72,7 @@ export async function api<T>(
 ): Promise<{ data?: T; error?: { status: number; message: string } }> {
   try {
     const res = await request(`${API_BASE}${path}`, options)
-    const json = (await res.json().catch(() => ({}))) as { message?: string }
+    const json = (await res.json().catch(() => ({}))) as { message?: string; detail?: unknown }
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
         try {
@@ -82,7 +82,12 @@ export async function api<T>(
           // ignore
         }
       }
-      return { error: { status: res.status, message: json.message || res.statusText } }
+      return {
+        error: {
+          status: res.status,
+          message: extractApiErrorMessage(json, res.status, res.statusText),
+        },
+      }
     }
     try {
       localStorage.removeItem('lepra_auth_required')
@@ -106,7 +111,7 @@ export async function apiUpload<T>(
 
   try {
     const res = await request(`${API_BASE}${path}`, { method: 'POST', body: formData, headers })
-    const json = (await res.json().catch(() => ({}))) as { message?: string }
+    const json = (await res.json().catch(() => ({}))) as { message?: string; detail?: unknown }
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
         try {
@@ -116,7 +121,12 @@ export async function apiUpload<T>(
           // ignore
         }
       }
-      return { error: { status: res.status, message: json.message || res.statusText } }
+      return {
+        error: {
+          status: res.status,
+          message: extractApiErrorMessage(json, res.status, res.statusText),
+        },
+      }
     }
     try {
       localStorage.removeItem('lepra_auth_required')

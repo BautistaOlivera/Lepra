@@ -158,9 +158,7 @@ export function Estadisticas() {
               isClearable
             />
           </div>
-          <div className="admin-list-filter d-flex align-items-end">
-            <AdminFilterResetButton onClick={clearFilters} />
-          </div>
+          <AdminFilterResetButton onClick={clearFilters} />
         </div>
 
         <div className="d-flex flex-wrap align-items-center gap-2 mt-2">
