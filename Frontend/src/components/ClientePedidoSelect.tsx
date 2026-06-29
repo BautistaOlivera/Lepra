@@ -66,6 +66,10 @@ const lepraStyles: StylesConfig<ClientSelectOption, false> = {
     ...base,
     color: '#6c757d',
   }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 1060,
+  }),
 }
 
 function defaultFilterOption(option: SelectOption<number>, inputValue: string): boolean {
@@ -137,6 +141,8 @@ export function ClientePedidoSelect({ options, users, value, onChange, disabled 
           filterOption={(option, raw) => defaultFilterOption(option.data as SelectOption<number>, raw)}
           formatCreateLabel={(input) => `Nuevo usuario: ${input.trim()}`}
           styles={lepraStyles}
+          menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+          menuPosition="fixed"
           noOptionsMessage={() => 'Sin coincidencias — Enter para nuevo usuario'}
           classNamePrefix="lepra-select"
         />

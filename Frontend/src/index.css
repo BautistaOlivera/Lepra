@@ -506,7 +506,8 @@ body {
   width: 100%;
   font-size: inherit;
 }
-.lepra-select__menu {
+.lepra-select__menu,
+.lepra-select__menu-portal {
   z-index: 1060;
 }
 

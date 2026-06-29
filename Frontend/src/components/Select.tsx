@@ -41,7 +41,13 @@ const lepraStyles: StylesConfig<SelectOption, false> = {
     ...base,
     color: '#6c757d',
   }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 1060,
+  }),
 }
+
+const menuPortalTarget = typeof document !== 'undefined' ? document.body : undefined
 
 function defaultFilterOption<T>(option: SelectOption<T>, inputValue: string): boolean {
   const label = String(option.label).toLowerCase()
@@ -92,6 +98,8 @@ export function Select<T extends number | string = number | string>({
       }
       isDisabled={disabled}
       styles={computedStyles}
+      menuPortalTarget={menuPortalTarget}
+      menuPosition="fixed"
       noOptionsMessage={() => 'Sin resultados'}
       classNamePrefix="lepra-select"
     />
