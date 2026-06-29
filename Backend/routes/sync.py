@@ -89,6 +89,7 @@ async def sync_products(req: Request, since: int | None = None):
                     "category": p.category,
                     "has_tiered_pricing": p.has_tiered_pricing,
                     "img": p.img,
+                    "status": p.status,
                     "active": p.active,
                     "updated_at": utc_naive_iso(p.updated_at),
                     "price_tiers": [

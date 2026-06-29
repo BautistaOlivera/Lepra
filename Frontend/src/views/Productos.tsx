@@ -1,11 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Form, InputGroup, Card } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
-import { Plus, Pencil, Trash2, Search, CheckCircle2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, CheckCircle2, Settings, Package } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Link } from 'react-router-dom'
-import { deactivateProduct, getImageUrl } from '@/api/product'
-import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
+import { deactivateProduct, getImageUrl, setProductVisibility } from '@/api/product'
+import { getProductsPaginatedOfflineFirst, isProductInactive } from '@/repositories/productsRepo'
+import {
+  isProductInCatalog,
+  PRODUCT_ADMIN_STATUS_FILTER_LABELS,
+  PRODUCT_STATUS_LABELS,
+  productStatus,
+  type ProductAdminStatusFilter,
+  type ProductStatus,
+} from '@/lib/productStatus'
 import { Product } from '@/types'
 import toast from 'react-hot-toast'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
@@ -31,6 +39,12 @@ function ProductoSyncBadge({ product, pending }: { product: Product; pending: bo
   return <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado" />
 }
 
+function statusBadgeVariant(status: ProductStatus): string {
+  if (status === 'active') return 'success'
+  if (status === 'sin_stock') return 'warning'
+  return 'danger'
+}
+
 export function Productos() {
   const confirm = useConfirm()
   const [products, setProducts] = useState<Product[]>([])
@@ -41,7 +55,7 @@ export function Productos() {
   const [search, setSearch] = useState('')
   const [searchDebounced, setSearchDebounced] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
-  const [activeFilter, setActiveFilter] = useState<boolean | null>(true)
+  const [statusFilter, setStatusFilter] = useState<ProductAdminStatusFilter>('all')
   const { products: pendingProducts, refresh: refreshPending } = useOutboxPending()
 
   useEffect(() => {
@@ -51,10 +65,9 @@ export function Productos() {
 
   const loadProducts = useCallback(async (lastId?: number) => {
     setLoading(true)
-    const filters: Record<string, unknown> = {}
+    const filters: Record<string, unknown> = { admin_list: true, status: statusFilter }
     if (searchDebounced.trim()) filters.search = searchDebounced.trim()
     if (categoryFilter) filters.category = categoryFilter
-    if (activeFilter !== null) filters.active = activeFilter
     const { data } = await getProductsPaginatedOfflineFirst({
       limit: 20,
       last_seen_id: lastId ?? null,
@@ -65,7 +78,7 @@ export function Productos() {
       setNextCursor(data.next_cursor)
     }
     setLoading(false)
-  }, [searchDebounced, categoryFilter, activeFilter])
+  }, [searchDebounced, categoryFilter, statusFilter])
 
   useEffect(() => {
     loadProducts()
@@ -81,6 +94,30 @@ export function Productos() {
     setModalOpen(true)
   }
 
+  async function handleToggleCatalogVisibility(p: Product) {
+    const current = productStatus(p)
+    if (current === 'inactive') return
+    const next: ProductStatus = current === 'active' ? 'sin_stock' : 'active'
+    if (!isOnlineNow()) {
+      await enqueueCommand('PRODUCT_UPDATE', { id: p.id, status: next })
+      await lepraDb.products.update(p.id, { status: next, active: true })
+      toast.success(
+        next === 'sin_stock'
+          ? 'Marcado sin stock (pendiente de sincronizar)'
+          : 'Visible en catálogo (pendiente de sincronizar)',
+      )
+      refreshPending().catch(() => {})
+      loadProducts()
+      return
+    }
+    const { error } = await setProductVisibility(p.id, next)
+    if (error) toast.error(error.message)
+    else {
+      toast.success(next === 'sin_stock' ? 'Producto sin stock' : 'Producto visible en catálogo')
+      loadProducts()
+    }
+  }
+
   async function handleDeactivate(p: Product) {
     const ok = await confirm({
       title: 'Desactivar producto',
@@ -90,7 +127,7 @@ export function Productos() {
     if (!ok) return
     if (!isOnlineNow()) {
       await enqueueCommand('PRODUCT_DEACTIVATE', { id: p.id })
-      await lepraDb.products.update(p.id, { active: false })
+      await lepraDb.products.update(p.id, { active: false, status: 'inactive' })
       toast.success('Cambio guardado (pendiente de sincronizar)')
       refreshPending().catch(() => {})
       loadProducts()
@@ -117,7 +154,7 @@ export function Productos() {
   function clearFilters() {
     setSearch('')
     setCategoryFilter(null)
-    setActiveFilter(true)
+    setStatusFilter('all')
   }
 
   const columns = [
@@ -138,6 +175,8 @@ export function Productos() {
     columnHelper.accessor('category', { header: 'Categoría', cell: (info) => info.getValue() || '-' }),
     columnHelper.accessor('weight', {
       header: 'Peso',
+      size: 68,
+      meta: { align: 'start' },
       cell: (info) => {
         const w = info.getValue()
         return hasWeight(w) ? formatWeight(w) : ''
@@ -145,24 +184,36 @@ export function Productos() {
     }),
     columnHelper.accessor('price', {
       header: 'Precio',
+      size: 96,
+      meta: { align: 'start' },
       cell: (info) => formatMoneyWithSymbol(info.getValue()),
     }),
     columnHelper.accessor('has_tiered_pricing', {
       header: () => <span className="d-block text-center">Volumen</span>,
+      size: 92,
       cell: (info) => (
         <div className="text-center">
-          {info.getValue() ? <Badge bg="warning">Sí</Badge> : '-'}
+          {info.getValue() ? <Badge bg="success">Sí</Badge> : '-'}
         </div>
       ),
     }),
-    columnHelper.accessor('active', {
+    columnHelper.display({
+      id: 'status',
       header: 'Estado',
-      cell: (info) =>
-        info.getValue() ? <Badge bg="success">Activo</Badge> : <Badge bg="danger">Inactivo</Badge>,
+      size: 100,
+      cell: ({ row }) => {
+        const status = productStatus(row.original)
+        return <Badge bg={statusBadgeVariant(status)}>{PRODUCT_STATUS_LABELS[status]}</Badge>
+      },
     }),
     columnHelper.display({
       id: 'sync',
-      header: () => <span className="d-block text-center">Sincronización</span>,
+      header: () => (
+        <span className="d-flex justify-content-center" title="Sincronización" aria-label="Sincronización">
+          <CheckCircle2 size={16} aria-hidden />
+        </span>
+      ),
+      size: 40,
       cell: ({ row }) => (
         <div className="text-center">
           <ProductoSyncBadge product={row.original} pending={pendingProducts.has(row.original.id)} />
@@ -171,16 +222,34 @@ export function Productos() {
     }),
     columnHelper.display({
       id: 'actions',
-      header: '',
-      cell: ({ row }) =>
-        row.original.active ? (
-          <>
+      header: () => (
+        <span className="d-flex justify-content-center" title="Opciones" aria-label="Opciones">
+          <Settings size={16} aria-hidden />
+        </span>
+      ),
+      size: 88,
+      cell: ({ row }) => {
+        const p = row.original
+        if (isProductInactive(p)) return null
+        const inCatalog = isProductInCatalog(p)
+        return (
+          <div className="d-flex align-items-center justify-content-center gap-1">
             <Button
               variant="link"
               size="sm"
-              className="text-dark p-0 me-2"
-              onClick={() => handleEdit(row.original)}
-              aria-label={`Editar ${row.original.name}`}
+              className={`p-0 ${inCatalog ? 'text-success' : 'text-warning'}`}
+              onClick={() => handleToggleCatalogVisibility(p)}
+              aria-label={inCatalog ? `Marcar sin stock: ${p.name}` : `Mostrar en catálogo: ${p.name}`}
+              title={inCatalog ? 'Marcar sin stock' : 'Mostrar en catálogo'}
+            >
+              <Package size={16} aria-hidden />
+            </Button>
+            <Button
+              variant="link"
+              size="sm"
+              className="text-dark p-0"
+              onClick={() => handleEdit(p)}
+              aria-label={`Editar ${p.name}`}
             >
               <Pencil size={16} />
             </Button>
@@ -188,13 +257,14 @@ export function Productos() {
               variant="link"
               size="sm"
               className="text-danger p-0"
-              onClick={() => handleDeactivate(row.original)}
-              aria-label={`Desactivar ${row.original.name}`}
+              onClick={() => handleDeactivate(p)}
+              aria-label={`Desactivar ${p.name}`}
             >
               <Trash2 size={16} />
             </Button>
-          </>
-        ) : null,
+          </div>
+        )
+      },
     }),
   ]
 
@@ -231,13 +301,11 @@ export function Productos() {
           </div>
           <div className="admin-list-filter">
             <Select<string>
-              options={[
-                { value: 'true', label: 'Activos' },
-                { value: 'false', label: 'Inactivos' },
-                { value: 'all', label: 'Todos' },
-              ]}
-              value={activeFilter === null ? 'all' : String(activeFilter)}
-              onChange={(v) => setActiveFilter(v === 'all' || v === '' ? null : v === 'true')}
+              options={(
+                Object.entries(PRODUCT_ADMIN_STATUS_FILTER_LABELS) as [ProductAdminStatusFilter, string][]
+              ).map(([value, label]) => ({ value, label }))}
+              value={statusFilter}
+              onChange={(v) => setStatusFilter((v as ProductAdminStatusFilter) || 'all')}
               placeholder="Estado"
               isSearchable={false}
             />
@@ -285,8 +353,22 @@ export function Productos() {
                             )}
                             <div className="fw-bold text-dark mt-1">{formatMoneyWithSymbol(p.price)}</div>
                           </div>
-                          {p.active && (
+                          {!isProductInactive(p) && (
                             <div className="admin-list-card-actions d-flex gap-1 flex-shrink-0">
+                              <Button
+                                variant="outline-light"
+                                size="sm"
+                                className={`border-0 ${isProductInCatalog(p) ? 'text-success' : 'text-warning'}`}
+                                onClick={() => handleToggleCatalogVisibility(p)}
+                                aria-label={
+                                  isProductInCatalog(p)
+                                    ? `Marcar sin stock: ${p.name}`
+                                    : `Mostrar en catálogo: ${p.name}`
+                                }
+                                title={isProductInCatalog(p) ? 'Marcar sin stock' : 'Mostrar en catálogo'}
+                              >
+                                <Package size={16} aria-hidden />
+                              </Button>
                               <Button
                                 variant="outline-dark"
                                 size="sm"
@@ -311,13 +393,11 @@ export function Productos() {
                             <Badge bg="secondary">{p.category}</Badge>
                           )}
                           {p.has_tiered_pricing && (
-                            <Badge bg="warning">Volumen</Badge>
+                            <Badge bg="success">Volumen</Badge>
                           )}
-                          {p.active ? (
-                            <Badge bg="success">Activo</Badge>
-                          ) : (
-                            <Badge bg="danger">Inactivo</Badge>
-                          )}
+                          <Badge bg={statusBadgeVariant(productStatus(p))}>
+                            {PRODUCT_STATUS_LABELS[productStatus(p)]}
+                          </Badge>
                           <ProductoSyncBadge product={p} pending={pendingProducts.has(p.id)} />
                         </div>
                       </div>

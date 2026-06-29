@@ -74,11 +74,12 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
       return
     }
     setLoading(true)
+    const emailTrimmed = email.trim()
     if (isEditing) {
       if (!isOnlineNow()) {
         const patch = {
           id: editingUser!.id,
-          email,
+          email: emailTrimmed,
           password: password || undefined,
           name: name || undefined,
           location: location || undefined,
@@ -86,6 +87,7 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
         }
         await enqueueCommand('USER_UPDATE', patch)
         await lepraDb.users.update(editingUser!.id, {
+          email: emailTrimmed,
           name: name || null,
           location: location || null,
           rol,
@@ -97,7 +99,7 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
       }
       const { error } = await updateUser({
         id: editingUser!.id,
-        email,
+        email: emailTrimmed,
         password: password || undefined,
         name: name || undefined,
         location: location || undefined,
@@ -155,8 +157,12 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={isEditing}
             />
+            {isEditing && (
+              <Form.Text className="text-muted">
+                Podés reemplazar el mail provisional por el real del cliente.
+              </Form.Text>
+            )}
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Contraseña {isEditing && '(dejar vacío para no cambiar)'}</Form.Label>

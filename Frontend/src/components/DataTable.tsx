@@ -11,6 +11,9 @@ declare module '@tanstack/react-table' {
   interface TableMeta<TData extends RowData> {
     onAction?: (row: TData, action: string) => void
   }
+  interface ColumnMeta<TData extends RowData, TValue> {
+    align?: 'start' | 'center' | 'end'
+  }
 }
 
 interface DataTableProps<T> {
@@ -29,24 +32,42 @@ export function DataTable<T>({ columns, data, getRowId }: DataTableProps<T>) {
 
   return (
     <div className="table-lepra-wrap">
-      <Table responsive className="align-middle table-lepra mb-0">
+      <Table responsive className="align-middle table-lepra table-lepra--fixed mb-0">
         <thead className="table-dark">
         {table.getHeaderGroups().map((headerGroup) => (
           <tr key={headerGroup.id}>
-            {headerGroup.headers.map((header) => (
-              <th key={header.id} style={{ width: header.getSize() !== 150 ? header.getSize() : undefined }}>
+            {headerGroup.headers.map((header) => {
+              const w = header.column.getSize()
+              const colStyle = w !== 150 ? { width: w, minWidth: w, maxWidth: w } : undefined
+              const align = header.column.columnDef.meta?.align
+              const fixedClass =
+                w !== 150
+                  ? `table-lepra-col-fixed${align === 'start' ? ' table-lepra-col-fixed--start' : align === 'end' ? ' table-lepra-col-fixed--end' : ''}`
+                  : undefined
+              return (
+              <th key={header.id} style={colStyle} className={fixedClass}>
                 {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
               </th>
-            ))}
+            )})}
           </tr>
         ))}
       </thead>
       <tbody>
         {table.getRowModel().rows.map((row) => (
           <tr key={row.id}>
-            {row.getVisibleCells().map((cell) => (
-              <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-            ))}
+            {row.getVisibleCells().map((cell) => {
+              const w = cell.column.getSize()
+              const colStyle = w !== 150 ? { width: w, minWidth: w, maxWidth: w } : undefined
+              const align = cell.column.columnDef.meta?.align
+              const fixedClass =
+                w !== 150
+                  ? `table-lepra-col-fixed${align === 'start' ? ' table-lepra-col-fixed--start' : align === 'end' ? ' table-lepra-col-fixed--end' : ''}`
+                  : undefined
+              return (
+              <td key={cell.id} style={colStyle} className={fixedClass}>
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </td>
+            )})}
           </tr>
         ))}
       </tbody>

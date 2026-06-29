@@ -5,6 +5,7 @@ import { isAdminUser } from '@/offline/admin'
 import { isOnlineNow } from '@/offline/network'
 import { clampLimit, toOfflinePage } from './pagination'
 import { mergeProductForCache } from '@/lib/productMerge'
+import { isProductInCatalog, isProductInactive, productStatus } from '@/lib/productStatus'
 
 function filterProducts(all: Product[], filters: Record<string, unknown> = {}): Product[] {
   let items = all
@@ -17,8 +18,23 @@ function filterProducts(all: Product[], filters: Record<string, unknown> = {}): 
   const category = typeof filters.category === 'string' ? filters.category.trim().toLowerCase() : ''
   if (category) items = items.filter((p) => String(p.category ?? '').toLowerCase() === category)
 
-  if (typeof filters.active === 'boolean') {
+  const adminList = filters.admin_list === true
+  const statusFilter = typeof filters.status === 'string' ? filters.status : null
+  if (adminList) {
+    if (statusFilter === 'inactive' || filters.active === false) {
+      items = items.filter((p) => isProductInactive(p))
+    } else if (statusFilter === 'sin_stock') {
+      items = items.filter((p) => productStatus(p) === 'sin_stock')
+    } else if (statusFilter === 'active' || filters.active === true) {
+      items = items.filter((p) => isProductInCatalog(p))
+    } else {
+      items = items.filter((p) => !isProductInactive(p))
+    }
+  } else if (typeof filters.active === 'boolean') {
     items = items.filter((p) => p.active === filters.active)
+    if (filters.active) items = items.filter((p) => isProductInCatalog(p))
+  } else {
+    items = items.filter((p) => isProductInCatalog(p))
   }
   return items
 }
@@ -50,3 +66,4 @@ export async function getProductsPaginatedOfflineFirst(
   return { data: page }
 }
 
+export { productStatus, isProductInCatalog, isProductInactive }

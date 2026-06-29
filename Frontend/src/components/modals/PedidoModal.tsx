@@ -86,7 +86,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     setLines([])
     Promise.all([
       getUsersPaginatedOfflineFirst({ limit: 100, filters: {} }),
-      getProductsPaginatedOfflineFirst({ limit: 100, filters: {} }),
+      getProductsPaginatedOfflineFirst({ limit: 100, filters: { admin_list: true } }),
     ])
       .then(([usersRes, productsRes]) => {
         if (usersRes.data) setUsers(usersRes.data.items)

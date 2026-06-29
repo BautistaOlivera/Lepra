@@ -421,13 +421,42 @@ body {
   margin-bottom: 0;
 }
 
+.table-lepra--fixed {
+  table-layout: fixed;
+  width: 100%;
+}
+
 .table-lepra > :not(caption) > * > * {
   border-bottom-color: var(--lepra-table-border);
   vertical-align: middle;
 }
 
+.table-lepra > :not(caption) > * > :not(:last-child) {
+  border-right: 1px solid var(--lepra-table-border);
+}
+
+.table-lepra thead th:not(:last-child) {
+  border-right-color: var(--lepra-black);
+}
+
 .table-lepra thead th {
   border-bottom-width: 2px;
+}
+
+.table-lepra-col-fixed {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.table-lepra-col-fixed--start {
+  text-align: left;
+}
+
+.table-lepra-col-fixed--end {
+  text-align: right;
 }
 
 .table-lepra tbody tr:nth-child(even) > * {

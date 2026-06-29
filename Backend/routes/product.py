@@ -7,6 +7,14 @@ import os
 import uuid
 
 from models import Product, InputProduct, InputProductUpdate, InputPaginatedRequestFilter
+from models.product import InputProductVisibility
+from services.product_status import (
+    STATUS_ACTIVE,
+    STATUS_INACTIVE,
+    STATUS_SIN_STOCK,
+    ADMIN_VISIBLE_STATUSES,
+    sync_active_flag,
+)
 from models.product_price_tier import ProductPriceTier
 from config.db import AsyncSessionLocal
 from auth.roles import require_roles
@@ -18,9 +26,64 @@ ALLOWED_EXTENSIONS = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
+def _product_payload(p: Product) -> dict:
+    status = p.status or STATUS_ACTIVE
+    return {
+        "id": p.id,
+        "name": p.name,
+        "price": p.price,
+        "weight": p.weight,
+        "fixed_weight": p.fixed_weight,
+        "brand": p.brand,
+        "category": p.category,
+        "has_tiered_pricing": p.has_tiered_pricing,
+        "img": p.img,
+        "status": status,
+        "active": sync_active_flag(status),
+        "price_tiers": [
+            {"id": t.id, "min_kg": t.min_kg, "price_per_kg": t.price_per_kg}
+            for t in p.price_tiers
+        ],
+    }
+
+
+def _apply_product_list_filters(stmt, filters: dict):
+    search = (filters.get("search") or "").strip()
+    category = filters.get("category")
+    admin_list = filters.get("admin_list") is True
+    status_filter = filters.get("status")
+    active_filter = filters.get("active")
+
+    if search:
+        stmt = stmt.where(
+            Product.name.ilike(f"%{search}%") | Product.brand.ilike(f"%{search}%")
+        )
+    if category:
+        stmt = stmt.where(Product.category.ilike(f"%{category}%"))
+
+    if admin_list:
+        if status_filter == STATUS_INACTIVE or active_filter is False:
+            stmt = stmt.where(Product.status == STATUS_INACTIVE)
+        elif status_filter == STATUS_SIN_STOCK:
+            stmt = stmt.where(Product.status == STATUS_SIN_STOCK)
+        elif status_filter == STATUS_ACTIVE or active_filter is True:
+            stmt = stmt.where(Product.status == STATUS_ACTIVE)
+        else:
+            stmt = stmt.where(Product.status.in_(ADMIN_VISIBLE_STATUSES))
+    else:
+        stmt = stmt.where(Product.status == STATUS_ACTIVE)
+
+    return stmt
+
+
 @product_router.post("/upload")
-async def upload_image(req: Request, file: UploadFile = File(...), name: str = Form(...)):
-    """Subir imagen de producto con logo y nombre. Solo ADMIN."""
+async def upload_image(
+    req: Request,
+    file: UploadFile = File(...),
+    name: str = Form(...),
+    brand: str = Form(""),
+):
+    """Subir imagen de producto con logo, nombre y marca. Solo ADMIN."""
     payload = require_roles(req.headers, ["ADMIN"])
     if isinstance(payload, JSONResponse):
         return payload
@@ -44,7 +107,11 @@ async def upload_image(req: Request, file: UploadFile = File(...), name: str = F
         if len(content) > MAX_UPLOAD_BYTES:
             return JSONResponse(status_code=400, content={"message": "La imagen no debe superar 5 MB"})
 
-        optimized_content, width, height = process_product_upload(content, product_name)
+        optimized_content, width, height = process_product_upload(
+            content,
+            product_name,
+            (brand or "").strip() or None,
+        )
         with open(filepath, "wb") as f:
             f.write(optimized_content)
         url = f"/uploads/{filename}"
@@ -64,26 +131,14 @@ async def upload_image(req: Request, file: UploadFile = File(...), name: str = F
 
 @product_router.post("/paginated")
 async def get_products_paginated(req: Request, body: InputPaginatedRequestFilter):
-    """Lista paginada de productos. Público (catálogo)."""
+    """Lista paginada de productos. Público (catálogo) o admin (admin_list en filters)."""
     limit = body.limit or 20
     last_seen_id = body.last_seen_id
     filters = body.filters or {}
-    search = (filters.get("search") or "").strip()
-    category = filters.get("category")
-    active_filter = filters.get("active")
 
     async with AsyncSessionLocal() as session:
         stmt = select(Product).options(selectinload(Product.price_tiers))
-        if search:
-            stmt = stmt.where(
-                Product.name.ilike(f"%{search}%") | Product.brand.ilike(f"%{search}%")
-            )
-        if category:
-            stmt = stmt.where(Product.category.ilike(f"%{category}%"))
-        if active_filter is not None:
-            stmt = stmt.where(Product.active.is_(bool(active_filter)))
-        else:
-            stmt = stmt.where(Product.active.is_(True))
+        stmt = _apply_product_list_filters(stmt, filters)
 
         stmt = stmt.order_by(Product.id.desc())
         if last_seen_id is not None:
@@ -93,24 +148,7 @@ async def get_products_paginated(req: Request, body: InputPaginatedRequestFilter
         result = await session.execute(stmt)
         products = result.scalars().unique().all()
 
-        items = []
-        for p in products:
-            items.append({
-                "id": p.id,
-                "name": p.name,
-                "price": p.price,
-                "weight": p.weight,
-                "fixed_weight": p.fixed_weight,
-                "brand": p.brand,
-                "category": p.category,
-                "has_tiered_pricing": p.has_tiered_pricing,
-                "img": p.img,
-                "active": p.active,
-                "price_tiers": [
-                    {"id": t.id, "min_kg": t.min_kg, "price_per_kg": t.price_per_kg}
-                    for t in p.price_tiers
-                ],
-            })
+        items = [_product_payload(p) for p in products]
 
         return JSONResponse(
             status_code=200,
@@ -131,25 +169,10 @@ async def get_product(req: Request, product_id: int):
         if not p:
             return JSONResponse(status_code=404, content={"message": "Producto no encontrado"})
 
-        return JSONResponse(
-            status_code=200,
-            content={
-                "id": p.id,
-                "name": p.name,
-                "price": p.price,
-                "weight": p.weight,
-                "fixed_weight": p.fixed_weight,
-                "brand": p.brand,
-                "category": p.category,
-                "has_tiered_pricing": p.has_tiered_pricing,
-                "img": p.img,
-                "active": p.active,
-                "price_tiers": [
-                    {"id": t.id, "min_kg": t.min_kg, "price_per_kg": t.price_per_kg}
-                    for t in p.price_tiers
-                ],
-            },
-        )
+        if p.status != STATUS_ACTIVE:
+            return JSONResponse(status_code=404, content={"message": "Producto no disponible"})
+
+        return JSONResponse(status_code=200, content=_product_payload(p))
 
 
 @product_router.post("/create")
@@ -170,6 +193,8 @@ async def create_product(req: Request, body: InputProduct):
                 category=body.category,
                 has_tiered_pricing=body.has_tiered_pricing,
                 img=body.img,
+                status=STATUS_ACTIVE,
+                active=True,
             )
             session.add(p)
             await session.commit()
@@ -214,8 +239,12 @@ async def update_product(req: Request, body: InputProductUpdate):
                 p.has_tiered_pricing = body.has_tiered_pricing
             if body.img is not None:
                 p.img = body.img
-            if body.active is not None:
+            if body.status is not None:
+                p.status = body.status
+                p.active = sync_active_flag(body.status)
+            elif body.active is not None:
                 p.active = body.active
+                p.status = STATUS_INACTIVE if not body.active else STATUS_ACTIVE
 
             await session.commit()
             return JSONResponse(status_code=200, content={"message": "Producto actualizado"})
@@ -237,6 +266,40 @@ async def deactivate_product(req: Request, product_id: int):
         p = result.scalar_one_or_none()
         if not p:
             return JSONResponse(status_code=404, content={"message": "Producto no encontrado"})
+        p.status = STATUS_INACTIVE
         p.active = False
         await session.commit()
         return JSONResponse(status_code=200, content={"message": "Producto desactivado"})
+
+
+@product_router.put("/{product_id}/visibility")
+async def set_product_visibility(req: Request, product_id: int, body: InputProductVisibility):
+    """Alterna visibilidad en catálogo: active ↔ sin_stock. Solo ADMIN."""
+    payload = require_roles(req.headers, ["ADMIN"])
+    if isinstance(payload, JSONResponse):
+        return payload
+
+    if body.status not in (STATUS_ACTIVE, STATUS_SIN_STOCK):
+        return JSONResponse(
+            status_code=400,
+            content={"message": "Estado inválido. Use active o sin_stock."},
+        )
+
+    async with AsyncSessionLocal() as session:
+        stmt = select(Product).where(Product.id == product_id)
+        result = await session.execute(stmt)
+        p = result.scalar_one_or_none()
+        if not p:
+            return JSONResponse(status_code=404, content={"message": "Producto no encontrado"})
+        if p.status == STATUS_INACTIVE:
+            return JSONResponse(
+                status_code=400,
+                content={"message": "No se puede cambiar la visibilidad de un producto inactivo"},
+            )
+        p.status = body.status
+        p.active = True
+        await session.commit()
+        return JSONResponse(
+            status_code=200,
+            content={"message": "Estado actualizado", "status": p.status},
+        )

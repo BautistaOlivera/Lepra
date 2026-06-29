@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Modal, Form, Button, Table } from 'react-bootstrap'
 import { LepraModal } from '@/components/LepraModal'
 import { ModalBusyFrame } from '@/components/LoadingOverlay'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Download } from 'lucide-react'
 import { createProduct, updateProduct, uploadProductImage, getImageUrl } from '@/api/product'
 import {
   createProductPriceTier,
@@ -27,6 +27,7 @@ import {
 } from '@/lib/productTiers'
 import { tiersFromPayload } from '@/lib/productMerge'
 import { parseWeightInput } from '@/lib/formatWeight'
+import { downloadRemoteImage } from '@/lib/downloadImage'
 
 interface ProductoModalProps {
   show: boolean
@@ -53,6 +54,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
   const [tierRows, setTierRows] = useState<TierDraft[]>([])
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [downloadingImage, setDownloadingImage] = useState(false)
   const [disableModalOpen, setDisableModalOpen] = useState(false)
   const [disableConfirmChecked, setDisableConfirmChecked] = useState(false)
   const [disablingTiers, setDisablingTiers] = useState(false)
@@ -277,7 +279,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       return
     }
     setUploading(true)
-    const { data, error } = await uploadProductImage(file, productName)
+    const { data, error } = await uploadProductImage(file, productName, brand.trim())
     setUploading(false)
     if (error) {
       toast.error(error.message || 'Error al subir la imagen')
@@ -285,6 +287,20 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     }
     if (data?.url) setImg(data.url)
     e.target.value = ''
+  }
+
+  async function handleDownloadImage() {
+    if (!img) return
+    setDownloadingImage(true)
+    try {
+      const filename = name.trim() || editingProduct?.name || 'producto'
+      await downloadRemoteImage(getImageUrl(img), filename)
+      toast.success('Imagen descargada')
+    } catch {
+      toast.error('No se pudo descargar la imagen')
+    } finally {
+      setDownloadingImage(false)
+    }
   }
 
   async function persistTiersForProduct(productId: number, tiers: ReturnType<typeof validateTierDrafts> & { ok: true }) {
@@ -447,6 +463,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           has_tiered_pricing: hasTieredPricing,
           img: null,
           active: true,
+          status: 'active',
           price_tiers:
             hasTieredPricing && validatedTiers?.ok ? tiersFromPayload(validatedTiers.tiers) : undefined,
         } as Product)
@@ -569,7 +586,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             <Form.Group className="mb-3">
               <Form.Label>Imagen del producto</Form.Label>
               <Form.Text className="text-muted d-block mb-2">
-                Al subir la foto se aplica el logo de El Lepra y el nombre del producto sobre la imagen.
+                Al subir la foto se aplica el logo de El Lepra, el nombre y la marca del producto sobre la imagen.
               </Form.Text>
               <div className="d-flex align-items-start gap-3">
                 <div
@@ -610,6 +627,20 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                     >
                       Quitar
                     </Button>
+                  )}
+                  {isEditing && img && (
+                    <div className="mt-2">
+                      <Button
+                        type="button"
+                        variant="outline-dark"
+                        size="sm"
+                        disabled={busy || downloadingImage}
+                        onClick={handleDownloadImage}
+                      >
+                        <Download size={14} className="me-1" aria-hidden />
+                        {downloadingImage ? 'Descargando…' : 'Descargar imagen'}
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>

@@ -154,7 +154,13 @@ async def update_user(req: Request, body: InputUserUpdate):
                 return JSONResponse(status_code=404, content={"message": "Usuario no encontrado"})
 
             if body.email is not None:
-                u.email = body.email
+                new_email = body.email.strip()
+                if new_email != (u.email or ""):
+                    dup_stmt = select(User).where(User.email == new_email, User.id != u.id)
+                    dup = (await session.execute(dup_stmt)).scalar_one_or_none()
+                    if dup:
+                        return JSONResponse(status_code=400, content={"message": "Ese email ya está en uso"})
+                u.email = new_email or None
             if body.name is not None:
                 u.name = body.name
             if body.location is not None:

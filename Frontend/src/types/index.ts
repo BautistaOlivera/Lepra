@@ -1,3 +1,5 @@
+export type ProductStatus = 'active' | 'sin_stock' | 'inactive'
+
 export interface Product {
   id: number
   name: string
@@ -11,7 +13,11 @@ export interface Product {
   category?: string | null
   has_tiered_pricing: boolean
   img?: string | null
+  /** Visibilidad: active (catálogo), sin_stock (solo admin), inactive (baja). */
+  status?: ProductStatus
   active: boolean
+  /** @deprecated usar status — cache legacy */
+  in_stock?: boolean
   price_tiers?: PriceTier[]
   updated_at?: string | null
 }
@@ -61,6 +67,8 @@ export interface PaginatedFilters {
   search?: string
   category?: string
   active?: boolean
+  /** Lista admin: incluye sin stock en "todos", separado de inactivos. */
+  admin_list?: boolean
   status?: string
   rol?: string
   date_from?: string

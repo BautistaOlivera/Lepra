@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime
 from sqlalchemy.orm import relationship
@@ -7,6 +7,8 @@ from config.db import Base
 
 def _utcnow_naive():
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+ProductStatusValue = Literal["active", "sin_stock", "inactive"]
 
 class Product(Base):
     __tablename__ = "products"
@@ -20,6 +22,7 @@ class Product(Base):
     category = Column(String, nullable=True)
     has_tiered_pricing = Column(Boolean, default=False)
     img = Column(String, nullable=True)
+    status = Column(String, default="active", nullable=False)
     active = Column(Boolean, default=True)
     updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive, nullable=False)
 
@@ -40,6 +43,7 @@ class ProductBase(BaseModel):
 
 class ProductResponse(ProductBase):
     id: int
+    status: ProductStatusValue = "active"
     active: bool = True
 
     class Config:
@@ -67,4 +71,9 @@ class InputProductUpdate(BaseModel):
     category: Optional[str] = None
     has_tiered_pricing: Optional[bool] = None
     img: Optional[str] = None
+    status: Optional[ProductStatusValue] = None
     active: Optional[bool] = None
+
+
+class InputProductVisibility(BaseModel):
+    status: ProductStatusValue
