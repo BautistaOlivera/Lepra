@@ -5,6 +5,7 @@ import { LoadingCenter } from '@/components/LoadingOverlay'
 import { DateInputAr } from '@/components/DateInputAr'
 import { Select } from '@/components/Select'
 import { AdminFilterResetButton } from '@/components/AdminFilterResetButton'
+import { AdminPageHero } from '@/components/AdminPageHero'
 import { EstadisticasCharts } from '@/components/estadisticas/EstadisticasCharts'
 import { SalesMatrixTable, SalesProductTable } from '@/components/estadisticas/SalesMatrixTable'
 import { defaultSalesDateRange } from '@/lib/salesStatsAggregate'
@@ -103,20 +104,21 @@ export function Estadisticas() {
 
   return (
     <div className="admin-list-page">
-      <div className="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-3">
-        <div>
-          <h1 className="admin-list-title h3 text-dark mb-1 d-flex align-items-center gap-2">
-            <BarChart3 size={28} aria-hidden />
-            Estadísticas
-          </h1>
-          <p className="text-muted mb-0">Análisis detallado de ventas y productos</p>
-        </div>
-        {stats.source === 'local' && (
-          <Badge bg="secondary" className="fw-normal align-self-start">
-            Datos locales (última sincronización)
-          </Badge>
-        )}
-      </div>
+      <AdminPageHero
+        end={
+          stats.source === 'local' ? (
+            <Badge bg="secondary" className="fw-normal">
+              Datos locales (última sincronización)
+            </Badge>
+          ) : null
+        }
+      >
+        <span className="d-inline-flex align-items-center gap-2">
+          <BarChart3 size={28} aria-hidden />
+          Estadísticas
+        </span>
+      </AdminPageHero>
+      <p className="text-muted mb-3">Análisis detallado de ventas y productos</p>
 
       <div className="admin-list-toolbar mb-4">
         <div className="admin-list-dates-row">

@@ -17,6 +17,7 @@ import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 import { useConfirm } from '@/context/ConfirmContext'
+import { AdminPageHero } from '@/components/AdminPageHero'
 
 const columnHelper = createColumnHelper<User>()
 
@@ -187,7 +188,7 @@ export function Clientes() {
 
   return (
     <div className="admin-list-page">
-      <h1 className="admin-list-title h3 text-dark mb-3">Clientes</h1>
+      <AdminPageHero>Clientes</AdminPageHero>
 
       <div className="admin-list-toolbar">
         <InputGroup className="admin-list-search">

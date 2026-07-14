@@ -22,6 +22,7 @@ import { ProductoModal } from '@/components/modals/ProductoModal'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
 import { AdminFilterResetButton } from '@/components/AdminFilterResetButton'
+import { AdminPageHero } from '@/components/AdminPageHero'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
@@ -270,7 +271,7 @@ export function Productos() {
 
   return (
     <div className="admin-list-page">
-      <h1 className="admin-list-title h3 text-dark mb-3">Productos</h1>
+      <AdminPageHero>Productos</AdminPageHero>
 
       <div className="admin-list-toolbar">
         <InputGroup className="admin-list-search">

@@ -141,6 +141,10 @@ html.lepra-legacy-ui .modal .form-check-label {
 
 /* —— Controles táctiles en listados / app —— */
 
+html.lepra-legacy-ui .admin-page-hero-overlay {
+  padding: 0.7rem 1.1rem;
+}
+
 html.lepra-legacy-ui .admin-list-title {
   font-size: clamp(1.45rem, 4.5vw, 1.85rem);
 }

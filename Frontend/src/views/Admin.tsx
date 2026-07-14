@@ -7,8 +7,7 @@ import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
 import { getDashboardStatsHybrid } from '@/repositories/dashboardRepo'
 import { useOnlineStatus } from '@/offline/network'
 import type { DashboardStats } from '@/types/dashboard'
-
-const CHEESE_CARD = 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=600&q=80'
+import { LEPRA_ADMIN_HERO_IMG } from '@/lib/brandingAssets'
 
 export function Admin() {
   const online = useOnlineStatus()
@@ -44,50 +43,31 @@ export function Admin() {
 
   return (
     <>
-      <div className="mb-4">
-        <h2 className="text-dark">Dashboard</h2>
-        <p className="text-muted mb-0">Resumen de tu negocio</p>
-      </div>
-
       <div
-        className="admin-welcome-banner rounded-3 mb-4 p-3 p-md-4 text-white"
-        style={{ background: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)' }}
+        className="admin-welcome-banner rounded-3 mb-4 text-white"
+        style={{ backgroundImage: `url(${LEPRA_ADMIN_HERO_IMG})` }}
       >
-        <Row className="align-items-center g-3">
-          <Col lg={7}>
-            <h4 className="mb-1">Bienvenido a El Lepra</h4>
-            <p className="mb-0 text-white-50">Panel de administración</p>
-            <div className="d-flex flex-column flex-sm-row flex-wrap gap-2 mt-3">
-              <Link to="/admin/clientes" className="btn btn-lepra admin-quick-btn">
-                <Users size={18} className="me-1" aria-hidden /> Clientes
-              </Link>
-              <Link to="/admin/productos" className="btn btn-lepra admin-quick-btn">
-                <Package size={18} className="me-1" aria-hidden /> Productos
-              </Link>
-              <Link to="/admin/pedidos" className="btn btn-lepra admin-quick-btn">
-                <ShoppingCart size={18} className="me-1" aria-hidden /> Pedidos
-              </Link>
-              <Link to="/admin/estadisticas" className="btn btn-lepra admin-quick-btn">
-                <BarChart3 size={18} className="me-1" aria-hidden /> Estadísticas
-              </Link>
-            </div>
-            {!online && stats.source === 'local' && (
-              <p className="text-white-50 small mt-3 mb-0">Sin conexión — mostrando datos sincronizados</p>
-            )}
-          </Col>
-          <Col lg={5}>
-            <div
-              className="admin-welcome-image rounded-3"
-              style={{
-                backgroundImage: `url(${CHEESE_CARD})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-              role="img"
-              aria-hidden
-            />
-          </Col>
-        </Row>
+        <div className="admin-welcome-banner-overlay p-3 p-md-4">
+          <h4 className="mb-1">Bienvenido a El Lepra</h4>
+          <p className="mb-0 text-white-50">Panel de administración</p>
+          <div className="d-flex flex-column flex-sm-row flex-wrap gap-2 mt-3">
+            <Link to="/admin/clientes" className="btn btn-lepra admin-quick-btn">
+              <Users size={18} className="me-1" aria-hidden /> Clientes
+            </Link>
+            <Link to="/admin/productos" className="btn btn-lepra admin-quick-btn">
+              <Package size={18} className="me-1" aria-hidden /> Productos
+            </Link>
+            <Link to="/admin/pedidos" className="btn btn-lepra admin-quick-btn">
+              <ShoppingCart size={18} className="me-1" aria-hidden /> Pedidos
+            </Link>
+            <Link to="/admin/estadisticas" className="btn btn-lepra admin-quick-btn">
+              <BarChart3 size={18} className="me-1" aria-hidden /> Estadísticas
+            </Link>
+          </div>
+          {!online && stats.source === 'local' && (
+            <p className="text-white-50 small mt-3 mb-0">Sin conexión — mostrando datos sincronizados</p>
+          )}
+        </div>
       </div>
 
       <Row className="g-4 mb-4">

@@ -1446,9 +1446,19 @@ body {
 
 /* —— Admin dashboard —— */
 
-.admin-welcome-image {
-  height: 120px;
-  min-height: 100px;
+.admin-welcome-banner {
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.admin-welcome-banner-overlay {
+  position: relative;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.62);
+  min-height: 100%;
 }
 
 .admin-quick-btn {
@@ -1463,6 +1473,45 @@ body {
   .admin-quick-btn {
     width: 100%;
   }
+}
+
+/* Título de páginas admin: franja con foto + oscurecido */
+.admin-page-hero {
+  width: 100%;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.admin-page-hero-overlay {
+  background: rgba(0, 0, 0, 0.58);
+  padding: 0.55rem 1rem;
+}
+
+.admin-page-hero-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+}
+
+.admin-page-hero-title {
+  color: #fff !important;
+  line-height: 1.25;
+}
+
+.admin-page-hero-subtitle {
+  margin-top: 0.15rem;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+
+.admin-page-hero-end .badge {
+  vertical-align: middle;
 }
 
 /* —— Listas admin (clientes, productos, pedidos) —— */

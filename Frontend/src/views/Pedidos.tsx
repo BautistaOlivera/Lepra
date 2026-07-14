@@ -23,6 +23,7 @@ import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { orderCustomerLabel, orderLinesPreview, orderPaymentPreview } from '@/lib/orderDisplay'
 import { DateInputAr } from '@/components/DateInputAr'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
+import { AdminPageHero } from '@/components/AdminPageHero'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -196,7 +197,7 @@ export function Pedidos() {
 
   return (
     <div className="admin-list-page">
-      <h1 className="admin-list-title h3 text-dark mb-3">Pedidos</h1>
+      <AdminPageHero>Pedidos</AdminPageHero>
 
       <div className="admin-list-toolbar">
         <InputGroup className="admin-list-search">
