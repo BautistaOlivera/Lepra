@@ -1122,6 +1122,39 @@ body {
   user-select: none;
 }
 
+/* Stepper compacto: alineado a inputs sm de tablas (pedido / listados) */
+.qty-stepper--sm {
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.qty-stepper--sm .product-detail-qty-btn {
+  min-width: 28px;
+  width: 28px;
+  min-height: 31px;
+  height: 31px;
+  flex: 0 0 28px;
+}
+
+.qty-stepper--sm .product-detail-qty-value {
+  min-width: 1.75rem;
+  max-width: 2.5rem;
+  height: 31px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+
+.pedido-lines-table td {
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.pedido-lines-table .qty-stepper--sm {
+  flex-shrink: 1;
+}
+
 .product-detail-buttons {
   display: flex;
   flex-direction: column;

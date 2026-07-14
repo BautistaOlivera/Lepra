@@ -6,6 +6,8 @@ interface QuantityStepperProps {
   min?: number
   ariaLabel?: string
   className?: string
+  /** Compacto para filas de tabla (mismo alto que inputs sm ≈ 31px). */
+  size?: 'sm' | 'md'
 }
 
 export function QuantityStepper({
@@ -14,7 +16,11 @@ export function QuantityStepper({
   min = 1,
   ariaLabel = 'Cantidad',
   className = '',
+  size = 'md',
 }: QuantityStepperProps) {
+  const compact = size === 'sm'
+  const iconSize = compact ? 14 : 20
+
   const releaseBtn = (btn: HTMLButtonElement) => {
     window.setTimeout(() => {
       btn.classList.remove('product-detail-qty-btn--pressed')
@@ -43,7 +49,13 @@ export function QuantityStepper({
 
   return (
     <div
-      className={`product-detail-qty-stepper ${className}`.trim()}
+      className={[
+        'product-detail-qty-stepper',
+        compact ? 'qty-stepper--sm' : '',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       role="group"
       aria-label={ariaLabel}
     >
@@ -56,7 +68,7 @@ export function QuantityStepper({
         disabled={value <= min}
         aria-label="Reducir cantidad"
       >
-        <Minus size={20} aria-hidden />
+        <Minus size={iconSize} aria-hidden />
       </button>
       <span className="product-detail-qty-value" aria-live="polite" aria-atomic="true">
         {value}
@@ -69,7 +81,7 @@ export function QuantityStepper({
         onPointerLeave={handlePointerLeave}
         aria-label="Aumentar cantidad"
       >
-        <Plus size={20} aria-hidden />
+        <Plus size={iconSize} aria-hidden />
       </button>
     </div>
   )

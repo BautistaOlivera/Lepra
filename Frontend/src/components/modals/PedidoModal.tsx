@@ -418,11 +418,15 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                   </td>
                   <td className="align-middle text-center">
                     {fixed ? (
-                      <QuantityStepper
-                        value={linePieces(l)}
-                        onChange={(p) => updateLine(i, 'pieces', p)}
-                        ariaLabel="Piezas"
-                      />
+                      <div className="d-inline-flex align-items-center justify-content-center gap-1">
+                        <QuantityStepper
+                          size="sm"
+                          value={linePieces(l)}
+                          onChange={(p) => updateLine(i, 'pieces', p)}
+                          ariaLabel="Piezas"
+                        />
+                        <span className="text-muted small user-select-none">u</span>
+                      </div>
                     ) : (
                       <div className="d-inline-flex align-items-center gap-1">
                         <DecimalInput
