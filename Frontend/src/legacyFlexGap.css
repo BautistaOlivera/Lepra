@@ -69,10 +69,10 @@ html.no-flexbox-gap .admin-list-dates-row > * + * {
   margin-left: 0.5rem;
 }
 
-html.no-flexbox-gap .admin-list-pedido-actions {
+html.no-flexbox-gap .admin-list-pedido-actions:not(.admin-list-pedido-actions--tile) {
   margin: -0.1875rem;
 }
-html.no-flexbox-gap .admin-list-pedido-actions > * {
+html.no-flexbox-gap .admin-list-pedido-actions:not(.admin-list-pedido-actions--tile) > * {
   margin: 0.1875rem;
 }
 
@@ -83,6 +83,10 @@ html.no-flexbox-gap .admin-list-pedido-grid > * {
   margin: 0.325rem;
 }
 
+html.no-flexbox-gap .admin-list-pedido-tile-header > * + * {
+  margin-left: 0.5rem;
+}
+
 html.no-flexbox-gap .admin-list-pedido-tile-chips {
   margin: -0.15rem;
 }
@@ -91,10 +95,10 @@ html.no-flexbox-gap .admin-list-pedido-tile-chips > * {
 }
 
 html.no-flexbox-gap .admin-list-pedido-actions--tile {
-  margin: -0.15rem;
+  margin: 0;
 }
-html.no-flexbox-gap .admin-list-pedido-actions--tile > * {
-  margin: 0.15rem;
+html.no-flexbox-gap .admin-list-pedido-actions--tile > * + * {
+  margin-left: 0.35rem;
 }
 
 html.no-flexbox-gap .admin-list-table-action-btn > * + * {

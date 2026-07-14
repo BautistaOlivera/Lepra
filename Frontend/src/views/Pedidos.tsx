@@ -277,19 +277,20 @@ export function Pedidos() {
                   return (
                     <Card key={o.id} className="card-lepra admin-list-pedido-tile">
                       <Card.Body>
-                        <div className="admin-list-pedido-tile-chips">
-                          <Badge bg={STATUS_BG[o.status] || 'secondary'}>
-                            {STATUS_LABELS[o.status] || o.status}
-                          </Badge>
-                          <PedidoSyncBadge order={o} pending={pendingOrders.has(o.id)} />
+                        <div className="admin-list-pedido-tile-header">
+                          <div className="admin-list-pedido-tile-chips">
+                            <Badge bg={STATUS_BG[o.status] || 'secondary'}>
+                              {STATUS_LABELS[o.status] || o.status}
+                            </Badge>
+                            <PedidoSyncBadge order={o} pending={pendingOrders.has(o.id)} />
+                          </div>
+                          <div className="admin-list-pedido-tile-total">
+                            {formatMoneyWithSymbol(o.total)}
+                          </div>
                         </div>
 
                         <div className="admin-list-pedido-tile-customer">
                           {orderCustomerLabel(o)}
-                        </div>
-
-                        <div className="admin-list-pedido-tile-total">
-                          {formatMoneyWithSymbol(o.total)}
                         </div>
 
                         <div className="admin-list-pedido-tile-meta">
