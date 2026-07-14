@@ -38,6 +38,11 @@ def _line_payload(op: OrderProduct, product: Product | None = None) -> dict:
     }
     if product is not None:
         payload["sold_by_piece"] = bool(product.fixed_weight)
+        if product.name:
+            payload["product_name"] = product.name
+        brand = (product.brand or "").strip()
+        if brand:
+            payload["product_brand"] = brand
     return payload
 
 

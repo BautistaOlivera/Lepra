@@ -20,7 +20,7 @@ import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 import { formatDateFromApi } from '@/lib/formatDate'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
-import { orderCustomerLabel } from '@/lib/orderDisplay'
+import { orderCustomerLabel, orderLinesPreview, orderPaymentPreview } from '@/lib/orderDisplay'
 import { DateInputAr } from '@/components/DateInputAr'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 
@@ -266,56 +266,67 @@ export function Pedidos() {
             {orders.length === 0 ? (
               <p className="text-muted text-center py-4 mb-0">No hay pedidos con estos filtros.</p>
             ) : (
-              orders.map((o) => {
-                const lineCount = o.lines?.length ?? 0
-                const hasNotas = Boolean(o.payment?.trim())
-                const idLabel = o.id < 0 ? 'Sin sincronizar' : `#${o.id}`
-                const itemsLabel =
-                  lineCount === 1 ? '1 ítem' : lineCount > 0 ? `${lineCount} ítems` : null
+              <div className="admin-list-pedido-grid">
+                {orders.map((o) => {
+                  const lineCount = o.lines?.length ?? 0
+                  const idLabel = o.id < 0 ? 'Nuevo' : `#${o.id}`
+                  const itemsLabel =
+                    lineCount === 1 ? '1 ítem' : lineCount > 0 ? `${lineCount} ítems` : 'Sin ítems'
+                  const paymentPreview = orderPaymentPreview(o.payment)
 
-                return (
-                  <Card key={o.id} className="card-lepra admin-list-card admin-list-pedido-card mb-2">
-                    <Card.Body>
-                      <div className="admin-list-pedido-card-top">
-                        <div className="min-w-0 flex-grow-1">
-                          <div className="admin-list-pedido-card-customer">
-                            {orderCustomerLabel(o)}
-                          </div>
-                          <div className="admin-list-pedido-card-meta">
-                            <span>{idLabel}</span>
-                            {itemsLabel ? <span>{itemsLabel}</span> : null}
-                            <span>{formatDateFromApi(o.created_at || o.date)}</span>
-                          </div>
+                  return (
+                    <Card key={o.id} className="card-lepra admin-list-pedido-tile">
+                      <Card.Body>
+                        <div className="admin-list-pedido-tile-chips">
+                          <Badge bg={STATUS_BG[o.status] || 'secondary'}>
+                            {STATUS_LABELS[o.status] || o.status}
+                          </Badge>
+                          <PedidoSyncBadge order={o} pending={pendingOrders.has(o.id)} />
                         </div>
-                        <div className="admin-list-pedido-card-total">
+
+                        <div className="admin-list-pedido-tile-customer">
+                          {orderCustomerLabel(o)}
+                        </div>
+
+                        <div className="admin-list-pedido-tile-total">
                           {formatMoneyWithSymbol(o.total)}
                         </div>
-                      </div>
 
-                      <div className="admin-list-pedido-card-chips">
-                        <Badge bg={STATUS_BG[o.status] || 'secondary'}>
-                          {STATUS_LABELS[o.status] || o.status}
-                        </Badge>
-                        <PedidoSyncBadge order={o} pending={pendingOrders.has(o.id)} />
-                        {hasNotas ? (
-                          <Badge bg="dark" className="admin-list-pedido-card-notas-badge">
-                            Notas
-                          </Badge>
-                        ) : null}
-                      </div>
+                        <div className="admin-list-pedido-tile-meta">
+                          <span>{idLabel}</span>
+                          <span>{itemsLabel}</span>
+                          <span>{formatDateFromApi(o.created_at || o.date)}</span>
+                        </div>
 
-                      <PedidoRowActions
-                        order={o}
-                        onNotas={() => setNotasOrder(o)}
-                        onPdf={() => setPdfOrder(o)}
-                        onFulfill={() => handleStatusChange(o.id, 'FULFILLED')}
-                        onCancel={() => handleStatusChange(o.id, 'CANCELED')}
-                        layout="card"
-                      />
-                    </Card.Body>
-                  </Card>
-                )
-              })
+                        <div className="admin-list-pedido-tile-products">
+                          {orderLinesPreview(o)}
+                        </div>
+
+                        {paymentPreview ? (
+                          <div className="admin-list-pedido-tile-payment" title={o.payment || undefined}>
+                            {paymentPreview}
+                          </div>
+                        ) : (
+                          <div className="admin-list-pedido-tile-payment admin-list-pedido-tile-payment--empty">
+                            Sin notas de pago
+                          </div>
+                        )}
+
+                        <div className="admin-list-pedido-tile-actions">
+                          <PedidoRowActions
+                            order={o}
+                            onNotas={() => setNotasOrder(o)}
+                            onPdf={() => setPdfOrder(o)}
+                            onFulfill={() => handleStatusChange(o.id, 'FULFILLED')}
+                            onCancel={() => handleStatusChange(o.id, 'CANCELED')}
+                            layout="tile"
+                          />
+                        </div>
+                      </Card.Body>
+                    </Card>
+                  )
+                })}
+              </div>
             )}
           </div>
 

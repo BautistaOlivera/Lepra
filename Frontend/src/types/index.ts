@@ -46,6 +46,8 @@ export interface OrderProduct {
   /** Precio unitario: $/kg o $/pieza según el producto */
   price_per_kg: number
   sold_by_piece?: boolean
+  product_name?: string
+  product_brand?: string
 }
 
 export interface Order {
