@@ -32,7 +32,7 @@ export function PedidoRowActions({
   return (
     <div className={isCard ? 'admin-list-pedido-actions admin-list-pedido-actions--card' : 'admin-list-pedido-actions'}>
       <Button
-        variant="outline-dark"
+        variant={hasNotas ? 'dark' : 'outline-dark'}
         size={isCard ? undefined : 'sm'}
         className={iconBtnClass}
         onClick={onNotas}

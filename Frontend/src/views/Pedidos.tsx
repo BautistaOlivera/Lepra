@@ -266,28 +266,42 @@ export function Pedidos() {
             {orders.length === 0 ? (
               <p className="text-muted text-center py-4 mb-0">No hay pedidos con estos filtros.</p>
             ) : (
-              orders.map((o) => (
-                  <Card key={o.id} className="card-lepra admin-list-card mb-3">
-                    <Card.Body className="p-3">
-                      <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-                        <div className="min-w-0">
-                          <div className="fw-semibold text-dark text-truncate">
+              orders.map((o) => {
+                const lineCount = o.lines?.length ?? 0
+                const hasNotas = Boolean(o.payment?.trim())
+                const idLabel = o.id < 0 ? 'Sin sincronizar' : `#${o.id}`
+                const itemsLabel =
+                  lineCount === 1 ? '1 ítem' : lineCount > 0 ? `${lineCount} ítems` : null
+
+                return (
+                  <Card key={o.id} className="card-lepra admin-list-card admin-list-pedido-card mb-2">
+                    <Card.Body>
+                      <div className="admin-list-pedido-card-top">
+                        <div className="min-w-0 flex-grow-1">
+                          <div className="admin-list-pedido-card-customer">
                             {orderCustomerLabel(o)}
                           </div>
-                          <div className="text-muted small mt-1">
-                            {formatDateFromApi(o.created_at || o.date)}
+                          <div className="admin-list-pedido-card-meta">
+                            <span>{idLabel}</span>
+                            {itemsLabel ? <span>{itemsLabel}</span> : null}
+                            <span>{formatDateFromApi(o.created_at || o.date)}</span>
                           </div>
                         </div>
-                        <div className="fw-bold text-dark flex-shrink-0">
+                        <div className="admin-list-pedido-card-total">
                           {formatMoneyWithSymbol(o.total)}
                         </div>
                       </div>
 
-                      <div className="d-flex flex-wrap gap-2 align-items-center mb-3">
+                      <div className="admin-list-pedido-card-chips">
                         <Badge bg={STATUS_BG[o.status] || 'secondary'}>
                           {STATUS_LABELS[o.status] || o.status}
                         </Badge>
                         <PedidoSyncBadge order={o} pending={pendingOrders.has(o.id)} />
+                        {hasNotas ? (
+                          <Badge bg="dark" className="admin-list-pedido-card-notas-badge">
+                            Notas
+                          </Badge>
+                        ) : null}
                       </div>
 
                       <PedidoRowActions
@@ -300,7 +314,8 @@ export function Pedidos() {
                       />
                     </Card.Body>
                   </Card>
-              ))
+                )
+              })
             )}
           </div>
 

@@ -104,6 +104,7 @@ body {
   align-items: center;
   gap: 0.5rem;
   text-decoration: none;
+  color: var(--lepra-yellow) !important;
 }
 
 .navbar-lepra .lepra-navbar-logo {
@@ -116,6 +117,7 @@ body {
 
 .navbar-lepra .lepra-navbar-brand-text {
   line-height: 1;
+  color: inherit;
 }
 
 .navbar-lepra .nav-link:hover,
@@ -136,6 +138,11 @@ body {
   outline: none;
   box-shadow: none;
   background-color: transparent !important;
+}
+
+.navbar-lepra .lepra-navbar-brand:focus:not(:focus-visible),
+.navbar-lepra .lepra-navbar-brand.active:focus:not(:focus-visible) {
+  color: var(--lepra-yellow) !important;
 }
 
 .navbar-lepra .navbar-brand:focus-visible,
@@ -824,11 +831,13 @@ body {
 }
 
 @media (max-width: 991.98px) {
-  .lepra-navbar-mobile-quick {
+  .lepra-navbar-brand-slot {
     order: 1;
+    flex: 0 0 auto;
+    margin-right: 0.15rem;
   }
 
-  .lepra-navbar-brand-slot {
+  .lepra-navbar-mobile-quick {
     order: 1;
   }
 
@@ -1640,6 +1649,75 @@ body {
 .admin-list-pedido-actions--card .admin-list-action-btn:not(.admin-list-pedido-action-icon-btn) {
   flex: 1 1 0;
   min-width: 0;
+}
+
+/* Cards móviles de pedidos: densas, más info, menos aire */
+.admin-list-pedido-card > .card-body {
+  padding: 0.65rem 0.75rem;
+}
+
+.admin-list-pedido-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.admin-list-pedido-card-customer {
+  font-weight: 600;
+  color: var(--lepra-black, #1a1a1a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+.admin-list-pedido-card-total {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--lepra-black, #1a1a1a);
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-list-pedido-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0;
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: #6c757d;
+}
+
+.admin-list-pedido-card-meta > span:not(:last-child)::after {
+  content: '·';
+  margin: 0 0.35rem;
+  color: #adb5bd;
+}
+
+.admin-list-pedido-card-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.admin-list-pedido-card-notas-badge {
+  font-weight: 600;
+}
+
+.admin-list-pedido-card .admin-list-pedido-actions--card {
+  gap: 0.3rem;
+}
+
+.admin-list-pedido-card .admin-list-pedido-actions--card .admin-list-action-btn {
+  min-height: 40px;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
 }
 
 .admin-list-table-action-btn {

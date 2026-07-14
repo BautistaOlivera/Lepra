@@ -76,6 +76,17 @@ html.no-flexbox-gap .admin-list-pedido-actions > * {
   margin: 0.1875rem;
 }
 
+html.no-flexbox-gap .admin-list-pedido-card-top > * + * {
+  margin-left: 0.5rem;
+}
+
+html.no-flexbox-gap .admin-list-pedido-card-chips {
+  margin: -0.175rem;
+}
+html.no-flexbox-gap .admin-list-pedido-card-chips > * {
+  margin: 0.175rem;
+}
+
 html.no-flexbox-gap .admin-list-table-action-btn > * + * {
   margin-left: 0.2rem;
 }

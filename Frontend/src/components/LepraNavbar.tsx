@@ -59,6 +59,26 @@ export function LepraNavbar({
       className="navbar-lepra sticky-top"
     >
       <Container fluid="sm" className="px-3 px-sm-4 lepra-navbar-container">
+        <NavLink
+          to="/"
+          end
+          className={`navbar-brand fw-bold lepra-navbar-brand lepra-navbar-brand-slot d-inline-flex${
+            isCatalogHome ? ' active' : ''
+          }`}
+          onPointerUp={(e) => window.setTimeout(() => e.currentTarget.blur(), 0)}
+          aria-label="El Lepra"
+        >
+          <img
+            src="/branding/lepra-logo-icon.png"
+            alt=""
+            className="lepra-navbar-logo"
+            width={36}
+            height={36}
+            decoding="async"
+          />
+          <span className="lepra-navbar-brand-text d-none d-lg-inline">El Lepra</span>
+        </NavLink>
+
         {showAdminLink ? (
           <nav
             className="lepra-navbar-mobile-quick d-lg-none"
@@ -80,27 +100,6 @@ export function LepraNavbar({
             ))}
           </nav>
         ) : null}
-
-        <NavLink
-          to="/"
-          end
-          className={`navbar-brand fw-bold lepra-navbar-brand lepra-navbar-brand-slot${
-            showAdminLink ? ' d-none d-lg-inline-flex' : ' d-inline-flex'
-          }${isCatalogHome ? ' active' : ''}`}
-          onPointerUp={(e) => window.setTimeout(() => e.currentTarget.blur(), 0)}
-          aria-label="El Lepra"
-        >
-          <img
-            src="/branding/lepra-logo-icon.png"
-            alt=""
-            className="lepra-navbar-logo"
-            width={36}
-            height={36}
-            decoding="async"
-          />
-          <span className="lepra-navbar-brand-text d-none d-lg-inline">El Lepra</span>
-        </NavLink>
-
         <div className="lepra-navbar-actions d-flex align-items-center gap-1">
           {toolbarActions}
           <Navbar.Toggle
