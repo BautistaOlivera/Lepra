@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Modal, Form, Button } from 'react-bootstrap'
-import { LepraModal } from '@/components/LepraModal'
+import { LepraModal, ModalDismissButton } from '@/components/LepraModal'
 import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import toast from 'react-hot-toast'
 import { updateOrder } from '@/api/order'
@@ -99,9 +99,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
               </p>
             )}
             <div className="d-flex justify-content-end gap-2 mt-3 pt-3 border-top border-dark">
-              <Button variant="outline-dark" onClick={onClose} disabled={loading}>
-                Cancelar
-              </Button>
+              <ModalDismissButton disabled={loading}>Cancelar</ModalDismissButton>
               <Button type="submit" className="btn-lepra" disabled={loading || order.id < 0}>
                 Guardar notas
               </Button>

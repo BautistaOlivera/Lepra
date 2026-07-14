@@ -2,11 +2,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   type ReactNode,
 } from 'react'
 import { Modal, Button } from 'react-bootstrap'
-import { LepraModal } from '@/components/LepraModal'
+import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 
 export type ConfirmOptions = {
   title?: string
@@ -47,12 +48,29 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     setPending(null)
   }
 
+  const show = !!pending
+
+  useEffect(() => {
+    if (!show) {
+      const t = window.setTimeout(releaseBootstrapModalLock, 400)
+      return () => window.clearTimeout(t)
+    }
+  }, [show])
+
   const confirmVariant = pending?.confirmVariant ?? 'danger'
 
   return (
     <ConfirmContext.Provider value={{ confirm }}>
       {children}
-      <LepraModal show={!!pending} onClose={() => finish(false)} centered>
+      <Modal
+        show={show}
+        onHide={() => finish(false)}
+        backdrop
+        keyboard
+        centered
+        enforceFocus
+        restoreFocus
+      >
         <Modal.Header closeButton className="border-dark">
           <Modal.Title>{pending?.title}</Modal.Title>
         </Modal.Header>
@@ -71,7 +89,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             {pending?.confirmLabel ?? 'Confirmar'}
           </Button>
         </Modal.Footer>
-      </LepraModal>
+      </Modal>
     </ConfirmContext.Provider>
   )
 }

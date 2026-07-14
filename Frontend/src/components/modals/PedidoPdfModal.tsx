@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal, Button } from 'react-bootstrap'
-import { LepraModal } from '@/components/LepraModal'
+import { LepraModal, ModalDismissButton } from '@/components/LepraModal'
 import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { Printer, Share2, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -175,9 +175,7 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
             )}
 
             <div className="border-top bg-body p-3 d-flex flex-wrap gap-2 justify-content-end align-items-center">
-              <Button variant="outline-dark" onClick={onClose} disabled={loading}>
-                Cerrar
-              </Button>
+              <ModalDismissButton disabled={loading}>Cerrar</ModalDismissButton>
               <Button variant="outline-dark" onClick={handleDownload} disabled={loading || !pdfBlob}>
                 <Download size={18} className="me-1" /> Descargar PDF
               </Button>

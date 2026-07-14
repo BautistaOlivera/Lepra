@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Modal, Button, Table, Badge } from 'react-bootstrap'
-import { LepraModal } from '@/components/LepraModal'
+import { LepraModal, ModalDismissButton } from '@/components/LepraModal'
 import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import type { OutboxRow } from '@/offline/db'
 import {
@@ -226,9 +226,7 @@ export function OutboxModal({ show, onClose }: OutboxModalProps) {
         </ModalBusyFrame>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline-dark" onClick={onClose} disabled={loading}>
-          Cerrar
-        </Button>
+        <ModalDismissButton disabled={loading}>Cerrar</ModalDismissButton>
       </Modal.Footer>
     </LepraModal>
   )

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Modal, Form, Button, Table } from 'react-bootstrap'
-import { LepraModal } from '@/components/LepraModal'
+import { LepraModal, ModalDismissButton } from '@/components/LepraModal'
 import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { createOrder } from '@/api/order'
 import { createUser } from '@/api/user'
@@ -478,9 +478,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
           <p className="fw-bold">Total: {formatMoneyWithSymbol(total)}</p>
 
               <div className="d-flex justify-content-end gap-2">
-                <Button variant="outline-dark" onClick={() => onClose()} disabled={busy}>
-                  Cancelar
-                </Button>
+                <ModalDismissButton disabled={busy}>Cancelar</ModalDismissButton>
                 <Button
                   type="submit"
                   variant="success"

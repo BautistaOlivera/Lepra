@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Modal, Form, Button } from 'react-bootstrap'
-import { LepraModal } from '@/components/LepraModal'
+import { LepraModal, ModalDismissButton } from '@/components/LepraModal'
 import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { createUser, updateUser } from '@/api/user'
 import { User } from '@/types'
@@ -215,9 +215,7 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
             />
           </Form.Group>
               <div className="d-flex justify-content-end gap-2">
-                <Button variant="outline-dark" onClick={() => onClose()} disabled={loading}>
-                  Cancelar
-                </Button>
+                <ModalDismissButton disabled={loading}>Cancelar</ModalDismissButton>
                 <Button type="submit" className="btn-lepra" disabled={loading || cannotSubmitPassword}>
                   {isEditing ? 'Guardar' : 'Crear'}
                 </Button>

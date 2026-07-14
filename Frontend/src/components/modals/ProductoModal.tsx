@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Modal, Form, Button, Table } from 'react-bootstrap'
-import { LepraModal } from '@/components/LepraModal'
+import { LepraModal, ModalDismissButton } from '@/components/LepraModal'
 import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { Plus, Trash2, Download } from 'lucide-react'
 import { createProduct, updateProduct, uploadProductImage, getImageUrl } from '@/api/product'
@@ -725,9 +725,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             ) : null}
 
                 <div className="d-flex justify-content-end gap-2">
-                  <Button variant="outline-dark" onClick={() => onClose()} disabled={busy}>
-                    Cancelar
-                  </Button>
+                  <ModalDismissButton disabled={busy}>Cancelar</ModalDismissButton>
                   <Button type="submit" className="btn-lepra" disabled={busy || !isFormValid}>
                     {isEditing ? 'Guardar' : 'Crear'}
                   </Button>
@@ -763,9 +761,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             onChange={(e) => setDisableConfirmChecked(e.target.checked)}
           />
             <div className="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">
-              <Button variant="outline-dark" onClick={cancelDisableTieredPricing} disabled={disablingTiers}>
-                Cancelar
-              </Button>
+              <ModalDismissButton disabled={disablingTiers}>Cancelar</ModalDismissButton>
               <Button
                 variant="outline-danger"
                 disabled={!disableConfirmChecked || disablingTiers}
