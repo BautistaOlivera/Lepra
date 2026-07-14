@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Button, Form } from 'react-bootstrap'
+import { Button } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
 import { ArrowLeft, ShoppingCart } from 'lucide-react'
 import { getProduct } from '@/api/product'
@@ -18,6 +18,7 @@ import {
   validateLineWeightKg,
 } from '@/lib/pricing'
 import { QuantityStepper } from '@/components/QuantityStepper'
+import { DecimalInput } from '@/components/DecimalInput'
 import toast from 'react-hot-toast'
 
 export function ProductoDetalle() {
@@ -171,10 +172,7 @@ export function ProductoDetalle() {
                     ariaLabel="Piezas del producto"
                   />
                 ) : (
-                  <Form.Control
-                    type="number"
-                    step="0.001"
-                    min="0"
+                  <DecimalInput
                     className="input-kg"
                     value={weightInput}
                     onChange={(e) => setWeightInput(e.target.value)}

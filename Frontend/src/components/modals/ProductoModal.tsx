@@ -11,6 +11,7 @@ import {
 import { Product, PriceTier } from '@/types'
 import toast from 'react-hot-toast'
 import { Select } from '@/components/Select'
+import { DecimalInput } from '@/components/DecimalInput'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
@@ -530,10 +531,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>{fixedWeight ? 'Precio base ($/pieza)' : 'Precio base ($/kg)'}</Form.Label>
-              <Form.Control
-                type="number"
-                step="0.01"
-                min="0"
+              <DecimalInput
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 onInvalid={handlePriceInvalid}
@@ -551,10 +549,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Peso por pieza (kg)</Form.Label>
-              <Form.Control
-                type="number"
-                step="0.001"
-                min="0"
+              <DecimalInput
                 className="input-kg"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
@@ -685,21 +680,16 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                       {tierRows.map((row) => (
                         <tr key={row.key}>
                           <td>
-                            <Form.Control
-                              type="number"
-                              min={2}
-                              step={fixedWeight || pieceWeightForTiers ? 1 : 0.001}
+                            <DecimalInput
                               className={fixedWeight || pieceWeightForTiers ? undefined : 'input-kg'}
+                              inputMode={fixedWeight || pieceWeightForTiers ? 'numeric' : 'decimal'}
                               value={row.min_kg}
                               onChange={(e) => updateTierRow(row.key, 'min_kg', e.target.value)}
                               placeholder={pieceWeightForTiers ? 'Ej. 5' : 'Ej. 2.5'}
                             />
                           </td>
                           <td>
-                            <Form.Control
-                              type="number"
-                              step="0.01"
-                              min="0"
+                            <DecimalInput
                               value={row.price_per_kg}
                               onChange={(e) => updateTierRow(row.key, 'price_per_kg', e.target.value)}
                               placeholder="Ej. 9.50"

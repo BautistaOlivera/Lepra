@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Container, Button, Card, Form } from 'react-bootstrap'
+import { Container, Button, Card } from 'react-bootstrap'
 import { LoadingOverlay } from '@/components/LoadingOverlay'
 import { Link, useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
@@ -19,6 +19,7 @@ import { ProductImage } from '@/components/ProductImage'
 import toast from 'react-hot-toast'
 import { DataTable } from '@/components/DataTable'
 import { QuantityStepper } from '@/components/QuantityStepper'
+import { DecimalInput } from '@/components/DecimalInput'
 
 type CartRow = ReturnType<typeof useCart>['items'][0] & {
   unitPrice: number
@@ -98,10 +99,7 @@ export function Carrito() {
           )
         }
         return (
-          <Form.Control
-            type="number"
-            step="0.001"
-            min="0"
+          <DecimalInput
             size="sm"
             className="input-kg"
             value={String(weight)}
@@ -241,10 +239,7 @@ export function Carrito() {
                           className="cart-item-stepper"
                         />
                       ) : (
-                        <Form.Control
-                          type="number"
-                          step="0.001"
-                          min="0"
+                        <DecimalInput
                           size="sm"
                           className="cart-item-weight-input input-kg"
                           value={String(row.weight)}

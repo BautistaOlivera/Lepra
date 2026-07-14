@@ -28,6 +28,7 @@ import {
 } from '@/lib/pricing'
 import { parseUnitPriceInput } from '@/lib/productTiers'
 import { QuantityStepper } from '@/components/QuantityStepper'
+import { DecimalInput } from '@/components/DecimalInput'
 
 type SubmitPhase = 'idle' | 'client' | 'order'
 
@@ -424,10 +425,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                       />
                     ) : (
                       <div className="d-inline-flex align-items-center gap-1">
-                        <Form.Control
-                          type="number"
-                          step="0.001"
-                          min="0"
+                        <DecimalInput
                           size="sm"
                           className="input-kg"
                           style={{ minHeight: 31, width: '4.25rem' }}
@@ -442,9 +440,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                   </td>
                   <td className="text-end align-middle">
                     <div className="d-inline-flex align-items-center justify-content-end gap-1">
-                      <Form.Control
-                        type="text"
-                        inputMode="decimal"
+                      <DecimalInput
                         size="sm"
                         className="input-price text-end"
                         style={{ minHeight: 31, width: '4.75rem' }}
