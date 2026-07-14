@@ -271,7 +271,12 @@ export function Productos() {
 
   return (
     <div className="admin-list-page">
-      <AdminPageHero>Productos</AdminPageHero>
+      <AdminPageHero>
+        <span className="d-inline-flex align-items-center gap-2">
+          <Package size={28} aria-hidden />
+          Productos
+        </span>
+      </AdminPageHero>
 
       <div className="admin-list-toolbar">
         <InputGroup className="admin-list-search">

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Form, InputGroup, Card } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
-import { Plus, Pencil, Trash2, Search, CheckCircle2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, CheckCircle2, Users } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { deactivateUser } from '@/api/user'
 import { getUsersPaginatedOfflineFirst } from '@/repositories/usersRepo'
@@ -188,7 +188,12 @@ export function Clientes() {
 
   return (
     <div className="admin-list-page">
-      <AdminPageHero>Clientes</AdminPageHero>
+      <AdminPageHero>
+        <span className="d-inline-flex align-items-center gap-2">
+          <Users size={28} aria-hidden />
+          Clientes
+        </span>
+      </AdminPageHero>
 
       <div className="admin-list-toolbar">
         <InputGroup className="admin-list-search">

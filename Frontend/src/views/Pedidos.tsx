@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Form, InputGroup, Card } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
-import { Plus, Search, Calendar, CheckCircle2 } from 'lucide-react'
+import { Plus, Search, Calendar, CheckCircle2, ShoppingCart } from 'lucide-react'
 import { PedidoRowActions } from '@/components/PedidoRowActions'
 import { createColumnHelper } from '@tanstack/react-table'
 import { setOrderStatus } from '@/api/order'
@@ -197,7 +197,12 @@ export function Pedidos() {
 
   return (
     <div className="admin-list-page">
-      <AdminPageHero>Pedidos</AdminPageHero>
+      <AdminPageHero>
+        <span className="d-inline-flex align-items-center gap-2">
+          <ShoppingCart size={28} aria-hidden />
+          Pedidos
+        </span>
+      </AdminPageHero>
 
       <div className="admin-list-toolbar">
         <InputGroup className="admin-list-search">

@@ -69,6 +69,13 @@ html.no-flexbox-gap .admin-list-dates-row > * + * {
   margin-left: 0.5rem;
 }
 
+html.no-flexbox-gap .admin-page-hero-row {
+  margin: -0.25rem -0.375rem;
+}
+html.no-flexbox-gap .admin-page-hero-row > * {
+  margin: 0.25rem 0.375rem;
+}
+
 html.no-flexbox-gap .lepra-confirm-footer {
   margin: -0.25rem;
 }
