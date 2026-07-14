@@ -180,6 +180,17 @@ html.lepra-legacy-ui .lepra-navbar-mobile-quick-link {
 html.lepra-legacy-ui .lepra-navbar-mobile-quick-link svg {
   width: 24px;
   height: 24px;
+  color: inherit;
+  stroke: currentColor;
+}
+
+html.lepra-legacy-ui .lepra-navbar-mobile-quick-link.active {
+  color: #e6b800;
+  background: rgba(230, 184, 0, 0.28);
+  border: 1px solid rgba(230, 184, 0, 0.65);
+  box-shadow: 0 3px 0 #c9a000, 0 5px 12px rgba(0, 0, 0, 0.35);
+  -webkit-transform: translateY(-2px);
+  transform: translateY(-2px);
 }
 
 html.lepra-legacy-ui .lepra-sync-toolbar--compact .lepra-sync-toolbar-toggle {
