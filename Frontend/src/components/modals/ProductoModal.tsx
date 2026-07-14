@@ -11,11 +11,16 @@ import {
 import { Product, PriceTier } from '@/types'
 import toast from 'react-hot-toast'
 import { Select } from '@/components/Select'
+import { BrandSelect } from '@/components/BrandSelect'
 import { DecimalInput } from '@/components/DecimalInput'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { nextTempId } from '@/offline/ids'
+import {
+  getExistingProductBrands,
+  getProductsPaginatedOfflineFirst,
+} from '@/repositories/productsRepo'
 import {
   type TierDraft,
   tierDraftsFromProduct,
@@ -29,6 +34,7 @@ import {
 import { tiersFromPayload } from '@/lib/productMerge'
 import { parseWeightInput } from '@/lib/formatWeight'
 import { downloadRemoteImage } from '@/lib/downloadImage'
+import { canonicalizeBrand } from '@/lib/productBrand'
 
 interface ProductoModalProps {
   show: boolean
@@ -49,6 +55,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
   const [weight, setWeight] = useState('')
   const [fixedWeight, setFixedWeight] = useState(false)
   const [brand, setBrand] = useState('')
+  const [brandOptions, setBrandOptions] = useState<{ value: string; label: string }[]>([])
   const [category, setCategory] = useState('')
   const [img, setImg] = useState('')
   const [hasTieredPricing, setHasTieredPricing] = useState(false)
@@ -61,6 +68,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
   const [disablingTiers, setDisablingTiers] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const initialTiersRef = useRef<PriceTier[]>([])
+  const lastBrandRef = useRef('')
 
   const isEditing = !!editingProduct
   const imgDisplayUrl = img ? getImageUrl(img) : 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=200&q=80'
@@ -114,7 +122,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       setPrice('')
       setWeight('')
       setFixedWeight(false)
-      setBrand('')
+      setBrand(lastBrandRef.current)
       setCategory('')
       setImg('')
       setHasTieredPricing(false)
@@ -125,6 +133,62 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     setDisableConfirmChecked(false)
   }, [editingProduct, show])
 
+  useEffect(() => {
+    if (!show) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        if (isOnlineNow()) {
+          await getProductsPaginatedOfflineFirst({
+            limit: 200,
+            filters: { admin_list: true },
+          })
+        }
+        const brands = await getExistingProductBrands()
+        if (cancelled) return
+        setBrandOptions(brands.map((b) => ({ value: b, label: b })))
+      } catch {
+        if (!cancelled) setBrandOptions([])
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [show])
+
+  function rememberBrand(next: string) {
+    const trimmed = canonicalizeBrand(
+      next,
+      brandOptions.map((o) => o.value),
+    )
+    if (!trimmed) return
+    lastBrandRef.current = trimmed
+    setBrandOptions((prev) => {
+      const exists = prev.some((o) => o.value.toLowerCase() === trimmed.toLowerCase())
+      if (exists) {
+        return prev.map((o) =>
+          o.value.toLowerCase() === trimmed.toLowerCase() ? { value: trimmed, label: trimmed } : o,
+        )
+      }
+      return [...prev, { value: trimmed, label: trimmed }].sort((a, b) =>
+        a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }),
+      )
+    })
+  }
+
+  function finishClose(refresh = true) {
+    rememberBrand(brand)
+    onClose(refresh)
+  }
+
+  function resolvedBrand(): string | undefined {
+    const canon = canonicalizeBrand(
+      brand,
+      brandOptions.map((o) => o.value),
+    )
+    return canon || undefined
+  }
+
   function productFieldsChanged(priceNum: number, weightNum: number | null): boolean {
     if (!editingProduct) return true
     const prevWeight = editingProduct.weight ?? null
@@ -133,7 +197,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       editingProduct.price !== priceNum ||
       prevWeight !== weightNum ||
       !!editingProduct.fixed_weight !== fixedWeight ||
-      (editingProduct.brand || '') !== brand ||
+      (editingProduct.brand || '') !== (canonicalizeBrand(brand, brandOptions.map((o) => o.value)) || '') ||
       (editingProduct.category || '') !== (category || '') ||
       (editingProduct.img || '') !== img ||
       editingProduct.has_tiered_pricing !== hasTieredPricing
@@ -187,7 +251,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         setDisablingTiers(false)
         setDisableModalOpen(false)
         toast.success('Cambio guardado (pendiente de sincronizar)')
-        onClose(true)
+        finishClose(true)
         return
       }
 
@@ -213,7 +277,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         price_tiers: [],
       } as Partial<Product>)
       toast.success('Precios por volumen desactivados')
-      onClose(true)
+      finishClose(true)
       return
     }
 
@@ -352,6 +416,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     }
 
     setLoading(true)
+    const brandValue = resolvedBrand()
 
     if (isEditing) {
       if (!isOnlineNow()) {
@@ -361,7 +426,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           price: priceNum,
           weight: weightNum ?? undefined,
           fixed_weight: fixedWeight,
-          brand: brand || undefined,
+          brand: brandValue,
           category: category || undefined,
           img: img || undefined,
           has_tiered_pricing: hasTieredPricing,
@@ -381,7 +446,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           price: priceNum,
           weight: weightNum,
           fixed_weight: fixedWeight,
-          brand: brand || null,
+          brand: brandValue ?? null,
           category: category || null,
           img: img || null,
           has_tiered_pricing: hasTieredPricing,
@@ -392,7 +457,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         })
         toast.success('Cambio guardado (pendiente de sincronizar)')
         setLoading(false)
-        onClose(true)
+        finishClose(true)
         return
       }
 
@@ -402,7 +467,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         price: priceNum,
         weight: weightNum ?? undefined,
         fixed_weight: fixedWeight,
-        brand: brand || undefined,
+        brand: brandValue,
         category: category || undefined,
         img: img || undefined,
         has_tiered_pricing: hasTieredPricing,
@@ -418,14 +483,14 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         if (tierErr) {
           toast.error(`Producto actualizado, pero falló un precio por volumen: ${tierErr}`)
           setLoading(false)
-          onClose(true)
+          finishClose(true)
           return
         }
       }
 
       toast.success('Producto actualizado')
       setLoading(false)
-      onClose(true)
+      finishClose(true)
       return
     } else {
       if (!isOnlineNow()) {
@@ -440,7 +505,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           price: priceNum,
           weight: weightNum ?? undefined,
           fixed_weight: fixedWeight,
-          brand: brand || undefined,
+          brand: brandValue,
           category: category || undefined,
           img: undefined,
           has_tiered_pricing: hasTieredPricing,
@@ -459,7 +524,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
           price: priceNum,
           weight: weightNum,
           fixed_weight: fixedWeight,
-          brand: brand || null,
+          brand: brandValue ?? null,
           category: category || null,
           has_tiered_pricing: hasTieredPricing,
           img: null,
@@ -470,7 +535,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         } as Product)
         toast.success('Producto creado (pendiente de sincronizar)')
         setLoading(false)
-        onClose(true)
+        finishClose(true)
         return
       }
 
@@ -479,7 +544,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         price: priceNum,
         weight: weightNum ?? undefined,
         fixed_weight: fixedWeight,
-        brand: brand || undefined,
+        brand: brandValue,
         category: category || undefined,
         img: img || undefined,
         has_tiered_pricing: hasTieredPricing,
@@ -496,14 +561,14 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         if (tierErr) {
           toast.error(`Producto creado, pero falló un precio por volumen: ${tierErr}`)
           setLoading(false)
-          onClose(true)
+          finishClose(true)
           return
         }
       }
 
       toast.success('Producto creado')
       setLoading(false)
-      onClose(true)
+      finishClose(true)
       return
     }
     setLoading(false)
@@ -547,7 +612,16 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Marca</Form.Label>
-              <Form.Control value={brand} onChange={(e) => setBrand(e.target.value)} />
+              <BrandSelect
+                options={brandOptions}
+                value={brand}
+                onChange={setBrand}
+                disabled={busy}
+                placeholder="Buscar o escribir marca..."
+              />
+              <Form.Text className="text-muted">
+                Elegí una marca existente o escribí una nueva. Al crear otro producto se reutiliza la última.
+              </Form.Text>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Peso por pieza (kg)</Form.Label>

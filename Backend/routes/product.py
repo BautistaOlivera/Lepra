@@ -19,6 +19,7 @@ from models.product_price_tier import ProductPriceTier
 from config.db import AsyncSessionLocal
 from auth.roles import require_roles
 from services.product_image import UPLOAD_DIR, process_product_upload
+from services.product_brand import resolve_canonical_brand
 
 product_router = APIRouter(prefix="/product", tags=["Product"])
 
@@ -184,12 +185,13 @@ async def create_product(req: Request, body: InputProduct):
 
     try:
         async with AsyncSessionLocal() as session:
+            brand = await resolve_canonical_brand(session, body.brand)
             p = Product(
                 name=body.name,
                 price=body.price,
                 weight=body.weight,
                 fixed_weight=body.fixed_weight,
-                brand=body.brand,
+                brand=brand,
                 category=body.category,
                 has_tiered_pricing=body.has_tiered_pricing,
                 img=body.img,
@@ -232,7 +234,7 @@ async def update_product(req: Request, body: InputProductUpdate):
             if body.fixed_weight is not None:
                 p.fixed_weight = body.fixed_weight
             if body.brand is not None:
-                p.brand = body.brand
+                p.brand = await resolve_canonical_brand(session, body.brand)
             if body.category is not None:
                 p.category = body.category
             if body.has_tiered_pricing is not None:

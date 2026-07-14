@@ -66,4 +66,17 @@ export async function getProductsPaginatedOfflineFirst(
   return { data: page }
 }
 
+/** Marcas únicas desde el cache local (para sugerencias al crear productos). */
+export async function getExistingProductBrands(): Promise<string[]> {
+  const all = await lepraDb.products.toArray()
+  const set = new Map<string, string>()
+  for (const p of all) {
+    const brand = (p.brand || '').trim()
+    if (!brand) continue
+    const key = brand.toLowerCase()
+    if (!set.has(key)) set.set(key, brand)
+  }
+  return Array.from(set.values()).sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
+}
+
 export { productStatus, isProductInCatalog, isProductInactive }
