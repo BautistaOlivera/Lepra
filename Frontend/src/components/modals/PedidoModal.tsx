@@ -426,6 +426,9 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                     ) : (
                       <div className="d-inline-flex align-items-center gap-1">
                         <DecimalInput
+                          kind="weight"
+                          allowEmpty
+                          showFeedback={false}
                           size="sm"
                           className="input-kg"
                           style={{ minHeight: 31, width: '4.25rem' }}
@@ -441,6 +444,9 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                   <td className="text-end align-middle">
                     <div className="d-inline-flex align-items-center justify-content-end gap-1">
                       <DecimalInput
+                        kind="price"
+                        allowEmpty
+                        showFeedback={false}
                         size="sm"
                         className="input-price text-end"
                         style={{ minHeight: 31, width: '4.75rem' }}

@@ -1,21 +1,60 @@
-import { forwardRef, useCallback, useRef } from 'react'
-import { Button, Form, InputGroup, type FormControlProps } from 'react-bootstrap'
+import { forwardRef, useMemo } from 'react'
+import { Form, type FormControlProps } from 'react-bootstrap'
 import { isLegacyClient } from '@/lib/legacyBrowser'
+import { parseWeightInput } from '@/lib/formatWeight'
+import { parseUnitPriceInput } from '@/lib/productTiers'
+
+export type DecimalKind = 'weight' | 'price' | 'decimal'
 
 type DecimalInputProps = FormControlProps & {
-  /** Botón "." para insertar separador. Default: activo en clientes legacy. */
-  showSeparatorKey?: boolean
+  /** Tipo de validación visual. Default: decimal genérico. */
+  kind?: DecimalKind
+  /** Vacío permitido (peso opcional). Default: true para weight, false para price. */
+  allowEmpty?: boolean
+  /** Mostrar texto de error debajo. Default: true si el diseño lo permite. */
+  showFeedback?: boolean
+}
+
+function validateDraft(
+  raw: string,
+  kind: DecimalKind,
+  allowEmpty: boolean,
+): { valid: boolean; message?: string } {
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    if (allowEmpty) return { valid: true }
+    return { valid: false, message: 'Completá este campo' }
+  }
+
+  if (kind === 'weight') {
+    const r = parseWeightInput(raw)
+    if (!r.ok) return { valid: false, message: r.message }
+    return { valid: true }
+  }
+
+  if (kind === 'price') {
+    const r = parseUnitPriceInput(raw)
+    if (!r.ok) return { valid: false, message: r.message }
+    return { valid: true }
+  }
+
+  // decimal genérico: dígitos + opcional . o ,
+  const normalized = trimmed.replace(',', '.')
+  if (!/^\d+(\.\d+)?$/.test(normalized)) {
+    return { valid: false, message: 'Solo números (podés usar . o ,)' }
+  }
+  const value = parseFloat(normalized)
+  if (!Number.isFinite(value) || value < 0) {
+    return { valid: false, message: 'Valor inválido' }
+  }
+  return { valid: true }
 }
 
 /**
- * Input decimal para Android 4.4 / Chrome 81 / tablets type tabE.
- *
- * En esos teclados `inputMode="decimal"` suele mostrar un pad con el "."
- * desactivado (a veces solo "," funciona, otras ninguna). Solución:
- * - sin `inputMode` en legacy → teclado completo
- * - botón "." junto al campo para insertar el separador
- *
- * El parseo del front ya acepta "." y ",".
+ * Input decimal.
+ * - Legacy (Chrome ≤81 / Android 4.4): sin `inputMode` → teclado libre (en tabE el pad deja "." desactivado).
+ * - Moderno: `inputMode="decimal"`.
+ * - Si el valor no es numérico válido, borde rojo + mensaje (letras, formato, etc.).
  */
 export const DecimalInput = forwardRef<HTMLInputElement, DecimalInputProps>(
   function DecimalInput(
@@ -23,84 +62,52 @@ export const DecimalInput = forwardRef<HTMLInputElement, DecimalInputProps>(
       type: _type,
       inputMode,
       autoComplete,
-      showSeparatorKey,
+      kind = 'decimal',
+      allowEmpty,
+      showFeedback = true,
       value,
       onChange,
+      isInvalid: isInvalidProp,
       className,
-      style,
-      size,
-      disabled,
       ...props
     },
     ref,
   ) {
     const legacy = isLegacyClient()
-    /* Siempre mostrar el botón ".": en tabE el pad deja el punto desactivado aunque se quite inputMode. */
-    const showKey = showSeparatorKey ?? true
-    const inputRef = useRef<HTMLInputElement | null>(null)
+    const emptyOk = allowEmpty ?? kind === 'weight'
+    const raw = String(value ?? '')
 
-    const setRefs = useCallback(
-      (node: HTMLInputElement | null) => {
-        inputRef.current = node
-        if (typeof ref === 'function') ref(node)
-        else if (ref) (ref as React.MutableRefObject<HTMLInputElement | null>).current = node
-      },
-      [ref],
+    const check = useMemo(
+      () => validateDraft(raw, kind, emptyOk),
+      [raw, kind, emptyOk],
     )
 
-    function emit(next: string) {
-      if (!onChange) return
-      const fakeTarget = { value: next } as HTMLInputElement
-      onChange({
-        target: fakeTarget,
-        currentTarget: fakeTarget,
-      } as React.ChangeEvent<HTMLInputElement>)
-    }
-
-    function insertSeparator() {
-      const current = String(value ?? '')
-      if (/[.,]/.test(current)) {
-        inputRef.current?.focus()
-        return
-      }
-      emit(`${current}.`)
-      window.setTimeout(() => inputRef.current?.focus(), 0)
-    }
-
-    const control = (
-      <Form.Control
-        ref={setRefs}
-        type="text"
-        /* Legacy: no pedir pad decimal — en tabE deja el "." gris / desactivado */
-        inputMode={legacy ? undefined : (inputMode ?? 'decimal')}
-        autoComplete={autoComplete ?? 'off'}
-        value={value}
-        onChange={onChange}
-        className={showKey ? className : className}
-        style={showKey ? undefined : style}
-        size={size}
-        disabled={disabled}
-        {...props}
-      />
-    )
-
-    if (!showKey) return control
+    // Solo marcar si hay texto y es inválido (no molestar el vacío opcional).
+    // Precio required vacío: no forzar rojo hasta que tipeen basura; el submit ya bloquea.
+    const showInvalid =
+      isInvalidProp ??
+      (raw.trim() !== '' && !check.valid)
 
     return (
-      <InputGroup size={size} className="decimal-input-group" style={style}>
-        {control}
-        <Button
-          type="button"
-          variant="outline-secondary"
-          className="decimal-input-sep-btn"
-          onClick={insertSeparator}
-          disabled={disabled}
-          aria-label="Insertar punto decimal"
-          title="Punto decimal (0.5)"
-        >
-          .
-        </Button>
-      </InputGroup>
+      <>
+        <Form.Control
+          ref={ref}
+          type="text"
+          inputMode={legacy ? undefined : (inputMode ?? 'decimal')}
+          autoComplete={autoComplete ?? 'off'}
+          value={value}
+          onChange={onChange}
+          isInvalid={showInvalid}
+          className={className}
+          aria-invalid={showInvalid || undefined}
+          {...props}
+        />
+        {showFeedback && showInvalid && check.message ? (
+          <Form.Control.Feedback type="invalid" className="d-block">
+            {check.message}
+          </Form.Control.Feedback>
+        ) : null}
+      </>
     )
   },
 )

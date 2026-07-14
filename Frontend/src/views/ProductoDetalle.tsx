@@ -173,6 +173,8 @@ export function ProductoDetalle() {
                   />
                 ) : (
                   <DecimalInput
+                    kind="weight"
+                    allowEmpty
                     className="input-kg"
                     value={weightInput}
                     onChange={(e) => setWeightInput(e.target.value)}

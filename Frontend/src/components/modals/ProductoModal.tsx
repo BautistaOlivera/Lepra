@@ -532,6 +532,8 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             <Form.Group className="mb-3">
               <Form.Label>{fixedWeight ? 'Precio base ($/pieza)' : 'Precio base ($/kg)'}</Form.Label>
               <DecimalInput
+                kind="price"
+                allowEmpty={false}
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 onInvalid={handlePriceInvalid}
@@ -550,15 +552,14 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             <Form.Group className="mb-3">
               <Form.Label>Peso por pieza (kg)</Form.Label>
               <DecimalInput
+                kind="weight"
+                allowEmpty={!fixedWeight}
                 className="input-kg"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                placeholder="Opcional — ej. 0.5"
+                placeholder="Opcional — ej. 0.5 o 0,5"
                 required={fixedWeight}
               />
-              <Form.Text className="text-muted">
-                Usá el botón <strong>.</strong> si el teclado no deja escribir el punto (también vale la coma: 0,5).
-              </Form.Text>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Check
@@ -684,8 +685,11 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                         <tr key={row.key}>
                           <td>
                             <DecimalInput
+                              kind={fixedWeight || pieceWeightForTiers ? 'decimal' : 'weight'}
+                              allowEmpty
+                              showFeedback={false}
                               className={fixedWeight || pieceWeightForTiers ? undefined : 'input-kg'}
-                              inputMode={fixedWeight || pieceWeightForTiers ? 'numeric' : 'decimal'}
+                              inputMode={fixedWeight || pieceWeightForTiers ? 'numeric' : undefined}
                               value={row.min_kg}
                               onChange={(e) => updateTierRow(row.key, 'min_kg', e.target.value)}
                               placeholder={pieceWeightForTiers ? 'Ej. 5' : 'Ej. 2.5'}
@@ -693,6 +697,9 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                           </td>
                           <td>
                             <DecimalInput
+                              kind="price"
+                              allowEmpty
+                              showFeedback={false}
                               value={row.price_per_kg}
                               onChange={(e) => updateTierRow(row.key, 'price_per_kg', e.target.value)}
                               placeholder="Ej. 9.50"

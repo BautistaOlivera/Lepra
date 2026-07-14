@@ -100,6 +100,9 @@ export function Carrito() {
         }
         return (
           <DecimalInput
+            kind="weight"
+            allowEmpty
+            showFeedback={false}
             size="sm"
             className="input-kg"
             value={String(weight)}
@@ -240,6 +243,9 @@ export function Carrito() {
                         />
                       ) : (
                         <DecimalInput
+                          kind="weight"
+                          allowEmpty
+                          showFeedback={false}
                           size="sm"
                           className="cart-item-weight-input input-kg"
                           value={String(row.weight)}
