@@ -69,6 +69,13 @@ html.no-flexbox-gap .admin-list-dates-row > * + * {
   margin-left: 0.5rem;
 }
 
+html.no-flexbox-gap .lepra-confirm-footer {
+  margin: -0.25rem;
+}
+html.no-flexbox-gap .lepra-confirm-footer > * {
+  margin: 0.25rem;
+}
+
 html.no-flexbox-gap .admin-list-pedido-actions:not(.admin-list-pedido-actions--tile) {
   margin: -0.1875rem;
 }

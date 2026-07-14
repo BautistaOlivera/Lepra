@@ -8,6 +8,24 @@ html.lepra-legacy-ui {
   font-size: 17px;
 }
 
+html.lepra-legacy-ui .lepra-confirm-dialog {
+  max-width: min(26rem, calc(100vw - 1.2rem));
+  font-size: 1.05rem;
+}
+
+html.lepra-legacy-ui .lepra-confirm-title {
+  font-size: 1.35rem;
+}
+
+html.lepra-legacy-ui .lepra-confirm-body {
+  font-size: 1.05rem;
+}
+
+html.lepra-legacy-ui .lepra-confirm-footer .btn {
+  min-height: 48px;
+  font-size: 1.02rem;
+}
+
 /* —— Modales más grandes y cómodos —— */
 
 html.lepra-legacy-ui .modal-dialog {
