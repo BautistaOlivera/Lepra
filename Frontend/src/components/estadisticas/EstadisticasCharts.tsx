@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Card, Row, Col } from 'react-bootstrap'
 import {
-  ResponsiveContainer,
   ComposedChart,
   Bar,
   Line,
@@ -17,6 +16,7 @@ import {
 } from 'recharts'
 import type { SalesGranularity, SalesStats } from '@/types/salesStats'
 import { CHART, formatMoney, formatMoneyAxis, pctChange } from '@/components/dashboard/chartTheme'
+import { ChartFrame } from '@/components/ChartFrame'
 
 const GRANULARITY_LABELS: Record<SalesGranularity, string> = {
   day: 'Por día',
@@ -148,8 +148,7 @@ export function EstadisticasCharts({ stats }: Props) {
               {seriesData.length === 0 ? (
                 <p className="text-muted small mb-0">Sin datos en el período seleccionado</p>
               ) : (
-                <div style={{ width: '100%', height: 300 }}>
-                  <ResponsiveContainer>
+                <ChartFrame height={300}>
                     <ComposedChart data={seriesData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" />
                       <XAxis
@@ -195,8 +194,7 @@ export function EstadisticasCharts({ stats }: Props) {
                         dot={false}
                       />
                     </ComposedChart>
-                  </ResponsiveContainer>
-                </div>
+                </ChartFrame>
               )}
             </Card.Body>
           </Card>
@@ -208,8 +206,7 @@ export function EstadisticasCharts({ stats }: Props) {
               {categoryData.length === 0 ? (
                 <p className="text-muted small mb-0">Sin datos</p>
               ) : (
-                <div style={{ width: '100%', height: 300 }}>
-                  <ResponsiveContainer>
+                <ChartFrame height={300}>
                     <PieChart>
                       <Pie
                         data={categoryData}
@@ -228,8 +225,7 @@ export function EstadisticasCharts({ stats }: Props) {
                       <Tooltip formatter={(v) => formatMoney(Number(v))} />
                       <Legend />
                     </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                </ChartFrame>
               )}
             </Card.Body>
           </Card>
@@ -241,8 +237,7 @@ export function EstadisticasCharts({ stats }: Props) {
               {topProducts.length === 0 ? (
                 <p className="text-muted small mb-0">Sin datos de productos en el período</p>
               ) : (
-                <div style={{ width: '100%', height: Math.max(180, topProducts.length * 44) }}>
-                  <ResponsiveContainer>
+                <ChartFrame height={Math.max(180, topProducts.length * 44)}>
                     <BarChart
                       layout="vertical"
                       data={topProducts}
@@ -259,8 +254,7 @@ export function EstadisticasCharts({ stats }: Props) {
                       <Tooltip formatter={(value) => [`${value ?? 0} kg`, 'Peso']} />
                       <Bar dataKey="total_kg" name="Peso (kg)" fill={CHART.yellow} radius={[0, 4, 4, 0]} />
                     </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                </ChartFrame>
               )}
             </Card.Body>
           </Card>

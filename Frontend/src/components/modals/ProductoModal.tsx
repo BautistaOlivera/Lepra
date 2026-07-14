@@ -140,7 +140,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       try {
         if (isOnlineNow()) {
           await getProductsPaginatedOfflineFirst({
-            limit: 200,
+            limit: 100,
             filters: { admin_list: true },
           })
         }
@@ -659,7 +659,7 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
             <Form.Group className="mb-3">
               <Form.Label>Imagen del producto</Form.Label>
               <Form.Text className="text-muted d-block mb-2">
-                Al subir la foto se aplica el logo de El Lepra, el nombre y la marca del producto sobre la imagen.
+                Al subir la foto se aplica el logo de El Lepra al centro y el nombre/marca abajo.
               </Form.Text>
               <div className="d-flex align-items-start gap-3">
                 <div

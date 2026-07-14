@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Card, Row, Col, ButtonGroup, Button, Badge } from 'react-bootstrap'
 import {
-  ResponsiveContainer,
   ComposedChart,
   Bar,
   Line,
@@ -18,6 +17,7 @@ import {
 import type { DashboardPeriodKey, DashboardStats } from '@/types/dashboard'
 import { mergeStatusBreakdown, ORDER_STATUS_LABELS, type OrderStatusKey } from '@/lib/orderStatus'
 import { CHART, formatMoney, formatMoneyAxis, formatShortDate, pctChange } from './chartTheme'
+import { ChartFrame } from '@/components/ChartFrame'
 
 const PERIOD_LABELS: Record<DashboardPeriodKey, string> = {
   day: 'Hoy',
@@ -134,8 +134,7 @@ export function DashboardCharts({ stats }: Props) {
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
               <Card.Title className="h6 mb-3">Actividad (últimos 30 días)</Card.Title>
-              <div style={{ width: '100%', height: 280 }}>
-                <ResponsiveContainer>
+              <ChartFrame height={280}>
                   <ComposedChart data={seriesData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" />
                     <XAxis dataKey="label" tick={{ fill: CHART.gray, fontSize: 11 }} interval="preserveStartEnd" />
@@ -171,8 +170,7 @@ export function DashboardCharts({ stats }: Props) {
                       dot={false}
                     />
                   </ComposedChart>
-                </ResponsiveContainer>
-              </div>
+              </ChartFrame>
             </Card.Body>
           </Card>
         </Col>
@@ -183,8 +181,7 @@ export function DashboardCharts({ stats }: Props) {
               {statusData.length === 0 ? (
                 <p className="text-muted small mb-0">Sin pedidos</p>
               ) : (
-                <div style={{ width: '100%', height: 280 }}>
-                  <ResponsiveContainer>
+                <ChartFrame height={280}>
                     <PieChart>
                       <Pie
                         data={statusData}
@@ -203,8 +200,7 @@ export function DashboardCharts({ stats }: Props) {
                       <Tooltip />
                       <Legend />
                     </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                </ChartFrame>
               )}
             </Card.Body>
           </Card>
@@ -218,8 +214,7 @@ export function DashboardCharts({ stats }: Props) {
                   Sin datos de líneas de pedido. Sincronizá o abrí Pedidos con conexión para completar el catálogo local.
                 </p>
               ) : (
-                <div style={{ width: '100%', height: Math.max(160, stats.top_products.length * 48) }}>
-                  <ResponsiveContainer>
+                <ChartFrame height={Math.max(160, stats.top_products.length * 48)}>
                     <BarChart
                       layout="vertical"
                       data={stats.top_products}
@@ -236,8 +231,7 @@ export function DashboardCharts({ stats }: Props) {
                       <Tooltip formatter={(value) => [`${value ?? 0} kg`, 'Peso']} />
                       <Bar dataKey="total_kg" name="Peso (kg)" fill={CHART.yellow} radius={[0, 4, 4, 0]} />
                     </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                </ChartFrame>
               )}
             </Card.Body>
           </Card>

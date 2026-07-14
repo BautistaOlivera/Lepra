@@ -65,7 +65,12 @@ export function LepraNavbar({
           className={`navbar-brand fw-bold lepra-navbar-brand lepra-navbar-brand-slot d-inline-flex${
             isCatalogHome ? ' active' : ''
           }`}
-          onPointerUp={(e) => window.setTimeout(() => e.currentTarget.blur(), 0)}
+          onPointerUp={(e) => {
+            const el = e.currentTarget
+            window.setTimeout(() => {
+              el?.blur()
+            }, 0)
+          }}
           aria-label="El Lepra"
         >
           <img

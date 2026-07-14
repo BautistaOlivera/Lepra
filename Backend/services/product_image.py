@@ -11,12 +11,12 @@ UPLOAD_DIR = os.path.join(BACKEND_DIR, "uploads")
 MAX_IMAGE_WIDTH = 1200
 WEBP_QUALITY = 80
 LOGO_WATERMARK_ALPHA = 1.0
-LOGO_MAX_WIDTH_RATIO = 0.68
-LOGO_MAX_HEIGHT_RATIO = 0.30
-TEXT_MAX_WIDTH_RATIO = 0.88
-BLOCK_BOTTOM_PADDING_RATIO = 0.035
-LOGO_TEXT_GAP_PX = 4
-NAME_BRAND_GAP_PX = 6
+# Logo centrado en el medio de la imagen (independiente del texto inferior)
+LOGO_MAX_WIDTH_RATIO = 0.50
+LOGO_MAX_HEIGHT_RATIO = 0.36
+TEXT_MAX_WIDTH_RATIO = 0.92
+BLOCK_BOTTOM_PADDING_RATIO = 0.04
+NAME_BRAND_GAP_PX = 8
 
 FONT_CANDIDATES = [
     os.path.join(BACKEND_DIR, "branding", "DejaVuSans-Bold.ttf"),
@@ -115,14 +115,15 @@ def _fit_font_for_name(
     max_width: int,
     image_width: int,
 ) -> tuple[ImageFont.ImageFont, list[str]]:
-    base_size = max(18, image_width // 22)
-    for size in range(base_size, 11, -2):
+    # ~un poco más grande para legibilidad en cards/miniaturas
+    base_size = max(26, image_width // 16)
+    for size in range(base_size, 15, -2):
         font = _load_font(size)
         lines = _wrap_product_name(draw, name, font, max_width)
         widest = max(_text_width(draw, line, font) for line in lines)
         if widest <= max_width:
             return font, lines
-    font = _load_font(12)
+    font = _load_font(16)
     return font, _wrap_product_name(draw, name, font, max_width)
 
 
@@ -132,14 +133,14 @@ def _fit_font_for_brand(
     max_width: int,
     image_width: int,
 ) -> tuple[ImageFont.ImageFont, list[str]]:
-    base_size = max(14, image_width // 32)
-    for size in range(base_size, 10, -2):
+    base_size = max(18, image_width // 22)
+    for size in range(base_size, 13, -2):
         font = _load_font(size)
         lines = _wrap_product_name(draw, brand, font, max_width)
         widest = max(_text_width(draw, line, font) for line in lines)
         if widest <= max_width:
             return font, lines
-    font = _load_font(11)
+    font = _load_font(14)
     return font, _wrap_product_name(draw, brand, font, max_width)
 
 
@@ -187,7 +188,7 @@ def apply_product_branding(
     product_brand: str | None = None,
     logo_path: str | None = None,
 ) -> Image.Image:
-    """Superpone logo, nombre y marca del producto en la parte inferior."""
+    """Superpone logo (centrado) y nombre/marca del producto (abajo)."""
     name = (product_name or "").strip()
     brand = (product_brand or "").strip()
     if not name:
@@ -207,7 +208,6 @@ def apply_product_branding(
     brand_font = None
     brand_lines: list[str] = []
     brand_block_height = 0
-    brand_line_gap = 0
     if brand:
         brand_font, brand_lines = _fit_font_for_brand(draw, brand, max_text_width, width)
         brand_line_height = _line_height(brand_font)
@@ -216,10 +216,9 @@ def apply_product_branding(
 
     name_brand_gap = NAME_BRAND_GAP_PX if brand else 0
     text_block_height = name_block_height + name_brand_gap + brand_block_height
-    stroke = max(2, width // 280)
+    stroke = max(2, width // 220)
     bottom_pad = max(8, int(height * BLOCK_BOTTOM_PADDING_RATIO))
 
-    logo: Image.Image | None = None
     logo_path = logo_path or _resolve_logo_path()
     if logo_path and os.path.isfile(logo_path):
         max_logo_w = max(1, int(width * LOGO_MAX_WIDTH_RATIO))
@@ -228,30 +227,11 @@ def apply_product_branding(
             logo = _fit_logo(logo_src, max_logo_w, max_logo_h)
             if LOGO_WATERMARK_ALPHA < 1.0:
                 logo = _faded_logo(logo, LOGO_WATERMARK_ALPHA)
-
-    logo_height = logo.height if logo else 0
-    gap = LOGO_TEXT_GAP_PX if logo else 0
-    block_bottom = height - bottom_pad
-    text_y = block_bottom - text_block_height
-    logo_top = text_y - gap - logo_height
-
-    if logo_top < 0 and logo is not None:
-        overflow = -logo_top
-        shrink = max(0.55, 1.0 - overflow / max(logo_height, 1))
-        max_logo_h = max(1, int(logo.height * shrink))
-        max_logo_w = max(1, int(logo.width * shrink))
-        with Image.open(logo_path) as logo_src:
-            logo = _fit_logo(logo_src, max_logo_w, max_logo_h)
-            if LOGO_WATERMARK_ALPHA < 1.0:
-                logo = _faded_logo(logo, LOGO_WATERMARK_ALPHA)
-        logo_height = logo.height
-        text_y = block_bottom - text_block_height
-        logo_top = text_y - gap - logo_height
-
-    if logo:
         logo_x = (width - logo.width) // 2
-        overlay.alpha_composite(logo, (logo_x, max(0, logo_top)))
+        logo_y = (height - logo.height) // 2
+        overlay.alpha_composite(logo, (logo_x, max(0, logo_y)))
 
+    text_y = height - bottom_pad - text_block_height
     text_draw = ImageDraw.Draw(overlay)
     text_y = _draw_text_lines(text_draw, name_lines, name_font, text_y, width, stroke)
     if brand and brand_font:

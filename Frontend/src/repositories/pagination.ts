@@ -1,6 +1,6 @@
 import type { PaginatedRequest, PaginatedResponse } from '@/types'
 
-export function clampLimit(limit: number | undefined, fallback = 20, max = 200): number {
+export function clampLimit(limit: number | undefined, fallback = 20, max = 100): number {
   const n = typeof limit === 'number' && Number.isFinite(limit) ? limit : fallback
   return Math.max(1, Math.min(max, n))
 }

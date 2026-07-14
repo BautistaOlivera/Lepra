@@ -39,6 +39,25 @@ def test_apply_product_branding_with_brand_differs_from_name_only(tmp_path):
     assert with_brand.tobytes() != name_only.tobytes()
 
 
+def test_apply_product_branding_logo_is_centered(tmp_path):
+    """Logo en el centro geométrico; el texto queda abajo."""
+    logo = Image.new("RGBA", (60, 40), (230, 184, 0, 255))
+    logo_path = tmp_path / "logo.png"
+    logo.save(logo_path)
+
+    src = Image.new("RGB", (400, 300), (10, 10, 10))
+    out = apply_product_branding(src, "Queso", logo_path=str(logo_path)).convert("RGB")
+
+    cx, cy = 200, 150
+    # Zona central debe tener el amarillo del logo
+    center = out.getpixel((cx, cy))
+    assert center[0] > 180 and center[1] > 140
+
+    # Esquinas superiores siguen casi negras (sin logo arriba)
+    corner = out.getpixel((5, 5))
+    assert corner[0] < 40 and corner[1] < 40 and corner[2] < 40
+
+
 def test_process_product_upload_returns_webp():
     content = _solid_png(800, 600)
     optimized, width, height = process_product_upload(content, "Manteca")
