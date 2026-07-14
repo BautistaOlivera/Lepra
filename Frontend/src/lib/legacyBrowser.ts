@@ -16,3 +16,34 @@ export function isLegacyClient(): boolean {
   const chrome = getChromeMajorVersion()
   return chrome !== null && chrome <= 81
 }
+
+/**
+ * Flexbox `gap` llegó en Chrome 84. En Chrome 81 / Android 4.4 se ignora
+ * y queda todo pegado (cards, botones, badges, toolbar).
+ * Feature-detect al estilo Modernizr (no alcanza con @supports).
+ */
+export function supportsFlexGap(): boolean {
+  if (typeof document === 'undefined') return true
+  try {
+    const flex = document.createElement('div')
+    flex.style.display = 'flex'
+    flex.style.flexDirection = 'column'
+    flex.style.rowGap = '1px'
+    flex.appendChild(document.createElement('div'))
+    flex.appendChild(document.createElement('div'))
+    document.documentElement.appendChild(flex)
+    const supported = flex.scrollHeight === 1
+    document.documentElement.removeChild(flex)
+    return supported
+  } catch {
+    return false
+  }
+}
+
+/** Marca el documento para CSS de fallback (márgenes donde falta flex gap). */
+export function applyLegacyLayoutFlags(): void {
+  if (typeof document === 'undefined') return
+  if (!supportsFlexGap()) {
+    document.documentElement.classList.add('no-flexbox-gap')
+  }
+}

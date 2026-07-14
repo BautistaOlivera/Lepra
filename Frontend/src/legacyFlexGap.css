@@ -1,0 +1,128 @@
+/**
+ * Fallback de flexbox gap para Chrome < 84 / Android 4.4.
+ * Solo aplica si <html> tiene .no-flexbox-gap (feature-detect en legacyBrowser.ts).
+ * Navegadores modernos ignoran estas reglas; no cambia layout actual en desktop.
+ *
+ * Técnica: margen negativo en el contenedor + mitad del gap en cada hijo
+ * (soporta flex-wrap, a diferencia de * + * { margin-left }).
+ */
+
+/* —— Utilidades Bootstrap gap-* —— */
+
+html.no-flexbox-gap .gap-1 {
+  margin: -0.125rem;
+}
+html.no-flexbox-gap .gap-1 > * {
+  margin: 0.125rem;
+}
+
+html.no-flexbox-gap .gap-2 {
+  margin: -0.25rem;
+}
+html.no-flexbox-gap .gap-2 > * {
+  margin: 0.25rem;
+}
+
+html.no-flexbox-gap .gap-3 {
+  margin: -0.5rem;
+}
+html.no-flexbox-gap .gap-3 > * {
+  margin: 0.5rem;
+}
+
+html.no-flexbox-gap .gap-4 {
+  margin: -0.75rem;
+}
+html.no-flexbox-gap .gap-4 > * {
+  margin: 0.75rem;
+}
+
+html.no-flexbox-gap .gap-5 {
+  margin: -1.5rem;
+}
+html.no-flexbox-gap .gap-5 > * {
+  margin: 1.5rem;
+}
+
+/* —— Layouts propios (index.css usa gap sin clases Bootstrap) —— */
+
+html.no-flexbox-gap .lepra-sync-toolbar {
+  margin: -0.25rem;
+}
+html.no-flexbox-gap .lepra-sync-toolbar > * {
+  margin: 0.25rem;
+}
+
+html.no-flexbox-gap .admin-list-toolbar {
+  margin: -0.375rem;
+}
+html.no-flexbox-gap .admin-list-toolbar > * {
+  margin: 0.375rem;
+}
+
+/* Filas sin wrap: sibling margin (más predecible que negativo) */
+html.no-flexbox-gap .admin-list-filters-row > * + * {
+  margin-left: 0.75rem;
+}
+
+html.no-flexbox-gap .admin-list-dates-row > * + * {
+  margin-left: 0.5rem;
+}
+
+html.no-flexbox-gap .admin-list-pedido-actions {
+  margin: -0.1875rem;
+}
+html.no-flexbox-gap .admin-list-pedido-actions > * {
+  margin: 0.1875rem;
+}
+
+html.no-flexbox-gap .admin-list-table-action-btn > * + * {
+  margin-left: 0.2rem;
+}
+
+html.no-flexbox-gap .product-detail-spec-row > * + * {
+  margin-left: 1rem;
+}
+
+html.no-flexbox-gap .product-detail-actions > * + *,
+html.no-flexbox-gap .product-detail-buttons > * + * {
+  margin-top: 0.75rem;
+}
+
+html.no-flexbox-gap .product-detail-quantity > * + * {
+  margin-left: 0.75rem;
+}
+
+html.no-flexbox-gap .lepra-loading-overlay > * + *,
+html.no-flexbox-gap .lepra-loading-center > * + * {
+  margin-top: 1rem;
+}
+
+html.no-flexbox-gap .cart-footer {
+  margin: -0.5rem;
+}
+html.no-flexbox-gap .cart-footer > * {
+  margin: 0.5rem;
+}
+
+@media (max-width: 991.98px) {
+  html.no-flexbox-gap .admin-list-filters-row > * + * {
+    margin-left: 0.5rem;
+  }
+
+  html.no-flexbox-gap .admin-list-dates-row > * + * {
+    margin-left: 0.35rem;
+  }
+
+  html.no-flexbox-gap .navbar-lepra .navbar-collapse .navbar-nav > * + *,
+  html.no-flexbox-gap .navbar-lepra .lepra-navbar-nav > * + *,
+  html.no-flexbox-gap .navbar-lepra .lepra-navbar-primary > * + * {
+    margin-top: 0.5rem;
+  }
+}
+
+@media (min-width: 992px) {
+  html.no-flexbox-gap .cart-footer-actions > * + * {
+    margin-left: 1rem;
+  }
+}
