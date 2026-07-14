@@ -553,9 +553,12 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
                 className="input-kg"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
-                placeholder="Opcional"
+                placeholder="Opcional — ej. 0.5"
                 required={fixedWeight}
               />
+              <Form.Text className="text-muted">
+                Usá el botón <strong>.</strong> si el teclado no deja escribir el punto (también vale la coma: 0,5).
+              </Form.Text>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Check
