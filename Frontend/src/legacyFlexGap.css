@@ -114,11 +114,17 @@ html.no-flexbox-gap .cart-footer > * {
     margin-left: 0.35rem;
   }
 
-  html.no-flexbox-gap .navbar-lepra .navbar-collapse .navbar-nav > * + *,
-  html.no-flexbox-gap .navbar-lepra .lepra-navbar-nav > * + *,
-  html.no-flexbox-gap .navbar-lepra .lepra-navbar-primary > * + * {
-    margin-top: 0.5rem;
-  }
+html.no-flexbox-gap .navbar-lepra .lepra-navbar-brand > * + * {
+  margin-left: 0.5rem;
+}
+
+html.no-flexbox-gap .lepra-navbar-mobile-quick > * + * {
+  margin-left: 0.15rem;
+}
+
+html.no-flexbox-gap .lepra-navbar-mobile-sync > * + * {
+  margin-left: 0.25rem;
+}
 }
 
 @media (min-width: 992px) {

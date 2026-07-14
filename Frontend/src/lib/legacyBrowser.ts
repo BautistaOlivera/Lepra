@@ -40,10 +40,15 @@ export function supportsFlexGap(): boolean {
   }
 }
 
-/** Marca el documento para CSS de fallback (márgenes donde falta flex gap). */
+/** Marca el documento para CSS de fallback (gap) y UI táctil de tablet. */
 export function applyLegacyLayoutFlags(): void {
   if (typeof document === 'undefined') return
-  if (!supportsFlexGap()) {
-    document.documentElement.classList.add('no-flexbox-gap')
+  const root = document.documentElement
+  const flexGapOk = supportsFlexGap()
+  if (!flexGapOk) {
+    root.classList.add('no-flexbox-gap')
+  }
+  if (isLegacyClient() || !flexGapOk) {
+    root.classList.add('lepra-legacy-ui')
   }
 }

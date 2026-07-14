@@ -146,9 +146,37 @@ export function AdminLayout() {
       <LepraNavbar
         collapseId="admin-nav"
         showAdminLink
+        toolbarActions={
+          <div className="lepra-navbar-mobile-sync d-lg-none">
+            {online && authRequired && (
+              <Button
+                variant="danger"
+                size="sm"
+                className="lepra-navbar-mobile-relogin"
+                onClick={() => navigate('/login', { state: { from: location }, replace: false })}
+                title="Tu sesión expiró. Inicia sesión para sincronizar."
+              >
+                Login
+              </Button>
+            )}
+            <AdminSyncToolbar
+              online={online}
+              syncing={syncing}
+              authRequired={authRequired}
+              lastSync={lastSync}
+              pendingOutbox={pendingOutbox}
+              outboxFailed={outboxFailed}
+              outboxActionable={outboxActionable}
+              hasOutboxItems={hasOutboxItems}
+              onSync={handleSync}
+              onOpenOutbox={() => setOutboxOpen(true)}
+              compact
+            />
+          </div>
+        }
         endNav={() => (
           <>
-            <div className="lepra-navbar-tools lepra-navbar-tools-divided d-flex flex-wrap align-items-center justify-content-center justify-content-lg-end gap-2">
+            <div className="lepra-navbar-tools lepra-navbar-tools-divided d-none d-lg-flex flex-wrap align-items-center justify-content-lg-end gap-2">
               {online && authRequired && (
                 <Button
                   variant="danger"

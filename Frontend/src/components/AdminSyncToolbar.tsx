@@ -24,6 +24,8 @@ export type AdminSyncToolbarProps = {
   hasOutboxItems: boolean
   onSync: () => void
   onOpenOutbox: () => void
+  /** Solo icono de estado (+ panel al tocar). Para topbar mobile. */
+  compact?: boolean
 }
 
 function MainStatusIcon({ state, size = 24 }: { state: SyncVisualState; size?: number }) {
@@ -52,6 +54,7 @@ export function AdminSyncToolbar({
   hasOutboxItems,
   onSync,
   onOpenOutbox,
+  compact = false,
 }: AdminSyncToolbarProps) {
   const [open, setOpen] = useState(false)
   const panelId = useId()
@@ -107,11 +110,16 @@ export function AdminSyncToolbar({
     : 'Sin cambios pendientes'
 
   return (
-    <div ref={rootRef} className="lepra-sync-toolbar">
+    <div
+      ref={rootRef}
+      className={`lepra-sync-toolbar${compact ? ' lepra-sync-toolbar--compact' : ''}`}
+    >
       <div className="lepra-sync-toolbar-status d-flex align-items-center gap-2">
-        <Badge bg={online ? 'success' : 'secondary'}>
-          {online ? CONEXION_EN_LINEA : CONEXION_SIN}
-        </Badge>
+        {!compact ? (
+          <Badge bg={online ? 'success' : 'secondary'}>
+            {online ? CONEXION_EN_LINEA : CONEXION_SIN}
+          </Badge>
+        ) : null}
         <button
           type="button"
           className={`lepra-sync-toolbar-toggle lepra-sync-toolbar-toggle--${mainState} btn btn-link p-0 border-0`}
@@ -124,7 +132,7 @@ export function AdminSyncToolbar({
           }
           onClick={() => setOpen((v) => !v)}
         >
-          <MainStatusIcon state={mainState} />
+          <MainStatusIcon state={mainState} size={compact ? 26 : 24} />
           <span className="visually-hidden">{mainToggleTitle}</span>
         </button>
       </div>

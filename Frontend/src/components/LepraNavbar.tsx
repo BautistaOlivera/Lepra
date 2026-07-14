@@ -26,6 +26,14 @@ function AdminNavItem({
   )
 }
 
+const ADMIN_QUICK_LINKS = [
+  { to: '/admin', end: true, icon: LayoutDashboard, label: 'Admin' },
+  { to: '/admin/clientes', icon: Users, label: 'Clientes' },
+  { to: '/admin/productos', icon: Package, label: 'Productos' },
+  { to: '/admin/pedidos', icon: ShoppingCart, label: 'Pedidos' },
+  { to: '/admin/estadisticas', icon: BarChart3, label: 'Estadísticas' },
+] as const
+
 type LepraNavbarProps = {
   collapseId: string
   showAdminLink?: boolean
@@ -51,13 +59,46 @@ export function LepraNavbar({
       className="navbar-lepra sticky-top"
     >
       <Container fluid="sm" className="px-3 px-sm-4 lepra-navbar-container">
+        {showAdminLink ? (
+          <nav
+            className="lepra-navbar-mobile-quick d-lg-none"
+            aria-label="Acceso rápido admin"
+          >
+            {ADMIN_QUICK_LINKS.map(({ to, end, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `lepra-navbar-mobile-quick-link${isActive ? ' active' : ''}`
+                }
+                title={label}
+                aria-label={label}
+              >
+                <Icon size={22} aria-hidden />
+              </NavLink>
+            ))}
+          </nav>
+        ) : null}
+
         <NavLink
           to="/"
           end
-          className={`navbar-brand fw-bold lepra-navbar-brand lepra-navbar-brand-slot${isCatalogHome ? ' active' : ''}`}
+          className={`navbar-brand fw-bold lepra-navbar-brand lepra-navbar-brand-slot${
+            showAdminLink ? ' d-none d-lg-inline-flex' : ' d-inline-flex'
+          }${isCatalogHome ? ' active' : ''}`}
           onPointerUp={(e) => window.setTimeout(() => e.currentTarget.blur(), 0)}
+          aria-label="El Lepra"
         >
-          El Lepra
+          <img
+            src="/branding/lepra-logo-icon.png"
+            alt=""
+            className="lepra-navbar-logo"
+            width={36}
+            height={36}
+            decoding="async"
+          />
+          <span className="lepra-navbar-brand-text d-none d-lg-inline">El Lepra</span>
         </NavLink>
 
         <div className="lepra-navbar-actions d-flex align-items-center gap-1">
