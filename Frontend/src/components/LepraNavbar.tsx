@@ -28,10 +28,10 @@ function AdminNavItem({
 
 const ADMIN_QUICK_LINKS = [
   { to: '/admin', end: true, icon: LayoutDashboard, label: 'Admin' },
-  { to: '/admin/clientes', icon: Users, label: 'Clientes' },
-  { to: '/admin/productos', icon: Package, label: 'Productos' },
-  { to: '/admin/pedidos', icon: ShoppingCart, label: 'Pedidos' },
-  { to: '/admin/estadisticas', icon: BarChart3, label: 'Estadísticas' },
+  { to: '/admin/clientes', end: false, icon: Users, label: 'Clientes' },
+  { to: '/admin/productos', end: false, icon: Package, label: 'Productos' },
+  { to: '/admin/pedidos', end: false, icon: ShoppingCart, label: 'Pedidos' },
+  { to: '/admin/estadisticas', end: false, icon: BarChart3, label: 'Estadísticas' },
 ] as const
 
 type LepraNavbarProps = {
