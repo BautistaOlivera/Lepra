@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getImageUrl } from '@/api/product'
-
-const DEFAULT_IMG =
-  'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=800&q=80'
+import { productPlaceholderImg } from '@/lib/brandingAssets'
 
 type ProductImageVariant = 'card' | 'detail' | 'thumb'
 
 type ProductImageProps = {
   src?: string | null
   alt: string
+  /** Categoría del producto: define el placeholder (lácteos / embutidos). */
+  category?: string | null
   variant?: ProductImageVariant
   className?: string
   linkTo?: string
@@ -18,13 +18,15 @@ type ProductImageProps = {
 export function ProductImage({
   src,
   alt,
+  category,
   variant = 'card',
   className = '',
   linkTo,
 }: ProductImageProps) {
   const [failed, setFailed] = useState(false)
-  const primary = getImageUrl(src) || DEFAULT_IMG
-  const url = failed ? DEFAULT_IMG : primary
+  const placeholder = productPlaceholderImg(category)
+  const primary = getImageUrl(src) || placeholder
+  const url = failed ? placeholder : primary
 
   const frame = (
     <div

@@ -122,7 +122,7 @@ export function ProductoDetalle() {
 
         <article className="product-detail-panel card-lepra mt-2">
           <div className="product-detail-image-wrap">
-            <ProductImage src={product.img} alt={product.name} variant="detail" className="w-100 h-100" />
+            <ProductImage src={product.img} alt={product.name} category={product.category} variant="detail" className="w-100 h-100" />
           </div>
 
           <div className="product-detail-info">

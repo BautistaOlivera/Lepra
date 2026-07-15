@@ -74,6 +74,7 @@ export function Carrito() {
         <ProductImage
           src={row.original.product.img}
           alt={row.original.product.name}
+          category={row.original.product.category}
           variant="thumb"
           linkTo={`/producto/${row.original.id_product}`}
         />
@@ -219,6 +220,7 @@ export function Carrito() {
                   <ProductImage
                     src={row.product.img}
                     alt={row.product.name}
+                    category={row.product.category}
                     variant="thumb"
                     linkTo={`/producto/${row.id_product}`}
                     className="cart-item-image-link flex-shrink-0"

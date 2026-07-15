@@ -118,6 +118,7 @@ export function Catalogo() {
                   <ProductImage
                     src={p.img}
                     alt={p.name}
+                    category={p.category}
                     variant="card"
                     linkTo={`/producto/${p.id}`}
                   />

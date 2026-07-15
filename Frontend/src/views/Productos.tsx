@@ -29,8 +29,8 @@ import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 import { useConfirm } from '@/context/ConfirmContext'
+import { productPlaceholderImg } from '@/lib/brandingAssets'
 
-const DEFAULT_IMG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=80&q=80'
 const columnHelper = createColumnHelper<Product>()
 
 function ProductoSyncBadge({ product, pending }: { product: Product; pending: boolean }) {
@@ -165,7 +165,7 @@ export function Productos() {
       size: 60,
       cell: ({ row }) => (
         <img
-          src={getImageUrl(row.original.img) || DEFAULT_IMG}
+          src={getImageUrl(row.original.img) || productPlaceholderImg(row.original.category)}
           alt={row.original.name}
           style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }}
         />
@@ -342,7 +342,7 @@ export function Productos() {
                         aria-label={`Ver ${p.name}`}
                       >
                         <img
-                          src={getImageUrl(p.img) || DEFAULT_IMG}
+                          src={getImageUrl(p.img) || productPlaceholderImg(p.category)}
                           alt=""
                           className="admin-list-card-image rounded"
                         />
