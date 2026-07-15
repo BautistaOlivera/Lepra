@@ -83,7 +83,7 @@ def test_product_by_customer_matrix():
     ]
     matrix = aggregate_product_by_customer(lines, filters)
     cremoso = next(r for r in matrix if r["name"] == "Cremoso")
-    assert cremoso["total_weight_kg"] == 41.0
+    assert cremoso["total_kg"] == 41.0
     assert len(cremoso["customers"]) == 2
 
 

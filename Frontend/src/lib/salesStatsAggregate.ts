@@ -102,12 +102,17 @@ function bucketKey(at: Date, granularity: SalesGranularity): string {
 }
 
 function advanceCursor(cur: Date, granularity: SalesGranularity): Date {
-  const next = new Date(cur)
-  if (granularity === 'day') next.setUTCDate(next.getUTCDate() + 1)
-  else if (granularity === 'week') next.setUTCDate(next.getUTCDate() + 7)
-  else if (granularity === 'month') next.setUTCMonth(next.getUTCMonth() + 1)
-  else next.setUTCFullYear(next.getUTCFullYear() + 1)
-  return next
+  if (granularity === 'day' || granularity === 'week') {
+    const next = new Date(cur)
+    next.setUTCDate(next.getUTCDate() + (granularity === 'day' ? 1 : 7))
+    return next
+  }
+  // Mes/año: avanzar al día 1 del período siguiente (evita el desborde de
+  // setUTCMonth desde días 29-31, que saltearía meses vacíos), igual que el backend.
+  if (granularity === 'month') {
+    return new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1))
+  }
+  return new Date(Date.UTC(cur.getUTCFullYear() + 1, 0, 1))
 }
 
 function customerKey(order: Order): string {

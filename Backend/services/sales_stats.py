@@ -286,11 +286,11 @@ def aggregate_product_by_customer(
                 "id_product": pid,
                 "name": line.product_name,
                 "category": line.category,
-                "total_weight_kg": 0.0,
+                "total_kg": 0.0,
                 "customers": {},
             }
         prod = by_product[pid]
-        prod["total_weight_kg"] = round(float(prod["total_weight_kg"]) + line.weight_kg, 3)
+        prod["total_kg"] = round(float(prod["total_kg"]) + line.weight_kg, 3)
         customers = prod["customers"]
         assert isinstance(customers, dict)
         ck = line.customer_key
@@ -299,7 +299,7 @@ def aggregate_product_by_customer(
         customers[ck]["total_kg"] = round(float(customers[ck]["total_kg"]) + line.weight_kg, 3)
 
     result: list[dict[str, object]] = []
-    for row in sorted(by_product.values(), key=lambda x: int(x["total_weight_kg"]), reverse=True):
+    for row in sorted(by_product.values(), key=lambda x: float(x["total_kg"]), reverse=True):
         customers = row.pop("customers")
         assert isinstance(customers, dict)
         row["customers"] = sorted(

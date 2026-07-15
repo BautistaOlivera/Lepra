@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Alert, Badge, ButtonGroup, Button, Form, InputGroup } from 'react-bootstrap'
 import { Calendar, BarChart3 } from 'lucide-react'
 import { LoadingCenter } from '@/components/LoadingOverlay'
@@ -9,6 +9,7 @@ import { AdminPageHero } from '@/components/AdminPageHero'
 import { EstadisticasCharts } from '@/components/estadisticas/EstadisticasCharts'
 import { SalesMatrixTable, SalesProductTable } from '@/components/estadisticas/SalesMatrixTable'
 import { defaultSalesDateRange } from '@/lib/salesStatsAggregate'
+import { defaultRangeForGranularity, periodStart, periodEnd } from '@/lib/salesPeriodRange'
 import { getSalesStatsHybrid } from '@/repositories/salesStatsRepo'
 import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
 import { useOnlineStatus } from '@/offline/network'
@@ -59,7 +60,11 @@ export function Estadisticas() {
     return [...cats].sort((a, b) => a.localeCompare(b, 'es')).map((c) => ({ value: c, label: c }))
   }, [products])
 
+  // Evita que una respuesta vieja pise a una más nueva al cambiar filtros rápido.
+  const requestSeq = useRef(0)
+
   const load = useCallback(async () => {
+    const seq = ++requestSeq.current
     setLoading(true)
     setError(null)
     const res = await getSalesStatsHybrid({
@@ -69,6 +74,7 @@ export function Estadisticas() {
       category,
       granularity,
     })
+    if (seq !== requestSeq.current) return
     if (res.data) {
       setStats(res.data)
     } else {
@@ -80,6 +86,43 @@ export function Estadisticas() {
   useEffect(() => {
     load()
   }, [load, online])
+
+  /**
+   * El agrupamiento funciona como atajo del selector de fechas:
+   * al elegirlo se aplica un rango de períodos completos acorde
+   * (semanas lunes-domingo, meses/años calendario).
+   */
+  function applyGranularity(g: SalesGranularity) {
+    const r = defaultRangeForGranularity(g)
+    setGranularity(g)
+    setDateFrom(r.from)
+    setDateTo(r.to)
+  }
+
+  /** Fechas elegidas a mano se alinean al inicio/fin del período agrupado. */
+  function applyDateFrom(iso: string) {
+    if (!iso) {
+      setDateFrom('')
+      return
+    }
+    const snapped = periodStart(iso, granularity)
+    setDateFrom(snapped)
+    if (dateTo && snapped > dateTo) {
+      setDateTo(periodEnd(iso, granularity))
+    }
+  }
+
+  function applyDateTo(iso: string) {
+    if (!iso) {
+      setDateTo('')
+      return
+    }
+    const snapped = periodEnd(iso, granularity)
+    setDateTo(snapped)
+    if (dateFrom && snapped < dateFrom) {
+      setDateFrom(periodStart(iso, granularity))
+    }
+  }
 
   function clearFilters() {
     const d = defaultSalesDateRange()
@@ -126,7 +169,7 @@ export function Estadisticas() {
             <InputGroup.Text>
               <Calendar size={16} aria-hidden />
             </InputGroup.Text>
-            <DateInputAr value={dateFrom} onChange={setDateFrom} aria-label="Fecha desde" />
+            <DateInputAr value={dateFrom} onChange={applyDateFrom} aria-label="Fecha desde" />
           </InputGroup>
           <span className="admin-list-dates-sep" aria-hidden>
             –
@@ -135,7 +178,7 @@ export function Estadisticas() {
             <InputGroup.Text>
               <Calendar size={16} aria-hidden />
             </InputGroup.Text>
-            <DateInputAr value={dateTo} onChange={setDateTo} aria-label="Fecha hasta" />
+            <DateInputAr value={dateTo} onChange={applyDateTo} aria-label="Fecha hasta" />
           </InputGroup>
         </div>
 
@@ -170,7 +213,7 @@ export function Estadisticas() {
               <Button
                 key={key}
                 variant={granularity === key ? 'dark' : 'outline-dark'}
-                onClick={() => setGranularity(key)}
+                onClick={() => applyGranularity(key)}
               >
                 {label}
               </Button>
@@ -183,6 +226,12 @@ export function Estadisticas() {
         <p className="text-muted small mb-3" aria-live="polite">
           Actualizando...
         </p>
+      )}
+
+      {!loading && error && (
+        <Alert variant="warning" className="mb-3">
+          {error} — se muestran los últimos datos cargados.
+        </Alert>
       )}
 
       <EstadisticasCharts stats={stats} />
