@@ -71,6 +71,7 @@ export async function getExistingProductBrands(): Promise<string[]> {
   const all = await lepraDb.products.toArray()
   const set = new Map<string, string>()
   for (const p of all) {
+    if (isProductInactive(p)) continue
     const brand = (p.brand || '').trim()
     if (!brand) continue
     const key = brand.toLowerCase()
