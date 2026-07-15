@@ -2,12 +2,13 @@
 
 Cada **push a `main`** (o ejecución manual) hace:
 
-1. Build del frontend con `VITE_API_URL`
-2. **rsync** del `Backend/` al VPS (sin borrar `uploads/` ni `.env`)
-3. **rsync** de `Frontend/dist/` al sitio estático
-4. `pip install` + `systemctl restart lepra-api`
+1. `pip install pymupdf` + build del frontend (`prebuild` rasteriza el logo PDF)
+2. Copia del PNG de marca a `Backend/branding/`
+3. **rsync** del `Backend/` al VPS (sin borrar `uploads/` ni `.env`)
+4. **rsync** de `Frontend/dist/` al sitio estático (`--delete`: sube el `dist/` completo, incl. bundles legacy)
+5. `pip install` + `sync_branding_logo.py` + `systemctl restart lepra-api`
 
-Workflow: [.github/workflows/deploy.yml](./.github/workflows/deploy.yml)
+Workflow: [.github/workflows/deploy.yml](./.github/workflows/deploy.yml) · versiones: **Node 22**, **Python 3.12**.
 
 ---
 
@@ -68,7 +69,27 @@ Repo → **Settings** → **Secrets and variables** → **Actions** → **New re
 
 Para `SSH_PRIVATE_KEY`: copiá el archivo privado entero, incluyendo las líneas `BEGIN` y `END`.
 
+### Variables de build del front (opcional)
+
+El workflow embebe en el build solo `VITE_API_URL` y `VITE_PDF_LOGO_URL`. El pie del catálogo (`VITE_CONTACT_*`, `VITE_OWNER_NAME`, etc.) usa **valores por defecto** del código si no los configurás.
+
+Para personalizarlos en CI, agregá secrets con el mismo nombre (`VITE_CONTACT_EMAIL`, `VITE_OWNER_NAME`, …) y pasalos en el paso *Build frontend* de `deploy.yml`, o buildéalo manualmente con `Frontend/.env` antes de subir `dist/` por SFTP.
+
 ---
+
+## Apuntar CI/CD al VPS nuevo
+
+Cuando el oficial pasa a ser la **suscripción duplicada** (mismo tipo de VPS, IP nueva, deploy hecho desde cero):
+
+1. Completá el deploy manual en el VPS nuevo según [DEPLOY_CLOUDPANEL.md](./DEPLOY_CLOUDPANEL.md) (§ *VPS nuevo*).
+2. En GitHub → **Settings** → **Secrets** → actualizá:
+   - `SSH_HOST` → IP del VPS nuevo
+   - `SSH_PORT` → puerto SSH del VPS nuevo (si cambió)
+3. Autorizá la misma clave pública (`lepra_deploy_key.pub`) en `~/.ssh/authorized_keys` del **root** del VPS nuevo.
+4. Ejecutá **Deploy to VPS** manualmente y verificá el log (`lepra-api is active`).
+5. Recién después apuntá DNS `store` / `api` al VPS nuevo.
+
+Si las rutas en el servidor nuevo difieren de `/home/lepramg-store/...`, editá `REMOTE_BACKEND` y `REMOTE_FRONTEND` en `deploy.yml`.
 
 ## 4. Primera vez en el servidor
 
@@ -121,7 +142,9 @@ Seguí usando SFTP + `systemctl restart` como en [DEPLOY_CLOUDPANEL.md](./DEPLOY
 | `systemctl: command not found` o falla restart | `SSH_USER` debe ser `root` (o sudo sin password) |
 | Front llama a API vieja | Secret `VITE_API_URL` correcto; re-run workflow |
 | `pip` / `venv` falla | En el VPS: `apt install python3-venv python3-pip` |
+| Build falla: `No module named 'fitz'` | El runner instala pymupdf; si buildás en local: `pip install pymupdf` |
 | rsync no encontrado | En el runner de GitHub ya está; en VPS no hace falta para pull |
+| Deploy va al servidor viejo | Actualizá `SSH_HOST` y `SSH_PORT` en secrets |
 
 ---
 

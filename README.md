@@ -96,7 +96,7 @@ npm run dev
 
 | Guía | Uso |
 |------|-----|
-| **[DEPLOY_CLOUDPANEL.md](./DEPLOY_CLOUDPANEL.md)** | Producción — VPS, Postgres, API, front |
+| **[DEPLOY_CLOUDPANEL.md](./DEPLOY_CLOUDPANEL.md)** | Producción — VPS, Postgres, API, front (+ VPS suscripción duplicada) |
 | **[DEPLOY_GITHUB.md](./DEPLOY_GITHUB.md)** | Deploy automático (push a `main`) |
 | [DEPLOY.md](./DEPLOY.md) | Índice rápido |
 | [HOSTING_HISTORY.md](./HOSTING_HISTORY.md) | Hosting anterior (Render + Netlify) |

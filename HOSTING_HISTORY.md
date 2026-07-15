@@ -16,7 +16,9 @@ Este archivo documenta el hosting **anterior** y el **actual**. Las guías opera
 | **Dominios** | `store.lepramg.com` (tienda), `api.lepramg.com` (API + `/uploads`) |
 | **Imágenes** | Disco persistente en `Backend/uploads/` (WebP optimizado al subir) |
 
-Variables: `Backend/.env` (`DATABASE_URL`, `SECRET_KEY`) y `Frontend/.env` (`VITE_API_URL`).
+Variables: `Backend/.env` (`DATABASE_URL`, `SECRET_KEY`, opcional `CORS_ORIGINS`) y `Frontend/.env` (`VITE_API_URL`, `VITE_PDF_LOGO_URL`, contacto).
+
+**Cambio a otro VPS (suscripción duplicada):** contratar un VPS **idéntico en plan** (CloudPanel, mismas specs) como suscripción nueva — máquina en blanco, no clon del anterior. Deploy completo según [DEPLOY_CLOUDPANEL.md](./DEPLOY_CLOUDPANEL.md) § *VPS nuevo*; opcionalmente `pg_dump` + `uploads/` si querés conservar datos del servidor que dejás de usar; luego DNS y secrets de GitHub.
 
 ---
 
@@ -44,7 +46,7 @@ Antes del VPS, el proyecto se desplegaba en dos servicios separados:
 - Publish: carpeta `dist/`
 - Variable de build: `VITE_API_URL` → URL de la API en Render
 - Config: `netlify.toml` (raíz y/o `Frontend/`) con redirect SPA (ya eliminados)
-- Node 20 en el build
+- Node 20 en el build (hoy el CI usa Node 22)
 
 **Flujo típico:** push a `main` → Netlify rebuild → front nuevo apuntando a la API en Render.
 
@@ -58,7 +60,7 @@ Antes del VPS, el proyecto se desplegaba en dos servicios separados:
 | Postgres en Render | Postgres local en VPS |
 | Front en Netlify | Front estático en CloudPanel |
 | `INTERNAL_DATABASE_URL` | Solo `DATABASE_URL` → `localhost` |
-| Deploy automático Netlify/Render | Manual: build + SFTP (+ GitHub Actions pendiente) |
+| Deploy automático Netlify/Render | GitHub Actions (push a `main`) + SFTP manual opcional |
 
 ---
 

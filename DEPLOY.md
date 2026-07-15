@@ -1,6 +1,6 @@
 # Deploy — Lepra
 
-**Guía de producción:** [DEPLOY_CLOUDPANEL.md](./DEPLOY_CLOUDPANEL.md)
+**Guía de producción:** [DEPLOY_CLOUDPANEL.md](./DEPLOY_CLOUDPANEL.md) (incluye **VPS nuevo — suscripción duplicada**)
 
 **Hosting anterior (Render + Netlify):** [HOSTING_HISTORY.md](./HOSTING_HISTORY.md)
 
@@ -15,7 +15,11 @@
 | Código API | `/home/lepramg-store/lepra-api/Backend/` |
 | PostgreSQL | `localhost:5432` (mismo VPS) |
 
+**Build:** Node 22 + `pip install pymupdf` antes de `npm run build` (incluye bundles **legacy** para tablets) · **Runtime API:** Python 3.12 recomendado.
+
 Variables: `Backend/.env.example` → `.env` en el servidor · `Frontend/.env.example` → `.env` para el build.
+
+**VPS nuevo (suscripción duplicada):** mismo plan CloudPanel, máquina vacía, deploy desde cero con [DEPLOY_CLOUDPANEL.md](./DEPLOY_CLOUDPANEL.md) § *VPS nuevo*. Al final: DNS al nuevo + secrets de GitHub (`SSH_HOST`, `SSH_PORT`). Traer DB/`uploads/` del viejo es opcional.
 
 ---
 
@@ -60,7 +64,7 @@ cd Frontend && npm test
 
 | Archivo | Contenido |
 |---------|-----------|
-| [DEPLOY_CLOUDPANEL.md](./DEPLOY_CLOUDPANEL.md) | Deploy completo en VPS |
+| [DEPLOY_CLOUDPANEL.md](./DEPLOY_CLOUDPANEL.md) | Deploy completo en VPS (+ suscripción duplicada, legacy §3.8) |
 | [DEPLOY_GITHUB.md](./DEPLOY_GITHUB.md) | CI/CD con GitHub Actions |
 | [HOSTING_HISTORY.md](./HOSTING_HISTORY.md) | Render / Netlify (histórico) |
 | [Frontend/OFFLINE_ADMIN_QA.md](./Frontend/OFFLINE_ADMIN_QA.md) | QA offline admin |
