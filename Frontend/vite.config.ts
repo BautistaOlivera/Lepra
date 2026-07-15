@@ -48,7 +48,13 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         // Sin registerSW.js en el HTML: lo registramos desde la app (evita carrera con Android 4.x).
         injectRegister: false,
-        includeAssets: ['favicon.svg', 'pwa-maskable.svg', 'apple-touch-icon.png'],
+        includeAssets: [
+          'favicon.png',
+          'apple-touch-icon.png',
+          'pwa-icon-192.png',
+          'pwa-icon-512.png',
+          'pwa-maskable-512.png',
+        ],
         manifest: {
           name: 'El Lepra',
           short_name: 'El Lepra',
@@ -63,15 +69,21 @@ export default defineConfig(({ mode }) => {
           background_color: '#1a1a1a',
           icons: [
             {
-              src: '/favicon.svg',
-              sizes: 'any',
-              type: 'image/svg+xml',
+              src: '/pwa-icon-192.png',
+              sizes: '192x192',
+              type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-maskable.svg',
+              src: '/pwa-icon-512.png',
               sizes: '512x512',
-              type: 'image/svg+xml',
+              type: 'image/png',
+              purpose: 'any',
+            },
+            {
+              src: '/pwa-maskable-512.png',
+              sizes: '512x512',
+              type: 'image/png',
               purpose: 'maskable',
             },
           ],
@@ -80,9 +92,11 @@ export default defineConfig(({ mode }) => {
           globPatterns: [
             'index.html',
             'manifest.webmanifest',
-            'favicon.svg',
-            'pwa-maskable.svg',
+            'favicon.png',
             'apple-touch-icon.png',
+            'pwa-icon-192.png',
+            'pwa-icon-512.png',
+            'pwa-maskable-512.png',
           ],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
