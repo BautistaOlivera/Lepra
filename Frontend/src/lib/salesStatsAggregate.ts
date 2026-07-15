@@ -8,12 +8,14 @@ import type {
   SalesByCustomer,
   SalesByProduct,
   SalesGranularity,
+  SalesPlanilla,
   SalesProductByCustomer,
   SalesStats,
   SalesStatsParams,
   SalesSummary,
   SalesTimePoint,
 } from '@/types/salesStats'
+import { isFixedWeightProduct, piecesFromWeight } from '@/lib/pricing'
 
 type SalesLine = {
   orderId: number
@@ -26,6 +28,8 @@ type SalesLine = {
   category: string | null
   total_kg: number
   lineRevenue: number
+  soldByPiece: boolean
+  qty: number
 }
 
 type SalesFilters = {
@@ -137,6 +141,12 @@ function toLines(orders: Order[], products: Product[]): SalesLine[] {
     for (const line of o.lines) {
       const prod = names.get(line.id_product)
       const kg = line.weight || 0
+      const soldByPiece = !!(prod?.fixed_weight || line.sold_by_piece)
+      let qty = Math.round(kg * 1000) / 1000
+      if (soldByPiece && prod) {
+        const pieces = piecesFromWeight(prod, kg)
+        qty = pieces > 0 ? pieces : qty
+      }
       const rev = prod
         ? lineTotal(prod, kg, line.price_per_kg || 0)
         : Math.round(kg * (line.price_per_kg || 0) * 100) / 100
@@ -151,6 +161,8 @@ function toLines(orders: Order[], products: Product[]): SalesLine[] {
         category: prod?.category ?? null,
         total_kg: kg,
         lineRevenue: rev,
+        soldByPiece: soldByPiece || isFixedWeightProduct(prod ?? { fixed_weight: false }),
+        qty,
       })
     }
   }
@@ -304,8 +316,11 @@ function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): S
       id_product: number
       name: string
       category: string | null
+      sold_by_piece: boolean
+      unit: string
       total_kg: number
-      customers: Map<string, { label: string; total_kg: number }>
+      total_qty: number
+      customers: Map<string, { label: string; total_kg: number; qty: number }>
     }
   >()
 
@@ -314,12 +329,21 @@ function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): S
       id_product: line.idProduct,
       name: line.productName,
       category: line.category,
+      sold_by_piece: line.soldByPiece,
+      unit: line.soldByPiece ? 'u.' : 'kg',
       total_kg: 0,
+      total_qty: 0,
       customers: new Map(),
     }
     cur.total_kg = Math.round((cur.total_kg + line.total_kg) * 1000) / 1000
-    const cell = cur.customers.get(line.customerKey) ?? { label: line.customerLabel, total_kg: 0 }
+    cur.total_qty = Math.round((cur.total_qty + line.qty) * 1000) / 1000
+    const cell = cur.customers.get(line.customerKey) ?? {
+      label: line.customerLabel,
+      total_kg: 0,
+      qty: 0,
+    }
     cell.total_kg = Math.round((cell.total_kg + line.total_kg) * 1000) / 1000
+    cell.qty = Math.round((cell.qty + line.qty) * 1000) / 1000
     cur.customers.set(line.customerKey, cell)
     byProduct.set(line.idProduct, cur)
   }
@@ -329,10 +353,136 @@ function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): S
       id_product: row.id_product,
       name: row.name,
       category: row.category,
+      sold_by_piece: row.sold_by_piece,
+      unit: row.unit,
       total_kg: row.total_kg,
-      customers: [...row.customers.values()].sort((a, b) => b.total_kg - a.total_kg),
+      total_qty: row.total_qty,
+      customers: [...row.customers.values()].sort((a, b) => b.qty - a.qty),
     }))
-    .sort((a, b) => b.total_kg - a.total_kg)
+    .sort((a, b) => b.total_qty - a.total_qty)
+}
+
+function iterPeriodKeys(from: string, to: string, granularity: SalesGranularity): string[] {
+  const keys: string[] = []
+  const seen = new Set<string>()
+  let cur = parseIsoDate(from)
+  const end = parseIsoDate(to)
+  while (cur <= end) {
+    const key = bucketKey(cur, granularity)
+    if (!seen.has(key)) {
+      seen.add(key)
+      keys.push(key)
+    }
+    cur = advanceCursor(cur, granularity)
+  }
+  return keys
+}
+
+function buildPlanilla(allLines: SalesLine[], filters: SalesFilters): SalesPlanilla {
+  const filtered = filterLines(allLines, filters)
+  const periodKeys = iterPeriodKeys(filters.dateFrom, filters.dateTo, filters.granularity)
+
+  const productsMeta = new Map<
+    number,
+    { id_product: number; name: string; category: string | null; sold_by_piece: boolean; unit: string }
+  >()
+  const customersMeta = new Map<string, string>()
+  const cells = new Map<string, Map<number, Map<string, number>>>()
+  const byPeriodCells = new Map<number, Map<string, number>>()
+
+  for (const line of filtered) {
+    const period = bucketKey(line.at, filters.granularity)
+    if (!productsMeta.has(line.idProduct)) {
+      productsMeta.set(line.idProduct, {
+        id_product: line.idProduct,
+        name: line.productName,
+        category: line.category,
+        sold_by_piece: line.soldByPiece,
+        unit: line.soldByPiece ? 'u.' : 'kg',
+      })
+    }
+    customersMeta.set(line.customerKey, line.customerLabel)
+
+    if (!cells.has(period)) cells.set(period, new Map())
+    const periodMap = cells.get(period)!
+    if (!periodMap.has(line.idProduct)) periodMap.set(line.idProduct, new Map())
+    const prodMap = periodMap.get(line.idProduct)!
+    prodMap.set(line.customerKey, Math.round(((prodMap.get(line.customerKey) || 0) + line.qty) * 1000) / 1000)
+
+    if (!byPeriodCells.has(line.idProduct)) byPeriodCells.set(line.idProduct, new Map())
+    const pmap = byPeriodCells.get(line.idProduct)!
+    pmap.set(period, Math.round(((pmap.get(period) || 0) + line.qty) * 1000) / 1000)
+  }
+
+  const customerKeys = [...customersMeta.keys()].sort((a, b) =>
+    (customersMeta.get(a) || '').localeCompare(customersMeta.get(b) || '', 'es')
+  )
+  const customers = customerKeys.map((k) => customersMeta.get(k)!)
+  const productIds = [...productsMeta.keys()].sort((a, b) =>
+    (productsMeta.get(a)?.name || '').localeCompare(productsMeta.get(b)?.name || '', 'es')
+  )
+
+  const blocks = periodKeys
+    .filter((period) => cells.has(period))
+    .map((period) => {
+      const periodData = cells.get(period)!
+      const colTotals = customerKeys.map(() => 0)
+      let grand = 0
+      const rows = productIds.map((pid) => {
+        const meta = productsMeta.get(pid)!
+        const custMap = periodData.get(pid) || new Map<string, number>()
+        const qtys = customerKeys.map((ck) => Math.round((custMap.get(ck) || 0) * 1000) / 1000)
+        const total = Math.round(qtys.reduce((s, q) => s + q, 0) * 1000) / 1000
+        qtys.forEach((q, i) => {
+          colTotals[i] = Math.round((colTotals[i] + q) * 1000) / 1000
+        })
+        grand = Math.round((grand + total) * 1000) / 1000
+        return {
+          id_product: pid,
+          name: meta.name,
+          unit: meta.unit,
+          sold_by_piece: meta.sold_by_piece,
+          qtys,
+          total,
+        }
+      })
+      return {
+        period,
+        rows,
+        customer_totals: colTotals,
+        grand_total: grand,
+      }
+    })
+
+  const periodTotals = periodKeys.map(() => 0)
+  const byPeriod = productIds.map((pid) => {
+    const meta = productsMeta.get(pid)!
+    const pmap = byPeriodCells.get(pid) || new Map<string, number>()
+    const values = periodKeys.map((p) => Math.round((pmap.get(p) || 0) * 1000) / 1000)
+    const total = Math.round(values.reduce((s, v) => s + v, 0) * 1000) / 1000
+    values.forEach((v, i) => {
+      periodTotals[i] = Math.round((periodTotals[i] + v) * 1000) / 1000
+    })
+    return {
+      id_product: pid,
+      name: meta.name,
+      unit: meta.unit,
+      sold_by_piece: meta.sold_by_piece,
+      values,
+      total,
+    }
+  })
+
+  return {
+    customers,
+    customer_keys: customerKeys,
+    products: productIds.map((pid) => productsMeta.get(pid)!),
+    period_keys: periodKeys,
+    blocks,
+    by_period: byPeriod,
+    period_totals: periodTotals,
+    grand_total: Math.round(periodTotals.reduce((s, v) => s + v, 0) * 1000) / 1000,
+  }
 }
 
 export function aggregateSalesStatsFromLocal(
@@ -360,5 +510,6 @@ export function aggregateSalesStatsFromLocal(
     by_category: buildByCategory(allLines, filters),
     by_customer: buildByCustomer(allLines, filters),
     product_by_customer: buildProductByCustomer(allLines, filters),
+    planilla: buildPlanilla(allLines, filters),
   }
 }

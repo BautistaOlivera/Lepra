@@ -22,6 +22,25 @@ class SalesLine:
     category: str | None
     weight_kg: float
     line_revenue: float
+    sold_by_piece: bool = False
+    qty: float = 0.0  # piezas si sold_by_piece, kg si no
+
+
+def _line_qty(weight_kg: float, sold_by_piece: bool, piece_weight_kg: float | None) -> float:
+    if sold_by_piece and piece_weight_kg and piece_weight_kg > 0:
+        return round(float(weight_kg) / float(piece_weight_kg), 3)
+    return round(float(weight_kg), 3)
+
+
+def _line_revenue(
+    weight_kg: float,
+    unit_price: float,
+    sold_by_piece: bool,
+    piece_weight_kg: float | None,
+) -> float:
+    if sold_by_piece and piece_weight_kg and piece_weight_kg > 0:
+        return round((float(weight_kg) / float(piece_weight_kg)) * float(unit_price), 2)
+    return round(float(weight_kg) * float(unit_price), 2)
 
 
 @dataclass(frozen=True)
@@ -286,29 +305,160 @@ def aggregate_product_by_customer(
                 "id_product": pid,
                 "name": line.product_name,
                 "category": line.category,
+                "sold_by_piece": line.sold_by_piece,
+                "unit": "u." if line.sold_by_piece else "kg",
                 "total_kg": 0.0,
+                "total_qty": 0.0,
                 "customers": {},
             }
         prod = by_product[pid]
         prod["total_kg"] = round(float(prod["total_kg"]) + line.weight_kg, 3)
+        prod["total_qty"] = round(float(prod["total_qty"]) + line.qty, 3)
         customers = prod["customers"]
         assert isinstance(customers, dict)
         ck = line.customer_key
         if ck not in customers:
-            customers[ck] = {"label": line.customer_label, "total_kg": 0.0}
+            customers[ck] = {"label": line.customer_label, "total_kg": 0.0, "qty": 0.0}
         customers[ck]["total_kg"] = round(float(customers[ck]["total_kg"]) + line.weight_kg, 3)
+        customers[ck]["qty"] = round(float(customers[ck]["qty"]) + line.qty, 3)
 
     result: list[dict[str, object]] = []
-    for row in sorted(by_product.values(), key=lambda x: float(x["total_kg"]), reverse=True):
+    for row in sorted(by_product.values(), key=lambda x: float(x["total_qty"]), reverse=True):
         customers = row.pop("customers")
         assert isinstance(customers, dict)
         row["customers"] = sorted(
             customers.values(),
-            key=lambda c: float(c["total_kg"]),
+            key=lambda c: float(c["qty"]),
             reverse=True,
         )
         result.append(row)
     return result
+
+
+def _iter_period_keys(start: date, end: date, granularity: Granularity) -> list[str]:
+    keys: list[str] = []
+    seen: set[str] = set()
+    cur = start
+    while cur <= end:
+        key = _bucket_key(_start_inclusive(cur), granularity)
+        if key not in seen:
+            seen.add(key)
+            keys.append(key)
+        if granularity == "day":
+            cur += timedelta(days=1)
+        elif granularity == "week":
+            cur += timedelta(days=7)
+        elif granularity == "month":
+            if cur.month == 12:
+                cur = date(cur.year + 1, 1, 1)
+            else:
+                cur = date(cur.year, cur.month + 1, 1)
+        else:
+            cur = date(cur.year + 1, 1, 1)
+    return keys
+
+
+def aggregate_planilla(
+    lines: Sequence[SalesLine],
+    filters: SalesFilters,
+) -> dict[str, object]:
+    """Planilla caudal: bloques producto×cliente por período + pivote producto×período."""
+    filtered = _filter_lines(lines, filters)
+    period_keys = _iter_period_keys(filters.date_from, filters.date_to, filters.granularity)
+
+    products_meta: dict[int, dict[str, object]] = {}
+    customers_meta: dict[str, str] = {}
+    cells: dict[str, dict[int, dict[str, float]]] = {}
+    by_period_cells: dict[int, dict[str, float]] = {}
+
+    for line in filtered:
+        period = _bucket_key(line.created_at, filters.granularity)
+        products_meta.setdefault(
+            line.id_product,
+            {
+                "id_product": line.id_product,
+                "name": line.product_name,
+                "category": line.category,
+                "sold_by_piece": line.sold_by_piece,
+                "unit": "u." if line.sold_by_piece else "kg",
+            },
+        )
+        customers_meta[line.customer_key] = line.customer_label
+
+        prod_cells = cells.setdefault(period, {}).setdefault(line.id_product, {})
+        prod_cells[line.customer_key] = round(prod_cells.get(line.customer_key, 0.0) + line.qty, 3)
+
+        period_map = by_period_cells.setdefault(line.id_product, {})
+        period_map[period] = round(period_map.get(period, 0.0) + line.qty, 3)
+
+    customer_keys = sorted(customers_meta.keys(), key=lambda k: customers_meta[k].lower())
+    customer_labels = [customers_meta[k] for k in customer_keys]
+    product_ids = sorted(products_meta.keys(), key=lambda pid: str(products_meta[pid]["name"]).lower())
+
+    blocks: list[dict[str, object]] = []
+    for period in period_keys:
+        period_data = cells.get(period)
+        if not period_data:
+            continue
+        rows: list[dict[str, object]] = []
+        col_totals = [0.0] * len(customer_keys)
+        grand = 0.0
+        for pid in product_ids:
+            meta = products_meta[pid]
+            cust_map = period_data.get(pid, {})
+            qtys = [round(float(cust_map.get(ck, 0.0)), 3) for ck in customer_keys]
+            row_total = round(sum(qtys), 3)
+            for i, q in enumerate(qtys):
+                col_totals[i] = round(col_totals[i] + q, 3)
+            grand = round(grand + row_total, 3)
+            rows.append(
+                {
+                    "id_product": pid,
+                    "name": meta["name"],
+                    "unit": meta["unit"],
+                    "sold_by_piece": meta["sold_by_piece"],
+                    "qtys": qtys,
+                    "total": row_total,
+                }
+            )
+        blocks.append(
+            {
+                "period": period,
+                "rows": rows,
+                "customer_totals": [round(t, 3) for t in col_totals],
+                "grand_total": grand,
+            }
+        )
+
+    by_period_rows: list[dict[str, object]] = []
+    period_totals = {p: 0.0 for p in period_keys}
+    for pid in product_ids:
+        meta = products_meta[pid]
+        values = [round(float(by_period_cells.get(pid, {}).get(p, 0.0)), 3) for p in period_keys]
+        total = round(sum(values), 3)
+        for i, p in enumerate(period_keys):
+            period_totals[p] = round(period_totals[p] + values[i], 3)
+        by_period_rows.append(
+            {
+                "id_product": pid,
+                "name": meta["name"],
+                "unit": meta["unit"],
+                "sold_by_piece": meta["sold_by_piece"],
+                "values": values,
+                "total": total,
+            }
+        )
+
+    return {
+        "customers": customer_labels,
+        "customer_keys": customer_keys,
+        "products": [products_meta[pid] for pid in product_ids],
+        "period_keys": period_keys,
+        "blocks": blocks,
+        "by_period": by_period_rows,
+        "period_totals": [round(period_totals[p], 3) for p in period_keys],
+        "grand_total": round(sum(period_totals.values()), 3),
+    }
 
 
 def build_sales_stats(
@@ -329,6 +479,7 @@ def build_sales_stats(
         "by_category": aggregate_by_category(lines, filters),
         "by_customer": aggregate_by_customer(lines, filters),
         "product_by_customer": aggregate_product_by_customer(lines, filters),
+        "planilla": aggregate_planilla(lines, filters),
     }
 
 
@@ -348,6 +499,13 @@ def lines_from_rows(rows: Sequence[Mapping[str, object]]) -> list[SalesLine]:
 
         weight_kg = float(r.get("weight") or 0)
         price_per_kg = float(r.get("price_per_kg") or 0)
+        sold_by_piece = bool(r.get("fixed_weight") or r.get("sold_by_piece"))
+        piece_raw = r.get("piece_weight")
+        if piece_raw is None:
+            piece_raw = r.get("product_weight")
+        piece_weight = float(piece_raw) if piece_raw not in (None, "") else None
+        qty = _line_qty(weight_kg, sold_by_piece, piece_weight)
+        revenue = _line_revenue(weight_kg, price_per_kg, sold_by_piece, piece_weight)
         out.append(
             SalesLine(
                 order_id=int(r["order_id"]),
@@ -359,7 +517,9 @@ def lines_from_rows(rows: Sequence[Mapping[str, object]]) -> list[SalesLine]:
                 product_name=str(r.get("product_name") or f"Producto #{r['id_product']}"),
                 category=(str(r["category"]).strip() if r.get("category") else None),
                 weight_kg=weight_kg,
-                line_revenue=round(weight_kg * price_per_kg, 2),
+                line_revenue=revenue,
+                sold_by_piece=sold_by_piece,
+                qty=qty,
             )
         )
     return out

@@ -1744,20 +1744,89 @@ body {
   overflow: auto;
 }
 
+/* separate evita el “pixel gap” de border-collapse + sticky */
+.estadisticas-matrix-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
 .estadisticas-matrix-table .estadisticas-matrix-sticky-col {
   position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--bs-table-bg, #fff);
-  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.06);
+  /* -1px tapa la fina franja que deja ver las otras columnas al scrollear */
+  left: -1px;
+  z-index: 2;
+  background-color: #ffffff !important;
+  background-clip: padding-box;
+  /* sombra izquierda opaca = sella el borde; derecha = profundidad */
+  box-shadow:
+    -2px 0 0 0 #ffffff,
+    2px 0 4px rgba(0, 0, 0, 0.08);
 }
 
 .estadisticas-matrix-table thead .estadisticas-matrix-sticky-col {
-  background: var(--bs-table-striped-bg, #f8f9fa);
+  z-index: 3;
+  background-color: #f8f9fa !important;
+  box-shadow:
+    -2px 0 0 0 #f8f9fa,
+    2px 0 4px rgba(0, 0, 0, 0.08);
+}
+
+.estadisticas-matrix-table tbody tr:nth-of-type(odd) .estadisticas-matrix-sticky-col {
+  background-color: #ffffff !important;
+  box-shadow:
+    -2px 0 0 0 #ffffff,
+    2px 0 4px rgba(0, 0, 0, 0.08);
+}
+
+.estadisticas-matrix-table tbody tr:nth-of-type(even) .estadisticas-matrix-sticky-col {
+  background-color: #f4f3ef !important;
+  box-shadow:
+    -2px 0 0 0 #f4f3ef,
+    2px 0 4px rgba(0, 0, 0, 0.08);
+}
+
+.estadisticas-matrix-table.table-striped > tbody > tr:nth-of-type(odd) > .estadisticas-matrix-sticky-col {
+  background-color: #ffffff !important;
+  box-shadow:
+    -2px 0 0 0 #ffffff,
+    2px 0 4px rgba(0, 0, 0, 0.08);
+}
+
+.estadisticas-matrix-table.table-striped > tbody > tr:nth-of-type(even) > .estadisticas-matrix-sticky-col {
+  background-color: #f4f3ef !important;
+  box-shadow:
+    -2px 0 0 0 #f4f3ef,
+    2px 0 4px rgba(0, 0, 0, 0.08);
+}
+
+.estadisticas-matrix-table tbody tr:hover > .estadisticas-matrix-sticky-col {
+  background-color: #fff8e0 !important;
+  box-shadow:
+    -2px 0 0 0 #fff8e0,
+    2px 0 4px rgba(0, 0, 0, 0.08);
 }
 
 .estadisticas-matrix-table tfoot .estadisticas-matrix-sticky-col {
-  background: var(--bs-secondary-bg, #e9ecef);
+  z-index: 3;
+  background-color: #e9ecef !important;
+  box-shadow:
+    -2px 0 0 0 #e9ecef,
+    2px 0 4px rgba(0, 0, 0, 0.08);
+}
+
+.estadisticas-planilla-table {
+  font-size: 0.85rem;
+}
+
+.estadisticas-planilla-table th,
+.estadisticas-planilla-table td {
+  padding: 0.25rem 0.45rem;
+  vertical-align: middle;
+}
+
+.estadisticas-planilla-table tbody tr td:not(.estadisticas-matrix-sticky-col):empty,
+.estadisticas-planilla-table tbody tr td:not(.estadisticas-matrix-sticky-col) {
+  font-variant-numeric: tabular-nums;
 }
 
 .admin-list-action-btn {

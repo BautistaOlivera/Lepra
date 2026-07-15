@@ -22,7 +22,10 @@ def _line(
     customer_key: str = "user:1",
     customer_label: str = "Cliente A",
     category: str = "Quesos",
+    sold_by_piece: bool = False,
+    qty: float | None = None,
 ):
+    q = weight_kg if qty is None else qty
     return SalesLine(
         order_id=order_id,
         created_at=when,
@@ -33,7 +36,9 @@ def _line(
         product_name=name,
         category=category,
         weight_kg=weight_kg,
-        line_revenue=round(weight_kg * price_per_kg, 2),
+        line_revenue=round(q * price_per_kg, 2) if sold_by_piece else round(weight_kg * price_per_kg, 2),
+        sold_by_piece=sold_by_piece,
+        qty=q,
     )
 
 
@@ -84,7 +89,72 @@ def test_product_by_customer_matrix():
     matrix = aggregate_product_by_customer(lines, filters)
     cremoso = next(r for r in matrix if r["name"] == "Cremoso")
     assert cremoso["total_kg"] == 41.0
+    assert cremoso["total_qty"] == 41.0
+    assert cremoso["unit"] == "kg"
     assert len(cremoso["customers"]) == 2
+
+
+def test_planilla_blocks_and_by_period():
+    from services.sales_stats import SalesLine, aggregate_planilla
+
+    filters = SalesFilters(date(2026, 5, 24), date(2026, 5, 24), granularity="day")
+    lines = [
+        SalesLine(
+            order_id=1,
+            created_at=datetime(2026, 5, 24, 10, 0),
+            status="FULFILLED",
+            customer_key="user:1",
+            customer_label="Cliente A",
+            id_product=1,
+            product_name="Cremoso",
+            category="Quesos",
+            weight_kg=11,
+            line_revenue=110,
+            sold_by_piece=False,
+            qty=11,
+        ),
+        SalesLine(
+            order_id=2,
+            created_at=datetime(2026, 5, 24, 11, 0),
+            status="FULFILLED",
+            customer_key="user:2",
+            customer_label="Cliente B",
+            id_product=1,
+            product_name="Cremoso",
+            category="Quesos",
+            weight_kg=30,
+            line_revenue=300,
+            sold_by_piece=False,
+            qty=30,
+        ),
+        SalesLine(
+            order_id=3,
+            created_at=datetime(2026, 5, 24, 12, 0),
+            status="FULFILLED",
+            customer_key="user:1",
+            customer_label="Cliente A",
+            id_product=2,
+            product_name="Bondiola",
+            category="Fiambres",
+            weight_kg=1.5,
+            line_revenue=900,
+            sold_by_piece=True,
+            qty=3,
+        ),
+    ]
+    planilla = aggregate_planilla(lines, filters)
+    assert len(planilla["blocks"]) == 1
+    block = planilla["blocks"][0]
+    assert block["period"] == "2026-05-24"
+    assert block["grand_total"] == 44.0  # 11+30+3
+    cremoso = next(r for r in block["rows"] if r["name"] == "Cremoso")
+    assert cremoso["unit"] == "kg"
+    assert cremoso["total"] == 41.0
+    bondiola = next(r for r in block["rows"] if r["name"] == "Bondiola")
+    assert bondiola["unit"] == "u."
+    assert bondiola["total"] == 3.0
+    assert len(planilla["by_period"]) == 2
+    assert planilla["grand_total"] == 44.0
 
 
 def test_build_sales_stats_structure():
@@ -93,3 +163,5 @@ def test_build_sales_stats_structure():
     assert "summary" in stats
     assert "time_series" in stats
     assert "product_by_customer" in stats
+    assert "planilla" in stats
+    assert stats["planilla"]["blocks"] == []

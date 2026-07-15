@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Alert, Badge, ButtonGroup, Button, Form, InputGroup } from 'react-bootstrap'
-import { Calendar, BarChart3 } from 'lucide-react'
+import { Calendar, BarChart3, LayoutDashboard, Table2 } from 'lucide-react'
 import { LoadingCenter } from '@/components/LoadingOverlay'
 import { DateInputAr } from '@/components/DateInputAr'
 import { Select } from '@/components/Select'
 import { AdminFilterResetButton } from '@/components/AdminFilterResetButton'
 import { AdminPageHero } from '@/components/AdminPageHero'
 import { EstadisticasCharts } from '@/components/estadisticas/EstadisticasCharts'
-import { SalesMatrixTable, SalesProductTable } from '@/components/estadisticas/SalesMatrixTable'
+import { SalesProductTable } from '@/components/estadisticas/SalesMatrixTable'
+import { SalesPlanillaTable } from '@/components/estadisticas/SalesPlanillaTable'
 import { defaultSalesDateRange } from '@/lib/salesStatsAggregate'
 import { defaultRangeForGranularity, periodStart, periodEnd } from '@/lib/salesPeriodRange'
 import { getSalesStatsHybrid } from '@/repositories/salesStatsRepo'
@@ -23,6 +24,13 @@ const GRANULARITY_OPTIONS: { key: SalesGranularity; label: string }[] = [
   { key: 'year', label: 'Año' },
 ]
 
+type StatsViewMode = 'charts' | 'data'
+
+const VIEW_OPTIONS: { key: StatsViewMode; label: string; Icon: typeof LayoutDashboard }[] = [
+  { key: 'charts', label: 'Gráficos', Icon: LayoutDashboard },
+  { key: 'data', label: 'Datos', Icon: Table2 },
+]
+
 export function Estadisticas() {
   const online = useOnlineStatus()
   const defaults = defaultSalesDateRange()
@@ -32,6 +40,7 @@ export function Estadisticas() {
   const [productId, setProductId] = useState<number | null>(null)
   const [category, setCategory] = useState<string | null>(null)
   const [granularity, setGranularity] = useState<SalesGranularity>('day')
+  const [viewMode, setViewMode] = useState<StatsViewMode>('charts')
 
   const [products, setProducts] = useState<Product[]>([])
   const [stats, setStats] = useState<SalesStats | null>(null)
@@ -222,6 +231,25 @@ export function Estadisticas() {
         </div>
       </div>
 
+      <div className="d-flex flex-wrap align-items-center gap-2 mb-3" role="tablist" aria-label="Vista de estadísticas">
+        <ButtonGroup>
+          {VIEW_OPTIONS.map(({ key, label, Icon }) => (
+            <Button
+              key={key}
+              variant={viewMode === key ? 'dark' : 'outline-dark'}
+              onClick={() => setViewMode(key)}
+              role="tab"
+              aria-selected={viewMode === key}
+            >
+              <span className="d-inline-flex align-items-center gap-2">
+                <Icon size={16} aria-hidden />
+                {label}
+              </span>
+            </Button>
+          ))}
+        </ButtonGroup>
+      </div>
+
       {loading && (
         <p className="text-muted small mb-3" aria-live="polite">
           Actualizando...
@@ -234,12 +262,14 @@ export function Estadisticas() {
         </Alert>
       )}
 
-      <EstadisticasCharts stats={stats} />
-
-      <div className="d-flex flex-column gap-4 mt-4">
-        <SalesMatrixTable rows={stats.product_by_customer} />
-        <SalesProductTable rows={stats.by_product} />
-      </div>
+      {viewMode === 'charts' ? (
+        <EstadisticasCharts stats={stats} />
+      ) : (
+        <div className="d-flex flex-column gap-4">
+          <SalesPlanillaTable stats={stats} products={products} />
+          <SalesProductTable rows={stats.by_product} />
+        </div>
+      )}
     </div>
   )
 }

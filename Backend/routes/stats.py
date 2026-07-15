@@ -200,6 +200,8 @@ async def get_sales_stats(
                     Product.category,
                     OrderProduct.weight,
                     OrderProduct.price_per_kg,
+                    Product.fixed_weight,
+                    Product.weight.label("piece_weight"),
                 )
                 .join(OrderProduct, OrderProduct.id_order == Order.id)
                 .join(Product, Product.id == OrderProduct.id_product)
@@ -225,6 +227,8 @@ async def get_sales_stats(
                 "category": r[8],
                 "weight": r[9],
                 "price_per_kg": r[10],
+                "fixed_weight": r[11],
+                "piece_weight": r[12],
             }
             for r in line_rows
         ]

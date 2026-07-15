@@ -50,6 +50,7 @@ export interface SalesByCustomer {
 export interface SalesProductCustomerCell {
   label: string
   total_kg: number
+  qty?: number
 }
 
 export interface SalesProductByCustomer {
@@ -57,7 +58,54 @@ export interface SalesProductByCustomer {
   name: string
   category: string | null
   total_kg: number
+  total_qty?: number
+  unit?: string
+  sold_by_piece?: boolean
   customers: SalesProductCustomerCell[]
+}
+
+export interface SalesPlanillaProduct {
+  id_product: number
+  name: string
+  category: string | null
+  sold_by_piece: boolean
+  unit: string
+}
+
+export interface SalesPlanillaBlockRow {
+  id_product: number
+  name: string
+  unit: string
+  sold_by_piece: boolean
+  qtys: number[]
+  total: number
+}
+
+export interface SalesPlanillaBlock {
+  period: string
+  rows: SalesPlanillaBlockRow[]
+  customer_totals: number[]
+  grand_total: number
+}
+
+export interface SalesPlanillaPeriodRow {
+  id_product: number
+  name: string
+  unit: string
+  sold_by_piece: boolean
+  values: number[]
+  total: number
+}
+
+export interface SalesPlanilla {
+  customers: string[]
+  customer_keys: string[]
+  products: SalesPlanillaProduct[]
+  period_keys: string[]
+  blocks: SalesPlanillaBlock[]
+  by_period: SalesPlanillaPeriodRow[]
+  period_totals: number[]
+  grand_total: number
 }
 
 export interface SalesStats {
@@ -76,4 +124,5 @@ export interface SalesStats {
   by_category: SalesByCategory[]
   by_customer: SalesByCustomer[]
   product_by_customer: SalesProductByCustomer[]
+  planilla?: SalesPlanilla
 }
