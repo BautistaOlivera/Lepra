@@ -18,6 +18,7 @@ import type { DashboardPeriodKey, DashboardStats } from '@/types/dashboard'
 import { mergeStatusBreakdown, ORDER_STATUS_LABELS, type OrderStatusKey } from '@/lib/orderStatus'
 import { CHART, formatMoney, formatMoneyAxis, formatShortDate, pctChange } from './chartTheme'
 import { ChartFrame } from '@/components/ChartFrame'
+import { isLegacyClient } from '@/lib/legacyBrowser'
 
 const PERIOD_LABELS: Record<DashboardPeriodKey, string> = {
   day: 'Hoy',
@@ -38,6 +39,7 @@ type Props = {
 export function DashboardCharts({ stats }: Props) {
   const [period, setPeriod] = useState<DashboardPeriodKey>('week')
   const p = stats.periods[period]
+  const animate = !isLegacyClient()
 
   const statusData = useMemo(
     () =>
@@ -159,7 +161,7 @@ export function DashboardCharts({ stats }: Props) {
                       }
                     />
                     <Legend />
-                    <Bar yAxisId="orders" dataKey="orders" name="Pedidos" fill={CHART.black} radius={[4, 4, 0, 0]} />
+                    <Bar yAxisId="orders" dataKey="orders" name="Pedidos" fill={CHART.black} radius={[4, 4, 0, 0]} isAnimationActive={animate} />
                     <Line
                       yAxisId="revenue"
                       type="monotone"
@@ -168,6 +170,7 @@ export function DashboardCharts({ stats }: Props) {
                       stroke={CHART.yellow}
                       strokeWidth={2}
                       dot={false}
+                      isAnimationActive={animate}
                     />
                   </ComposedChart>
               </ChartFrame>
@@ -192,6 +195,7 @@ export function DashboardCharts({ stats }: Props) {
                         innerRadius={52}
                         outerRadius={88}
                         paddingAngle={2}
+                        isAnimationActive={animate}
                       >
                         {statusData.map((entry) => (
                           <Cell key={entry.key} fill={entry.fill} />
@@ -229,7 +233,7 @@ export function DashboardCharts({ stats }: Props) {
                         tick={{ fill: CHART.black, fontSize: 12 }}
                       />
                       <Tooltip formatter={(value) => [`${value ?? 0} kg`, 'Peso']} />
-                      <Bar dataKey="total_kg" name="Peso (kg)" fill={CHART.yellow} radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="total_kg" name="Peso (kg)" fill={CHART.yellow} radius={[0, 4, 4, 0]} isAnimationActive={animate} />
                     </BarChart>
                 </ChartFrame>
               )}

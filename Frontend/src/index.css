@@ -2336,4 +2336,16 @@ body {
     top: var(--lepra-navbar-offset, 3.5rem);
     bottom: 0;
   }
+
+  /* Evitar doble scrollbar (nativa + OverlayScrollbars) en Chromium viejo */
+  html.lepra-overlay-scroll {
+    scrollbar-width: none;
+  }
+
+  html.lepra-overlay-scroll::-webkit-scrollbar,
+  html.lepra-overlay-scroll body::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
 }

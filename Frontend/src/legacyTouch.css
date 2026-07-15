@@ -220,19 +220,35 @@ html.lepra-legacy-ui .lepra-sync-toolbar--compact .lepra-sync-toolbar-toggle {
   min-height: 48px;
 }
 
-/* Stepper del modal de pedido: un poco más grande al tacto, sin volver al xl de detalle */
+/* Stepper del modal de pedido: un poco más grande al tacto, sin volver al xl de detalle.
+   El .modal .btn global mete padding grande; hay que anularlo o los íconos +/- quedan
+   recortados (width fijo 36px + padding horizontal ≈ contenido 0). */
+html.lepra-legacy-ui .modal .product-detail-qty-btn,
 html.lepra-legacy-ui .qty-stepper--sm .product-detail-qty-btn {
   min-width: 36px;
   width: 36px;
   min-height: 40px;
   height: 40px;
   flex-basis: 36px;
+  padding: 0 !important;
+  font-size: 0.85rem;
+}
+
+html.lepra-legacy-ui .modal .product-detail-qty-btn svg,
+html.lepra-legacy-ui .modal .product-detail-qty-btn .lucide,
+html.lepra-legacy-ui .qty-stepper--sm .product-detail-qty-btn svg {
+  width: 14px !important;
+  height: 14px !important;
 }
 
 html.lepra-legacy-ui .qty-stepper--sm .product-detail-qty-value {
   min-width: 2rem;
   height: 40px;
   font-size: 1rem;
+}
+
+html.lepra-legacy-ui .pedido-lines-table td {
+  overflow: visible;
 }
 
 html.lepra-legacy-ui .pedido-lines-table .form-control-sm {

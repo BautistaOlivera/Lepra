@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, ButtonGroup, Card, Table } from 'react-bootstrap'
 import type { Product } from '@/types'
 import type { SalesGranularity, SalesPlanilla, SalesStats } from '@/types/salesStats'
@@ -128,6 +128,15 @@ export function SalesPlanillaTable({ stats, products }: Props) {
 
   const hasData = planilla.blocks.length > 0 || planilla.by_period.some((r) => r.total > 0)
 
+  // En "Por período" arrancar con el scroll a la derecha: el último dato primero.
+  const periodScrollRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = periodScrollRef.current
+    if (mode === 'period' && el) {
+      el.scrollLeft = el.scrollWidth
+    }
+  }, [mode, planilla])
+
   return (
     <Card className="card-lepra border-0 shadow-sm">
       <Card.Body className="p-0">
@@ -214,7 +223,7 @@ export function SalesPlanillaTable({ stats, products }: Props) {
             ))}
           </div>
         ) : (
-          <div className="table-responsive estadisticas-matrix-scroll mb-3">
+          <div ref={periodScrollRef} className="table-responsive estadisticas-matrix-scroll mb-3">
             <Table
               bordered
               size="sm"

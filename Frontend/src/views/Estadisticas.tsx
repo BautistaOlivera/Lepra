@@ -241,9 +241,9 @@ export function Estadisticas() {
               role="tab"
               aria-selected={viewMode === key}
             >
-              <span className="d-inline-flex align-items-center gap-2">
-                <Icon size={16} aria-hidden />
-                {label}
+              <span className="d-inline-flex align-items-center">
+                <Icon size={16} className="me-2" aria-hidden />
+                <span>{label}</span>
               </span>
             </Button>
           ))}

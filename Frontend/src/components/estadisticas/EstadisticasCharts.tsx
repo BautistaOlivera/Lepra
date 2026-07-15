@@ -17,6 +17,7 @@ import {
 import type { SalesGranularity, SalesStats } from '@/types/salesStats'
 import { CHART, formatMoney, formatMoneyAxis, pctChange } from '@/components/dashboard/chartTheme'
 import { ChartFrame } from '@/components/ChartFrame'
+import { isLegacyClient } from '@/lib/legacyBrowser'
 
 const GRANULARITY_LABELS: Record<SalesGranularity, string> = {
   day: 'Por día',
@@ -24,6 +25,8 @@ const GRANULARITY_LABELS: Record<SalesGranularity, string> = {
   month: 'Por mes',
   year: 'Por año',
 }
+
+const LEGACY_SERIES_CAP = 45
 
 function formatPeriodLabel(period: string, granularity: SalesGranularity): string {
   if (granularity === 'year') return period
@@ -56,15 +59,20 @@ export function EstadisticasCharts({ stats }: Props) {
   const { summary } = stats
   const { granularity } = stats.filters
   const granLabel = GRANULARITY_LABELS[granularity]
+  const legacy = isLegacyClient()
+  // Animaciones de Recharts son muy pesadas en Chrome ≤81 / tablets viejas.
+  const animate = !legacy
 
-  const seriesData = useMemo(
-    () =>
-      stats.time_series.map((d) => ({
-        ...d,
-        label: formatPeriodLabel(d.period, granularity),
-      })),
-    [stats.time_series, granularity]
-  )
+  const seriesData = useMemo(() => {
+    const mapped = stats.time_series.map((d) => ({
+      ...d,
+      label: formatPeriodLabel(d.period, granularity),
+    }))
+    if (legacy && mapped.length > LEGACY_SERIES_CAP) {
+      return mapped.slice(-LEGACY_SERIES_CAP)
+    }
+    return mapped
+  }, [stats.time_series, granularity, legacy])
 
   const categoryData = useMemo(
     () =>
@@ -183,6 +191,7 @@ export function EstadisticasCharts({ stats }: Props) {
                         name="Pedidos"
                         fill={CHART.black}
                         radius={[4, 4, 0, 0]}
+                        isAnimationActive={animate}
                       />
                       <Line
                         yAxisId="revenue"
@@ -192,6 +201,7 @@ export function EstadisticasCharts({ stats }: Props) {
                         stroke={CHART.yellow}
                         strokeWidth={2}
                         dot={false}
+                        isAnimationActive={animate}
                       />
                     </ComposedChart>
                 </ChartFrame>
@@ -217,6 +227,7 @@ export function EstadisticasCharts({ stats }: Props) {
                         innerRadius={52}
                         outerRadius={88}
                         paddingAngle={2}
+                        isAnimationActive={animate}
                       >
                         {categoryData.map((entry) => (
                           <Cell key={entry.name} fill={entry.fill} />
@@ -252,7 +263,13 @@ export function EstadisticasCharts({ stats }: Props) {
                         tick={{ fill: CHART.black, fontSize: 12 }}
                       />
                       <Tooltip formatter={(value) => [`${value ?? 0} kg`, 'Peso']} />
-                      <Bar dataKey="total_kg" name="Peso (kg)" fill={CHART.yellow} radius={[0, 4, 4, 0]} />
+                      <Bar
+                        dataKey="total_kg"
+                        name="Peso (kg)"
+                        fill={CHART.yellow}
+                        radius={[0, 4, 4, 0]}
+                        isAnimationActive={animate}
+                      />
                     </BarChart>
                 </ChartFrame>
               )}

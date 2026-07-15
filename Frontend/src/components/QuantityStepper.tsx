@@ -47,6 +47,14 @@ export function QuantityStepper({
     releaseBtn(e.currentTarget)
   }
 
+  // Fallback para navegadores sin Pointer Events (Android 4.4 / Chrome viejo).
+  const handleClick = (action: () => void) => (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (e.currentTarget.disabled) return
+    // Si hay Pointer Events, onPointerUp ya disparó la acción; evitamos doble.
+    if (typeof window !== 'undefined' && 'PointerEvent' in window) return
+    action()
+  }
+
   return (
     <div
       className={[
@@ -65,6 +73,7 @@ export function QuantityStepper({
         onPointerDown={handlePointerDown}
         onPointerUp={(e) => handlePointerUp(e, () => onChange(Math.max(min, value - 1)))}
         onPointerLeave={handlePointerLeave}
+        onClick={handleClick(() => onChange(Math.max(min, value - 1)))}
         disabled={value <= min}
         aria-label="Reducir cantidad"
       >
@@ -79,6 +88,7 @@ export function QuantityStepper({
         onPointerDown={handlePointerDown}
         onPointerUp={(e) => handlePointerUp(e, () => onChange(value + 1))}
         onPointerLeave={handlePointerLeave}
+        onClick={handleClick(() => onChange(value + 1))}
         aria-label="Aumentar cantidad"
       >
         <Plus size={iconSize} aria-hidden />
