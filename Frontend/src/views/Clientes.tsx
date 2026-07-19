@@ -144,9 +144,12 @@ export function Clientes() {
       },
     }),
     columnHelper.accessor('active', {
-      header: 'Estado',
-      cell: (info) =>
-        info.getValue() ? <Badge bg="success">Activo</Badge> : <Badge bg="danger">Inactivo</Badge>,
+      header: () => <span className="d-block text-center">Estado</span>,
+      cell: (info) => (
+        <div className="text-center">
+          {info.getValue() ? <Badge bg="success">Activo</Badge> : <Badge bg="danger">Inactivo</Badge>}
+        </div>
+      ),
     }),
     columnHelper.display({
       id: 'sync',

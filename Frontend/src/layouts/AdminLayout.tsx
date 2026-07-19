@@ -200,8 +200,16 @@ export function AdminLayout() {
                 onOpenOutbox={() => setOutboxOpen(true)}
               />
             </div>
-            <Button variant="outline-light" size="sm" className="lepra-nav-logout" onClick={handleLogout}>
-              <LogOut size={16} className="me-1" /> Cerrar sesión
+            <Button
+              variant="outline-light"
+              size="sm"
+              className="lepra-nav-logout"
+              onClick={handleLogout}
+              title="Cerrar sesión"
+              aria-label="Cerrar sesión"
+            >
+              <LogOut size={16} className="me-1 lepra-nav-logout-icon" aria-hidden />
+              <span className="lepra-nav-logout-label">Cerrar sesión</span>
             </Button>
           </>
         )}

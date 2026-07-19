@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button, Badge, Form, InputGroup, Card } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
-import { Plus, Pencil, Trash2, Search, CheckCircle2, Settings, Package } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, CheckCircle2, CircleAlert, Settings, Package } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { Link } from 'react-router-dom'
 import { deactivateProduct, getImageUrl, setProductVisibility } from '@/api/product'
@@ -35,7 +35,13 @@ const columnHelper = createColumnHelper<Product>()
 
 function ProductoSyncBadge({ product, pending }: { product: Product; pending: boolean }) {
   if (product.id < 0 || pending) {
-    return <Badge bg="warning">Pendiente</Badge>
+    return (
+      <CircleAlert
+        size={18}
+        className="text-warning"
+        aria-label="Pendiente de sincronizar"
+      />
+    )
   }
   return <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado" />
 }

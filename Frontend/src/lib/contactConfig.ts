@@ -6,7 +6,7 @@ export type ContactConfig = {
   phone?: string
   whatsapp?: string
   developerName: string
-  developerUrl: string
+  developerUrl?: string
 }
 
 function trimEnv(value: unknown): string | undefined {
@@ -32,9 +32,11 @@ export function getContactConfig(): ContactConfig {
   const label = trimEnv(import.meta.env.VITE_CONTACT_LABEL) ?? 'El Lepra'
   const tagline =
     trimEnv(import.meta.env.VITE_CONTACT_TAGLINE) ?? 'Quesos y lácteos de calidad'
-  const ownerName = trimEnv(import.meta.env.VITE_OWNER_NAME) ?? 'Maxi Laraburru'
-  const developerName = trimEnv(import.meta.env.VITE_DEVELOPER_NAME) ?? 'Olivera.co'
-  const developerUrl = trimEnv(import.meta.env.VITE_DEVELOPER_URL) ?? 'https://olivera.co'
+  const ownerName = trimEnv(import.meta.env.VITE_OWNER_NAME) ?? 'Maximiliano Angel Larraburu'
+  const developerName =
+    trimEnv(import.meta.env.VITE_DEVELOPER_NAME) ??
+    'Olivera Spahn Juan Ignacio y Olivera Spahn Bautista'
+  const developerUrl = trimEnv(import.meta.env.VITE_DEVELOPER_URL)
   return {
     label,
     tagline,

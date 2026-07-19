@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Row, Col, Card, Badge, Alert } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Link } from 'react-router-dom'
-import { Package, ShoppingCart, Users, BarChart3 } from 'lucide-react'
+import { Package, ClipboardList, Users, BarChart3 } from 'lucide-react'
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
 import { getDashboardStatsHybrid } from '@/repositories/dashboardRepo'
 import { useOnlineStatus } from '@/offline/network'
@@ -58,7 +58,7 @@ export function Admin() {
               <Package size={18} className="me-1" aria-hidden /> Productos
             </Link>
             <Link to="/admin/pedidos" className="btn btn-lepra admin-quick-btn">
-              <ShoppingCart size={18} className="me-1" aria-hidden /> Pedidos
+              <ClipboardList size={18} className="me-1" aria-hidden /> Pedidos
             </Link>
             <Link to="/admin/estadisticas" className="btn btn-lepra admin-quick-btn">
               <BarChart3 size={18} className="me-1" aria-hidden /> Estadísticas
@@ -88,7 +88,7 @@ export function Admin() {
           <Card className="card-lepra h-100 border-0 shadow-sm">
             <Card.Body className="d-flex align-items-center">
               <div className="rounded-3 bg-warning bg-opacity-25 p-3 me-3">
-                <ShoppingCart size={32} className="text-dark" />
+                <ClipboardList size={32} className="text-dark" />
               </div>
               <div>
                 <Card.Text className="text-muted mb-0 small">Pedidos pendientes</Card.Text>

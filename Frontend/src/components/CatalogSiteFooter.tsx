@@ -66,15 +66,19 @@ export function CatalogSiteFooter() {
         <div className="catalog-footer-bottom small text-muted text-center pt-4 mt-2 border-top">
           © {new Date().getFullYear()} {label}
           {' · '}
-          Desarrollo{' '}
-          <a
-            href={developerUrl}
-            className="catalog-footer-link"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {developerName}
-          </a>
+          Desarrollado por{' '}
+          {developerUrl ? (
+            <a
+              href={developerUrl}
+              className="catalog-footer-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {developerName}
+            </a>
+          ) : (
+            <span className="catalog-footer-developer">{developerName}</span>
+          )}
         </div>
       </div>
     </footer>

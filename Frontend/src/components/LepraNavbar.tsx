@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router-dom'
 import { Container, Navbar } from 'react-bootstrap'
-import { LayoutDashboard, Users, Package, ShoppingCart, BarChart3 } from 'lucide-react'
+import { LayoutDashboard, Users, Package, ClipboardList, BarChart3 } from 'lucide-react'
 
 function AdminNavItem({
   to,
@@ -30,7 +30,7 @@ const ADMIN_QUICK_LINKS = [
   { to: '/admin', end: true, icon: LayoutDashboard, label: 'Admin' },
   { to: '/admin/clientes', end: false, icon: Users, label: 'Clientes' },
   { to: '/admin/productos', end: false, icon: Package, label: 'Productos' },
-  { to: '/admin/pedidos', end: false, icon: ShoppingCart, label: 'Pedidos' },
+  { to: '/admin/pedidos', end: false, icon: ClipboardList, label: 'Pedidos' },
   { to: '/admin/estadisticas', end: false, icon: BarChart3, label: 'Estadísticas' },
 ] as const
 
@@ -127,7 +127,7 @@ export function LepraNavbar({
                 <Package size={18} className="me-1" aria-hidden /> Productos
               </AdminNavItem>
               <AdminNavItem to="/admin/pedidos" onNavigate={closeNav}>
-                <ShoppingCart size={18} className="me-1" aria-hidden /> Pedidos
+                <ClipboardList size={18} className="me-1" aria-hidden /> Pedidos
               </AdminNavItem>
               <AdminNavItem to="/admin/estadisticas" onNavigate={closeNav}>
                 <BarChart3 size={18} className="me-1" aria-hidden /> Estadísticas

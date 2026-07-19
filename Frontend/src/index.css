@@ -315,7 +315,10 @@ body {
   align-items: center;
   gap: 0.15rem;
   min-width: 0;
-  flex: 1 1 auto;
+  /* flex-basis 0 (no auto): con basis auto el contenedor wrap corta la línea
+     según el ancho de los 5 iconos y las acciones caían a una segunda fila.
+     Con basis 0 todo queda en una sola fila y esta franja se achica/scrollea. */
+  flex: 1 1 0%;
   order: 1;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -332,7 +335,7 @@ body {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-width: 40px;
+  min-width: 36px;
   min-height: 44px;
   padding: 0.25rem;
   color: rgba(255, 255, 255, 0.88);
@@ -1086,6 +1089,38 @@ body {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: flex-end;
+  }
+}
+
+/* Desktop angosto (992–1400px): el navbar admin no entra completo y
+   Estadísticas / Cerrar sesión saltaban a un segundo renglón. Se deja el
+   botón de cerrar sesión solo con el icono para recuperar ese ancho.
+   El tope es 1400 porque el Container limita el contenido a 1140px hasta
+   ese breakpoint (recién ahí pasa a 1320px y el texto entra cómodo). */
+@media (min-width: 992px) and (max-width: 1399.98px) {
+  .lepra-nav-logout .lepra-nav-logout-label {
+    display: none;
+  }
+
+  .lepra-nav-logout .lepra-nav-logout-icon {
+    margin-right: 0 !important;
+  }
+
+  /* El "Bienvenido, ..." del catálogo admin también empujaba la fila */
+  .lepra-nav-welcome.lepra-nav-welcome-admin {
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* En el catálogo logueado como admin el contenedor queda en 960/1140px;
+     el carrito pasa a solo icono (igual que en mobile) para que los 5 links
+     admin + bienvenida + carrito + logout entren en un renglón. El acceso
+     rápido (.lepra-navbar-mobile-quick) solo se renderiza para admin, por
+     eso sirve para acotar la regla sin tocar el catálogo de clientes. */
+  .navbar-lepra .lepra-navbar-mobile-quick ~ .lepra-navbar-actions .lepra-nav-cart-label {
+    display: none !important;
   }
 }
 
@@ -1905,6 +1940,9 @@ body {
 
 .admin-list-pedido-tile-header {
   display: flex;
+  /* wrap: si los badges de estado no entran junto al total, el total baja de
+     línea en vez de quedar tapado por los badges */
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.5rem;
@@ -1922,7 +1960,10 @@ body {
 }
 
 .admin-list-pedido-tile-total {
-  flex: 0 0 auto;
+  /* grow (sin shrink): al quedar solo en su línea ocupa el ancho completo y
+     el text-align: right lo mantiene a la derecha (compatible con tablet legacy,
+     sin depender de margin-left: auto que el fallback no-flexbox-gap pisa) */
+  flex: 1 0 auto;
   font-weight: 800;
   font-size: 1.15rem;
   line-height: 1.15;

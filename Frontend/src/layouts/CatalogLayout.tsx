@@ -24,7 +24,7 @@ function CartLink() {
       aria-label={itemCount > 0 ? `Carrito, ${itemCount} productos` : 'Carrito'}
     >
       <ShoppingCart size={22} aria-hidden />
-      <span className="d-none d-sm-inline ms-1">Carrito</span>
+      <span className="d-none d-sm-inline ms-1 lepra-nav-cart-label">Carrito</span>
       {itemCount > 0 && (
         <span className="badge bg-warning ms-1">{itemCount}</span>
       )}
@@ -68,8 +68,11 @@ export function CatalogLayout() {
                 size="sm"
                 className="lepra-nav-logout d-none d-lg-inline-flex"
                 onClick={handleLogout}
+                title="Cerrar sesión"
+                aria-label="Cerrar sesión"
               >
-                <LogOut size={16} className="me-1" /> Cerrar sesión
+                <LogOut size={16} className="me-1 lepra-nav-logout-icon" aria-hidden />
+                <span className="lepra-nav-logout-label">Cerrar sesión</span>
               </Button>
             ) : null}
           </>
