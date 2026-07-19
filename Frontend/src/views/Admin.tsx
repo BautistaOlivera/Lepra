@@ -95,9 +95,16 @@ export function Admin() {
                 <Card.Title className="mb-0">
                   {counts.orders_pending}
                   {counts.orders_pending > 0 && (
-                    <Badge bg="warning" className="ms-2">
-                      ¡Revisar!
-                    </Badge>
+                    <Link
+                      to="/admin/pedidos?status=PENDING"
+                      className="text-decoration-none"
+                      aria-label="Ver pedidos pendientes"
+                      title="Ver pedidos pendientes"
+                    >
+                      <Badge bg="warning" className="ms-2">
+                        ¡Revisar!
+                      </Badge>
+                    </Link>
                   )}
                 </Card.Title>
               </div>

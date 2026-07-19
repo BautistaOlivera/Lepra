@@ -206,6 +206,17 @@ body {
   flex-shrink: 0;
 }
 
+/* Centra verticalmente el icono con el texto "Cerrar sesión" */
+.lepra-nav-logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lepra-nav-logout .lepra-nav-logout-icon {
+  flex-shrink: 0;
+}
+
 .lepra-nav-welcome-admin {
   margin-inline-end: 0.35rem;
   padding-inline-end: 0.5rem;
@@ -1577,8 +1588,9 @@ body {
   min-width: 0;
 }
 
+/* Mismo alto que la barra de búsqueda (44px) */
 .admin-list-filter .lepra-select__control {
-  min-height: 38px;
+  min-height: 44px;
 }
 
 .admin-list-filters-row {
@@ -1591,11 +1603,11 @@ body {
 }
 
 .admin-list-toolbar-reset {
-  height: 38px;
-  min-height: 38px;
-  width: 38px;
-  min-width: 38px;
-  flex: 0 0 38px;
+  height: 44px;
+  min-height: 44px;
+  width: 44px;
+  min-width: 44px;
+  flex: 0 0 44px;
   align-self: flex-end;
   display: inline-flex;
   align-items: center;
@@ -1726,7 +1738,7 @@ body {
 }
 
 .admin-list-date-field .form-control {
-  min-height: 38px;
+  min-height: 44px;
 }
 
 /* react-datepicker envuelve el input: debe compartir fila con el ícono del InputGroup */
@@ -1772,6 +1784,17 @@ body {
 .admin-list-filter-wide {
   flex: 1 1 0;
   min-width: 0;
+}
+
+/* Agrupar (estadísticas): mismo formato que los demás filtros,
+   etiqueta arriba y botones con el alto de los selects (44px) */
+.admin-list-granularity {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.admin-list-granularity-group .btn {
+  min-height: 44px;
 }
 
 .estadisticas-matrix-scroll {

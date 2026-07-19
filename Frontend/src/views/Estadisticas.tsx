@@ -215,9 +215,9 @@ export function Estadisticas() {
           <AdminFilterResetButton onClick={clearFilters} />
         </div>
 
-        <div className="d-flex flex-wrap align-items-center gap-2 mt-2">
-          <span className="small text-muted me-1">Agrupar:</span>
-          <ButtonGroup size="sm">
+        <div className="admin-list-granularity">
+          <Form.Label className="small text-muted mb-1 d-block">Agrupar</Form.Label>
+          <ButtonGroup className="admin-list-granularity-group">
             {GRANULARITY_OPTIONS.map(({ key, label }) => (
               <Button
                 key={key}

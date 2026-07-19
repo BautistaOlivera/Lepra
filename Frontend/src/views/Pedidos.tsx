@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Button, Badge, Form, InputGroup, Card } from 'react-bootstrap'
 import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Plus, Search, Calendar, CheckCircle2, ClipboardList } from 'lucide-react'
@@ -55,7 +56,18 @@ export function Pedidos() {
   const [searchDebounced, setSearchDebounced] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  // El filtro de estado puede venir preseteado por URL (?status=PENDING),
+  // p. ej. desde el atajo "¡Revisar!" del dashboard.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const statusParam = searchParams.get('status')
+  const [statusFilter, setStatusFilter] = useState<string | null>(
+    statusParam && statusParam in STATUS_LABELS ? statusParam : null,
+  )
+
+  function changeStatusFilter(v: string | null) {
+    setStatusFilter(v)
+    setSearchParams(v ? { status: v } : {}, { replace: true })
+  }
   const { orders: pendingOrders, refresh: refreshPending } = useOutboxPending()
 
   useEffect(() => {
@@ -142,7 +154,7 @@ export function Pedidos() {
     setSearch('')
     setDateFrom('')
     setDateTo('')
-    setStatusFilter(null)
+    changeStatusFilter(null)
   }
 
   const columns = [
@@ -251,7 +263,7 @@ export function Pedidos() {
                 { value: 'CANCELED', label: 'Cancelado' },
               ]}
               value={statusFilter ?? ''}
-              onChange={(v) => setStatusFilter(v || null)}
+              onChange={(v) => changeStatusFilter(v || null)}
               placeholder="Estado"
               isSearchable={false}
             />
