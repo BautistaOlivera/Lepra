@@ -16,8 +16,8 @@ concurrency:
 env:
   NODE_VERSION: "22"
   PYTHON_VERSION: "3.12"
-  REMOTE_BACKEND: /home/lepramg-store/lepra-api/Backend
-  REMOTE_FRONTEND: /home/lepramg-store/htdocs/store.lepramg.com
+  REMOTE_BACKEND: /home/ellepra-mg/lepra-api/Backend
+  REMOTE_FRONTEND: /home/ellepra-mg/htdocs/mg.ellepra.com.ar
 
 jobs:
   deploy:
@@ -89,7 +89,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -p "$SSH_PORT" \
             "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" bash -s << 'REMOTE'
           set -euo pipefail
-          BACKEND="/home/lepramg-store/lepra-api/Backend"
+          BACKEND="/home/ellepra-mg/lepra-api/Backend"
           cd "$BACKEND"
           if [ ! -d venv ]; then
             python3 -m venv venv
@@ -97,8 +97,8 @@ jobs:
           source venv/bin/activate
           pip install -r requirements.txt -q
           python3 scripts/sync_branding_logo.py
-          chown -R lepramg-store:lepramg-store /home/lepramg-store/lepra-api
-          chown lepramg-store:lepramg-store "$BACKEND/uploads/lepra-logo-watermark.png" 2>/dev/null || true
+          chown -R ellepra-mg:ellepra-mg /home/ellepra-mg/lepra-api
+          chown ellepra-mg:ellepra-mg "$BACKEND/uploads/lepra-logo-watermark.png" 2>/dev/null || true
           systemctl restart lepra-api
           systemctl is-active --quiet lepra-api
           echo "lepra-api is active"
