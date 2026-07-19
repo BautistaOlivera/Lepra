@@ -325,13 +325,16 @@ export async function processOutbox(opts?: { max?: number }): Promise<ProcessRes
       await lepraDb.outbox.update(row.id, { status: 'done', lastError: undefined })
     } else {
       if (res.status === 401 || res.status === 403) {
+        // Sesión expirada: no es un fallo del ítem, queda pendiente para que
+        // se reenvíe solo tras el re-login (el flag authRequired frena la cola
+        // mientras tanto). Marcarlo 'failed' lo congelaba para siempre y, si
+        // era una creación con ID temporal, trababa a todos sus dependientes.
         await lepraDb.outbox.update(row.id, {
-          status: 'failed',
-          retries: row.retries + 1,
+          status: 'pending',
           lastError: 'Sesión expirada (vuelve a iniciar sesión)',
-          nextAttemptAt: Date.now() + backoffMs(row.retries + 1),
+          nextAttemptAt: Date.now() + 5000,
         })
-        failed++
+        processed--
         break
       }
       failed++

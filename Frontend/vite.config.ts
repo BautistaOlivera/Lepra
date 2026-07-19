@@ -45,7 +45,10 @@ export default defineConfig(({ mode }) => {
       react(),
       ...(devHttps ? [basicSsl()] : []),
       VitePWA({
-        registerType: 'autoUpdate',
+        // 'prompt': la app avisa cuando hay versión nueva (botón "Actualizar").
+        // Si el usuario ignora el aviso, el SW nuevo queda en espera y se activa
+        // solo al cerrar y volver a abrir la app (mismo efecto que autoUpdate).
+        registerType: 'prompt',
         // Sin registerSW.js en el HTML: lo registramos desde la app (evita carrera con Android 4.x).
         injectRegister: false,
         includeAssets: [
@@ -100,7 +103,9 @@ export default defineConfig(({ mode }) => {
           ],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
-          skipWaiting: true,
+          // El SW nuevo espera (no skipWaiting): se activa con el botón
+          // "Actualizar" del aviso, o al cerrar y reabrir la app.
+          skipWaiting: false,
           navigateFallback: 'index.html',
           runtimeCaching: [
             {
