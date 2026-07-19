@@ -584,6 +584,14 @@ body {
   width: 100%;
 }
 
+/* Con table-layout fixed, contenido de una sola palabra (emails largos)
+   desborda la celda y se superpone con la columna siguiente; se permite
+   cortar la palabra para que baje de línea dentro de su columna. */
+.table-lepra--fixed > :not(caption) > * > * {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
 .table-lepra > :not(caption) > * > * {
   border-bottom-color: var(--lepra-table-border);
   vertical-align: middle;
