@@ -14,8 +14,8 @@ import toast from 'react-hot-toast'
 const CHEESE_HERO = 'https://images.unsplash.com/photo-1452195100486-9cc805987862?w=1200&q=80'
 
 const CATALOG_CATEGORIES = [
-  { value: 'Embutidos', label: 'Embutidos' },
   { value: 'Lacteos', label: 'Lácteos' },
+  { value: 'Embutidos', label: 'Embutidos' },
 ] as const
 
 export function Catalogo() {
@@ -23,7 +23,7 @@ export function Catalogo() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+  const [categoryFilter, setCategoryFilter] = useState<string | null>('Lacteos')
   const [nextCursor, setNextCursor] = useState<number | null>(null)
 
   const loadProducts = useCallback(async (lastId?: number) => {
