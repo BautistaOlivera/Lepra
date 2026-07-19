@@ -21,52 +21,58 @@ function bindMediaQueryChange(mq: MediaQueryList, handler: () => void): () => vo
   return () => mq.removeListener(handler)
 }
 
+/**
+ * Mantiene --lepra-navbar-offset (alto real del navbar sticky) actualizado.
+ * Lo usan la scrollbar overlay y los elementos sticky bajo el navbar.
+ */
+function bindNavbarOffset() {
+  syncNavbarScrollbarOffset()
+  const nav = document.querySelector<HTMLElement>('.navbar-lepra')
+  if (!nav) return () => {}
+
+  if (typeof ResizeObserver === 'undefined') {
+    window.addEventListener('resize', syncNavbarScrollbarOffset)
+    return () => {
+      window.removeEventListener('resize', syncNavbarScrollbarOffset)
+      document.documentElement.style.removeProperty('--lepra-navbar-offset')
+    }
+  }
+
+  const ro = new ResizeObserver(() => syncNavbarScrollbarOffset())
+  ro.observe(nav)
+  window.addEventListener('resize', syncNavbarScrollbarOffset)
+  return () => {
+    ro.disconnect()
+    window.removeEventListener('resize', syncNavbarScrollbarOffset)
+    document.documentElement.style.removeProperty('--lepra-navbar-offset')
+  }
+}
+
 /** Scrollbar overlay en desktop: estilo El Lepra, sin desplazar el layout. */
 export function DesktopOverlayScroll() {
   useEffect(() => {
+    // Offset del navbar: siempre (también legacy/mobile, lo usan los sticky).
+    const stopNavbarOffset = bindNavbarOffset()
+
     // En legacy OverlayScrollbars suele dejar la barra nativa + la custom superpuestas.
-    if (isLegacyClient()) return
+    if (isLegacyClient()) return stopNavbarOffset
 
     let instance: OverlayScrollbarsInstance | null = null
-    let stopNavbarOffset: (() => void) | null = null
     const mq = window.matchMedia(DESKTOP_MQ)
-
-    function bindNavbarOffset() {
-      syncNavbarScrollbarOffset()
-      const nav = document.querySelector<HTMLElement>('.navbar-lepra')
-      if (!nav) return () => {}
-
-      if (typeof ResizeObserver === 'undefined') {
-        window.addEventListener('resize', syncNavbarScrollbarOffset)
-        return () => {
-          window.removeEventListener('resize', syncNavbarScrollbarOffset)
-          document.documentElement.style.removeProperty('--lepra-navbar-offset')
-        }
-      }
-
-      const ro = new ResizeObserver(() => syncNavbarScrollbarOffset())
-      ro.observe(nav)
-      window.addEventListener('resize', syncNavbarScrollbarOffset)
-      return () => {
-        ro.disconnect()
-        window.removeEventListener('resize', syncNavbarScrollbarOffset)
-        document.documentElement.style.removeProperty('--lepra-navbar-offset')
-      }
-    }
 
     function enable() {
       try {
         instance = OverlayScrollbars(document.body, {
           scrollbars: {
             theme: 'os-theme-lepra',
-            autoHide: 'scroll',
-            autoHideDelay: 700,
+            // Siempre visible: sin rueda del mouse (notebook) la barra es la
+            // única forma de scrollear, no puede esconderse.
+            autoHide: 'never',
           },
         })
         document.documentElement.setAttribute('data-overlayscrollbars-initialize', '')
         document.body.setAttribute('data-overlayscrollbars-initialize', '')
         document.documentElement.classList.add('lepra-overlay-scroll')
-        stopNavbarOffset = bindNavbarOffset()
       } catch {
         disable()
       }
@@ -75,8 +81,6 @@ export function DesktopOverlayScroll() {
     function disable() {
       instance?.destroy()
       instance = null
-      stopNavbarOffset?.()
-      stopNavbarOffset = null
       document.documentElement.removeAttribute('data-overlayscrollbars-initialize')
       document.body.removeAttribute('data-overlayscrollbars-initialize')
       document.documentElement.classList.remove('lepra-overlay-scroll')
@@ -95,6 +99,7 @@ export function DesktopOverlayScroll() {
     return () => {
       unbindMq()
       disable()
+      stopNavbarOffset()
     }
   }, [])
 

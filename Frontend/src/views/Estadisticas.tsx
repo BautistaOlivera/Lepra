@@ -172,7 +172,7 @@ export function Estadisticas() {
       </AdminPageHero>
       <p className="text-muted mb-3">Análisis detallado de ventas y productos</p>
 
-      <div className="admin-list-toolbar mb-4">
+      <div className="admin-list-toolbar estadisticas-toolbar-sticky mb-4">
         <div className="admin-list-dates-row">
           <InputGroup className="admin-list-date-field">
             <InputGroup.Text>

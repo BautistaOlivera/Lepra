@@ -1794,6 +1794,23 @@ body {
   min-width: 0;
 }
 
+/* Filtros de estadísticas pegados bajo el navbar al scrollear (desktop/tablet),
+   para tener fechas y agrupamiento siempre a mano en la vista de datos.
+   En mobile no: ocuparían media pantalla. */
+@media (min-width: 992px) {
+  .estadisticas-toolbar-sticky {
+    position: -webkit-sticky;
+    position: sticky;
+    top: var(--lepra-navbar-offset, 3.5rem);
+    z-index: 1010;
+    background: var(--lepra-white);
+    padding-top: 0.75rem;
+    margin-top: -0.75rem;
+    padding-bottom: 0.75rem;
+    box-shadow: 0 10px 8px -8px rgba(0, 0, 0, 0.12);
+  }
+}
+
 /* Agrupar (estadísticas): mismo formato que los demás filtros,
    etiqueta arriba y botones con el alto de los selects (44px) */
 .admin-list-granularity {
@@ -1816,6 +1833,16 @@ body {
   border-spacing: 0;
 }
 
+/* Encabezado (fechas/clientes) pegado arriba dentro del scroll de la planilla,
+   para leer datos y fechas a la vez al scrollear */
+.estadisticas-matrix-table thead th {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background-color: #f8f9fa;
+}
+
 .estadisticas-matrix-table .estadisticas-matrix-sticky-col {
   position: sticky;
   /* -1px tapa la fina franja que deja ver las otras columnas al scrollear */
@@ -1829,8 +1856,9 @@ body {
     2px 0 4px rgba(0, 0, 0, 0.08);
 }
 
+/* Esquina (Producto): pegada a la izquierda y arriba, por encima del resto */
 .estadisticas-matrix-table thead .estadisticas-matrix-sticky-col {
-  z-index: 3;
+  z-index: 4;
   background-color: #f8f9fa !important;
   box-shadow:
     -2px 0 0 0 #f8f9fa,
