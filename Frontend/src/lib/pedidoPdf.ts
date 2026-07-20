@@ -269,6 +269,15 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
     return row
   })
 
+  const extraAmount = Number(order.extra_amount || 0)
+  const extraNote = (order.extra_note || '').trim()
+  if (extraAmount > 0 && extraNote) {
+    const extraRow: string[] = [extraNote]
+    if (showBrandCol) extraRow.push('—')
+    extraRow.push('—', '—', formatMoneyWithSymbol(extraAmount))
+    body.push(extraRow)
+  }
+
   const tableW = pageW - margin * 2
   const colWidths = distributeColumnWidths(showBrandCol, tableW)
   const emptyDash = '—'

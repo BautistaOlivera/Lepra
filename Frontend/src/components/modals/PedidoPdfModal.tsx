@@ -86,7 +86,7 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
         objectUrlRef.current = null
       }
     }
-  }, [show, order, order.payment])
+  }, [show, order, order.payment, order.extra_amount, order.extra_note])
 
   function handlePrint() {
     const win = iframeRef.current?.contentWindow

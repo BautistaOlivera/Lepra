@@ -21,7 +21,11 @@ lepra = FastAPI(title="El Lepra API", description="API para catálogo, pedidos y
 
 Base.metadata.create_all(bind=engine)
 
-_default_cors = "https://mg.ellepra.com.ar,http://localhost:5173,http://127.0.0.1:5173"
+_default_cors = (
+    "https://mg.ellepra.com.ar,"
+    "http://localhost:5173,http://127.0.0.1:5173,"
+    "http://localhost:4173,http://127.0.0.1:4173"
+)
 _cors_origins = [o.strip() for o in os.getenv("CORS_ORIGINS", _default_cors).split(",") if o.strip()]
 
 lepra.add_middleware(

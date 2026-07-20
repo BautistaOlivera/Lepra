@@ -54,6 +54,27 @@ def _order_display_name(order: Order) -> Optional[str]:
     return None
 
 
+def _order_extra_fields(order: Order) -> dict:
+    amount = float(order.extra_amount or 0)
+    note = (order.extra_note or "").strip() or None
+    return {"extra_amount": amount, "extra_note": note}
+
+
+def _parse_extra(body_amount: Optional[float], body_note: Optional[str]) -> tuple[float, Optional[str]] | JSONResponse:
+    amount = float(body_amount or 0)
+    note = (body_note or "").strip() or None
+    if amount < 0:
+        return JSONResponse(status_code=400, content={"message": "El saldo extra no puede ser negativo"})
+    if amount > 0 and not note:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "Indicá qué productos incluye el saldo extra"},
+        )
+    if amount == 0:
+        note = None
+    return amount, note
+
+
 def _resolve_unit_price(product: Product, weight_kg: float, override: Optional[float] = None) -> float:
     if override is not None:
         return float(override)
@@ -133,6 +154,7 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
                 "date": o.date.isoformat() if o.date else None,
                 "created_at": utc_naive_iso(o.created_at),
                 "payment": o.payment,
+                **_order_extra_fields(o),
                 "status": o.status,
                 "active": o.active,
                 "lines": [_line_payload(op, op.product) for op in o.order_products],
@@ -180,6 +202,7 @@ async def get_order(req: Request, order_id: int):
                 "date": o.date.isoformat() if o.date else None,
                 "created_at": utc_naive_iso(o.created_at),
                 "payment": o.payment,
+                **_order_extra_fields(o),
                 "status": o.status,
                 "active": o.active,
                 "lines": [_line_payload(op, op.product) for op in o.order_products],
@@ -275,6 +298,11 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
             content={"message": "Usá cliente registrado o nombre libre, no ambos"},
         )
 
+    parsed_extra = _parse_extra(body.extra_amount, body.extra_note)
+    if isinstance(parsed_extra, JSONResponse):
+        return parsed_extra
+    extra_amount, extra_note = parsed_extra
+
     try:
         async with AsyncSessionLocal() as session:
             if id_user is not None:
@@ -295,6 +323,8 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
                 customer_name=guest_name,
                 date=order_date,
                 payment=body.payment,
+                extra_amount=extra_amount,
+                extra_note=extra_note,
                 status="PENDING",
                 total=0,
             )
@@ -323,7 +353,7 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
                 session.add(op)
                 total += line_total(product, weight_kg, price_per_kg)
 
-            order.total = total
+            order.total = round(total + extra_amount, 2)
             await session.commit()
             await session.refresh(order)
 
@@ -391,7 +421,7 @@ async def update_order(req: Request, body: InputOrderUpdate):
                         total += line_total(product, float(line.weight), float(line.price_per_kg))
                     else:
                         total += round(float(line.weight) * float(line.price_per_kg), 2)
-                order.total = total
+                order.total = round(total + float(order.extra_amount or 0), 2)
 
             await session.commit()
             return JSONResponse(status_code=200, content={"message": "Pedido actualizado"})

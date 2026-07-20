@@ -19,6 +19,8 @@ class Order(Base):
     created_at = Column(DateTime, default=_utcnow_naive)
     updated_at = Column(DateTime, default=_utcnow_naive, onupdate=_utcnow_naive, nullable=False)
     payment = Column(String, nullable=True)
+    extra_amount = Column(Float, default=0.0, nullable=False)
+    extra_note = Column(String, nullable=True)
     status = Column(String, default="PENDING")
     active = Column(Boolean, default=True)
 
@@ -75,6 +77,8 @@ class OrderCreateAdmin(BaseModel):
     customer_name: Optional[str] = None
     date: Optional[date] = None
     payment: Optional[str] = None
+    extra_amount: Optional[float] = None
+    extra_note: Optional[str] = None
     lines: List[OrderLineAdminInput]
 
 
@@ -103,6 +107,8 @@ class OrderResponse(BaseModel):
     date: Optional[date] = None
     created_at: Optional[datetime] = None
     payment: Optional[str] = None
+    extra_amount: float = 0.0
+    extra_note: Optional[str] = None
     status: str
     active: bool = True
 

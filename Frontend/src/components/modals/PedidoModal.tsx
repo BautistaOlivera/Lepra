@@ -78,6 +78,8 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [clientValue, setClientValue] = useState<ClientePedidoValue | null>(null)
   const [lines, setLines] = useState<PedidoLine[]>([])
+  const [extraAmount, setExtraAmount] = useState('')
+  const [extraNote, setExtraNote] = useState('')
 
   const validLines = lines.filter((l) => l.id_product !== 0)
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle')
@@ -92,6 +94,8 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     setLoadingData(true)
     setClientValue(null)
     setLines([])
+    setExtraAmount('')
+    setExtraNote('')
     Promise.all([
       getUsersPaginatedOfflineFirst({ limit: 100, filters: {} }),
       getProductsPaginatedOfflineFirst({ limit: 100, filters: { admin_list: true } }),
@@ -162,10 +166,19 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
     setLines(lines.filter((_, i) => i !== index))
   }
 
-  const total = validLines.reduce((s, l) => {
+  const linesTotal = validLines.reduce((s, l) => {
     if (!l.product) return s
     return s + lineTotal(l.product, lineWeightKg(l), lineUnitPriceNumber(l))
   }, 0)
+
+  const extraParsed = extraAmount.trim() === '' ? null : parseUnitPriceInput(extraAmount)
+  const extraAmountValue = extraParsed?.ok ? extraParsed.value : 0
+  const extraNoteTrimmed = extraNote.trim()
+  const hasExtra = extraAmount.trim() !== '' && extraParsed?.ok === true && extraAmountValue > 0
+  const total = hasExtra ? linesTotal + extraAmountValue : linesTotal
+  const canSubmitExtra =
+    extraAmount.trim() === '' ||
+    (extraParsed?.ok === true && (extraAmountValue === 0 || extraNoteTrimmed.length > 0))
 
   const userOptions: SelectOption<number>[] = users.map((u) => ({
     value: u.id,
@@ -243,6 +256,24 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       })
     }
 
+    let extraPayloadAmount = 0
+    let extraPayloadNote: string | null = null
+    if (extraAmount.trim() !== '') {
+      const extraMoney = parseUnitPriceInput(extraAmount)
+      if (!extraMoney.ok) {
+        toast.error(extraMoney.message)
+        return
+      }
+      if (extraMoney.value > 0) {
+        if (!extraNoteTrimmed) {
+          toast.error('Indicá qué productos incluye el saldo extra')
+          return
+        }
+        extraPayloadAmount = extraMoney.value
+        extraPayloadNote = extraNoteTrimmed
+      }
+    }
+
     let createdNewUser = false
     let idUser: number
     let displayName: string
@@ -295,7 +326,13 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       }
 
       const linePayload = parsedLines
-      const body = { id_user: idUser!, lines: linePayload }
+      const body = {
+        id_user: idUser!,
+        lines: linePayload,
+        ...(extraPayloadAmount > 0
+          ? { extra_amount: extraPayloadAmount, extra_note: extraPayloadNote }
+          : {}),
+      }
 
       if (!isOnlineNow()) {
         const orderTempId = nextTempId()
@@ -306,6 +343,8 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
           customer_name: null,
           user_name: displayName,
           total,
+          extra_amount: extraPayloadAmount,
+          extra_note: extraPayloadNote,
           created_at: new Date().toISOString(),
           status: 'PENDING',
           active: true,
@@ -475,6 +514,37 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
           </Table>
           </div>
 
+          <Form.Group className="mb-3">
+            <Form.Label>Saldo extra (opcional)</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={2}
+              value={extraNote}
+              onChange={(e) => setExtraNote(e.target.value)}
+              placeholder="Qué productos incluye (no listados en el catálogo)"
+              disabled={busy}
+              maxLength={500}
+            />
+            <div className="d-flex align-items-center gap-2 mt-2">
+              <span className="text-muted small text-nowrap">Monto $</span>
+              <DecimalInput
+                kind="price"
+                allowEmpty
+                showFeedback={false}
+                className="input-price"
+                style={{ maxWidth: '9rem' }}
+                value={extraAmount}
+                onChange={(e) => setExtraAmount(e.target.value)}
+                placeholder="0"
+                disabled={busy}
+                aria-label="Monto del saldo extra"
+              />
+            </div>
+            <Form.Text className="text-muted">
+              Se suma al total y aparece en el comprobante PDF. No crea productos en el catálogo.
+            </Form.Text>
+          </Form.Group>
+
           <p className="fw-bold">Total: {formatMoneyWithSymbol(total)}</p>
 
               <div className="d-flex justify-content-end gap-2">
@@ -483,7 +553,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                   type="submit"
                   variant="success"
                   className="pedido-modal-submit-btn fw-semibold"
-                  disabled={busy || !clientReady || validLines.length === 0}
+                  disabled={busy || !clientReady || validLines.length === 0 || !canSubmitExtra}
                 >
                   Crear pedido
                 </Button>

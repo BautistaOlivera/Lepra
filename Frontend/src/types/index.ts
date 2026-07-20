@@ -60,6 +60,10 @@ export interface Order {
   created_at?: string | null
   updated_at?: string | null
   payment?: string | null
+  /** Cargo puntual fuera de catálogo (suma al total). */
+  extra_amount?: number | null
+  /** Descripción del cargo extra (productos de favor / única vez). */
+  extra_note?: string | null
   status: 'PENDING' | 'FULFILLED' | 'CANCELED'
   active: boolean
   lines?: OrderProduct[]

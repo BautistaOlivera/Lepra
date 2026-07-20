@@ -24,6 +24,8 @@ export async function createOrder(data: {
   customer_name?: string | null
   date?: string
   payment?: string
+  extra_amount?: number
+  extra_note?: string | null
   lines: { id_product: number; weight: number; price_per_kg?: number }[]
 }) {
   return api<{ message: string; id: number; total: number }>('/order/create-admin', {

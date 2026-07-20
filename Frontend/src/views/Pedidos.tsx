@@ -25,6 +25,7 @@ import { orderCustomerLabel, orderLinesPreview, orderPaymentPreview } from '@/li
 import { DateInputAr } from '@/components/DateInputAr'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 import { AdminPageHero } from '@/components/AdminPageHero'
+import { useConfirm } from '@/context/ConfirmContext'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -69,6 +70,7 @@ export function Pedidos() {
     setSearchParams(v ? { status: v } : {}, { replace: true })
   }
   const { orders: pendingOrders, refresh: refreshPending } = useOutboxPending()
+  const confirm = useConfirm()
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300)
@@ -117,6 +119,34 @@ export function Pedidos() {
       toast.success('Estado actualizado')
       loadOrders()
     }
+  }
+
+  async function requestFulfill(order: Order) {
+    const customer = orderCustomerLabel(order)
+    const ok = await confirm({
+      title: 'Marcar como cumplido',
+      message: `¿Confirmar que el pedido de ${customer} está cumplido?`,
+      confirmLabel: 'Cumplir',
+      cancelLabel: 'Volver',
+      confirmVariant: 'primary',
+    })
+    if (!ok) return
+    await handleStatusChange(order.id, 'FULFILLED')
+  }
+
+  async function requestCancel(order: Order) {
+    const customer = orderCustomerLabel(order)
+    const fromFulfilled = order.status === 'FULFILLED'
+    const ok = await confirm({
+      title: fromFulfilled ? 'Cancelar pedido cumplido' : 'Cancelar pedido',
+      message: fromFulfilled
+        ? `¿Cancelar el pedido cumplido de ${customer}? Solo usalo si se marcó cumplido por error.`
+        : `¿Cancelar el pedido de ${customer}? Esta acción no se puede deshacer desde acá.`,
+      confirmLabel: 'Sí, cancelar',
+      cancelLabel: 'Volver',
+    })
+    if (!ok) return
+    await handleStatusChange(order.id, 'CANCELED')
   }
 
   function onAddModalClose(refresh?: boolean) {
@@ -199,8 +229,8 @@ export function Pedidos() {
           order={row.original}
           onNotas={() => setNotasOrder(row.original)}
           onPdf={() => setPdfOrder(row.original)}
-          onFulfill={() => handleStatusChange(row.original.id, 'FULFILLED')}
-          onCancel={() => handleStatusChange(row.original.id, 'CANCELED')}
+          onFulfill={() => requestFulfill(row.original)}
+          onCancel={() => requestCancel(row.original)}
           layout="table"
         />
       ),
@@ -336,8 +366,8 @@ export function Pedidos() {
                             order={o}
                             onNotas={() => setNotasOrder(o)}
                             onPdf={() => setPdfOrder(o)}
-                            onFulfill={() => handleStatusChange(o.id, 'FULFILLED')}
-                            onCancel={() => handleStatusChange(o.id, 'CANCELED')}
+                            onFulfill={() => requestFulfill(o)}
+                            onCancel={() => requestCancel(o)}
                             layout="tile"
                           />
                         </div>

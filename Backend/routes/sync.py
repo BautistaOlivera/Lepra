@@ -145,6 +145,8 @@ async def sync_orders(req: Request, since: int | None = None):
                     "date": o.date.isoformat() if o.date else None,
                     "created_at": utc_naive_iso(o.created_at),
                     "payment": o.payment,
+                    "extra_amount": float(o.extra_amount or 0),
+                    "extra_note": (o.extra_note or "").strip() or None,
                     "status": o.status,
                     "active": o.active,
                     "updated_at": utc_naive_iso(o.updated_at),
