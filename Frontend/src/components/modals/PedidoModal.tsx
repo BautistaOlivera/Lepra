@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Modal, Form, Button, Table } from 'react-bootstrap'
-import { LepraModal, ModalDismissButton } from '@/components/LepraModal'
+import { LepraModal } from '@/components/LepraModal'
 import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { createOrder } from '@/api/order'
 import { createUser } from '@/api/user'
@@ -29,6 +29,14 @@ import {
 import { parseUnitPriceInput } from '@/lib/productTiers'
 import { QuantityStepper } from '@/components/QuantityStepper'
 import { DecimalInput } from '@/components/DecimalInput'
+import {
+  clearPedidoDraft,
+  hasPedidoDraft,
+  loadPedidoDraft,
+  savePedidoDraft,
+  type PedidoDraft,
+} from '@/lib/pedidoDraft'
+import { useConfirm } from '@/context/ConfirmContext'
 
 type SubmitPhase = 'idle' | 'client' | 'order'
 
@@ -46,6 +54,7 @@ function submitPhaseMessage(phase: SubmitPhase): string {
 interface PedidoModalProps {
   show: boolean
   onClose: (refresh?: boolean) => void
+  onDraftChange?: (hasDraft: boolean) => void
 }
 
 type PedidoLine = {
@@ -73,18 +82,57 @@ function linePieces(line: PedidoLine): number {
   return Math.max(1, Math.round(w / piece))
 }
 
-export function PedidoModal({ show, onClose }: PedidoModalProps) {
+function hydrateLines(draftLines: PedidoDraft['lines'], products: Product[]): PedidoLine[] {
+  return draftLines.map((l) => ({
+    id_product: l.id_product,
+    weight: l.weight,
+    price: l.price,
+    product: l.id_product ? products.find((p) => p.id === l.id_product) : undefined,
+  }))
+}
+
+function snapshotDraft(
+  clientValue: ClientePedidoValue | null,
+  lines: PedidoLine[],
+  extraAmount: string,
+  extraNote: string,
+): PedidoDraft {
+  return {
+    client: clientValue,
+    lines: lines.map((l) => ({
+      id_product: l.id_product,
+      weight: l.weight,
+      price: l.price,
+    })),
+    extraAmount,
+    extraNote,
+  }
+}
+
+export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) {
+  const confirm = useConfirm()
   const [users, setUsers] = useState<User[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [clientValue, setClientValue] = useState<ClientePedidoValue | null>(null)
   const [lines, setLines] = useState<PedidoLine[]>([])
   const [extraAmount, setExtraAmount] = useState('')
   const [extraNote, setExtraNote] = useState('')
+  const [resumedDraft, setResumedDraft] = useState(false)
 
   const validLines = lines.filter((l) => l.id_product !== 0)
   const [submitPhase, setSubmitPhase] = useState<SubmitPhase>('idle')
   const [loadingData, setLoadingData] = useState(false)
   const loading = submitPhase !== 'idle'
+
+  const draftRef = useRef({ clientValue, lines, extraAmount, extraNote })
+  draftRef.current = { clientValue, lines, extraAmount, extraNote }
+
+  const notifyDraft = useCallback(
+    (has: boolean) => {
+      onDraftChange?.(has)
+    },
+    [onDraftChange],
+  )
 
   useEffect(() => {
     if (!show) {
@@ -92,23 +140,64 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       return
     }
     setLoadingData(true)
-    setClientValue(null)
-    setLines([])
-    setExtraAmount('')
-    setExtraNote('')
+    const draft = loadPedidoDraft()
+    const resuming = !!draft
+    setResumedDraft(resuming)
+    setClientValue(draft?.client ?? null)
+    setLines(
+      draft?.lines?.length
+        ? draft.lines.map((l) => ({
+            id_product: l.id_product,
+            weight: l.weight,
+            price: l.price,
+          }))
+        : [],
+    )
+    setExtraAmount(draft?.extraAmount ?? '')
+    setExtraNote(draft?.extraNote ?? '')
     Promise.all([
       getUsersPaginatedOfflineFirst({ limit: 100, filters: {} }),
       getProductsPaginatedOfflineFirst({ limit: 100, filters: { admin_list: true } }),
     ])
       .then(([usersRes, productsRes]) => {
+        const nextProducts = productsRes.data?.items ?? []
         if (usersRes.data) setUsers(usersRes.data.items)
-        if (productsRes.data) setProducts(productsRes.data.items)
+        if (productsRes.data) setProducts(nextProducts)
+        if (draft?.lines?.length) {
+          setLines(hydrateLines(draft.lines, nextProducts))
+        }
         if (productsRes.error) toast.error(productsRes.error.message || 'Error al cargar productos')
         if (usersRes.error) toast.error(usersRes.error.message || 'Error al cargar clientes')
       })
       .catch(() => toast.error('Error al cargar datos'))
       .finally(() => setLoadingData(false))
   }, [show])
+
+  function persistMinimize() {
+    const snap = snapshotDraft(
+      draftRef.current.clientValue,
+      draftRef.current.lines,
+      draftRef.current.extraAmount,
+      draftRef.current.extraNote,
+    )
+    savePedidoDraft(snap)
+    notifyDraft(hasPedidoDraft())
+    onClose()
+  }
+
+  async function handleDiscard() {
+    if (loading) return
+    const ok = await confirm({
+      title: '¿Cancelar pedido?',
+      message: 'Se descarta el pedido en curso y no se guarda el progreso.',
+      confirmLabel: 'Descartar',
+      cancelLabel: 'Volver',
+    })
+    if (!ok) return
+    clearPedidoDraft()
+    notifyDraft(false)
+    onClose()
+  }
 
   function recalcPrice(line: PedidoLine): void {
     if (!line.product) return
@@ -371,6 +460,8 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
       }
 
       setSubmitPhase('idle')
+      clearPedidoDraft()
+      notifyDraft(false)
       onClose(true)
     } catch {
       setSubmitPhase('idle')
@@ -385,9 +476,18 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
   const busyMessage = loading ? submitPhaseMessage(submitPhase) : 'Cargando datos...'
 
   return (
-    <LepraModal show={show} onClose={() => onClose()} busy={busy} size="lg">
+    <LepraModal
+      show={show}
+      onClose={persistMinimize}
+      busy={busy}
+      size="lg"
+      closeConfirmTitle="¿Minimizar pedido?"
+      closeConfirmMessage="Se guarda el progreso. Podés continuar después con Continuar pedido."
+      closeConfirmLabel="Minimizar"
+      closeConfirmCancelLabel="Seguir editando"
+    >
       <Modal.Header closeButton={!busy} className="border-dark">
-        <Modal.Title>Nuevo pedido</Modal.Title>
+        <Modal.Title>{resumedDraft ? 'Continuar pedido' : 'Nuevo pedido'}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <ModalBusyFrame busy={busy} message={busyMessage}>
@@ -403,6 +503,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
             />
             <Form.Text className="text-muted">
               Elegí uno de la lista o escribí un nombre; si no hay coincidencia, se crea un cliente nuevo al guardar.
+              Cerrar con la X o tocando afuera guarda el progreso.
             </Form.Text>
           </Form.Group>
 
@@ -548,7 +649,16 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
           <p className="fw-bold">Total: {formatMoneyWithSymbol(total)}</p>
 
               <div className="d-flex justify-content-end gap-2">
-                <ModalDismissButton disabled={busy}>Cancelar</ModalDismissButton>
+                <Button
+                  type="button"
+                  variant="outline-dark"
+                  disabled={busy}
+                  onClick={() => {
+                    void handleDiscard()
+                  }}
+                >
+                  Cancelar
+                </Button>
                 <Button
                   type="submit"
                   variant="success"

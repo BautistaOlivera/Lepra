@@ -26,6 +26,7 @@ import { DateInputAr } from '@/components/DateInputAr'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 import { AdminPageHero } from '@/components/AdminPageHero'
 import { useConfirm } from '@/context/ConfirmContext'
+import { hasPedidoDraft } from '@/lib/pedidoDraft'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -51,6 +52,7 @@ export function Pedidos() {
   const [loading, setLoading] = useState(true)
   const [nextCursor, setNextCursor] = useState<number | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
+  const [pedidoDraftActive, setPedidoDraftActive] = useState(() => hasPedidoDraft())
   const [pdfOrder, setPdfOrder] = useState<Order | null>(null)
   const [notasOrder, setNotasOrder] = useState<Order | null>(null)
   const [search, setSearch] = useState('')
@@ -151,6 +153,7 @@ export function Pedidos() {
 
   function onAddModalClose(refresh?: boolean) {
     setAddModalOpen(false)
+    setPedidoDraftActive(hasPedidoDraft())
     releaseBootstrapModalLock()
     if (refresh) {
       refreshPending().catch(() => {})
@@ -302,7 +305,8 @@ export function Pedidos() {
         </div>
 
         <Button className="btn-lepra admin-list-add-btn" onClick={() => setAddModalOpen(true)}>
-          <Plus size={18} className="me-1" aria-hidden /> Nuevo pedido
+          <Plus size={18} className="me-1" aria-hidden />{' '}
+          {pedidoDraftActive ? 'Continuar pedido' : 'Nuevo pedido'}
         </Button>
       </div>
 
@@ -398,7 +402,9 @@ export function Pedidos() {
         </div>
       )}
 
-      {addModalOpen && <PedidoModal show onClose={onAddModalClose} />}
+      {addModalOpen && (
+        <PedidoModal show onClose={onAddModalClose} onDraftChange={setPedidoDraftActive} />
+      )}
       {notasOrder && (
         <PedidoNotasModal
           show
