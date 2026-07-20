@@ -271,12 +271,7 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
 
   const extraAmount = Number(order.extra_amount || 0)
   const extraNote = (order.extra_note || '').trim()
-  if (extraAmount > 0 && extraNote) {
-    const extraRow: string[] = [extraNote]
-    if (showBrandCol) extraRow.push('—')
-    extraRow.push('—', '—', formatMoneyWithSymbol(extraAmount))
-    body.push(extraRow)
-  }
+  const showExtra = extraAmount > 0 && !!extraNote
 
   const tableW = pageW - margin * 2
   const colWidths = distributeColumnWidths(showBrandCol, tableW)
@@ -326,8 +321,38 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
 
   const tableLeft = table.settings.margin.left
   const tableWidth = table.getWidth(pageW)
-  const finalY = table.finalY ?? y + 40
-  const totalBoxY = finalY + 2
+  let cursorY = table.finalY ?? y + 40
+
+  if (showExtra) {
+    cursorY += 5
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(26, 26, 26)
+    doc.text('Otros (fuera de catálogo)', tableLeft, cursorY)
+    cursorY += 4
+
+    const amountStr = formatMoneyWithSymbol(extraAmount)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    const amountW = doc.getTextWidth(amountStr)
+    const noteMaxW = Math.max(40, tableWidth - amountW - cellPadding * 3)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(22, 22, 22)
+    const noteLines = doc.splitTextToSize(extraNote, noteMaxW) as string[]
+    const noteBlockH = Math.max(8, noteLines.length * 4.2 + 4)
+    const boxY = cursorY
+    doc.setDrawColor(120, 120, 120)
+    doc.setLineWidth(0.35)
+    doc.rect(tableLeft, boxY, tableWidth, noteBlockH, 'S')
+    doc.text(noteLines, tableLeft + cellPadding, boxY + 4.2)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text(amountStr, tableLeft + tableWidth - cellPadding, boxY + 4.5, { align: 'right' })
+    cursorY = boxY + noteBlockH
+  }
+
+  const totalBoxY = cursorY + 2
   const totalBoxH = 9
 
   doc.setDrawColor(0, 0, 0)

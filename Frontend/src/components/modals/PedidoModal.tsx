@@ -515,7 +515,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
           </div>
 
           <Form.Group className="mb-3">
-            <Form.Label>Saldo extra (opcional)</Form.Label>
+            <Form.Label>Productos extra (opcional)</Form.Label>
             <Form.Control
               as="textarea"
               rows={2}
@@ -537,7 +537,7 @@ export function PedidoModal({ show, onClose }: PedidoModalProps) {
                 onChange={(e) => setExtraAmount(e.target.value)}
                 placeholder="0"
                 disabled={busy}
-                aria-label="Monto del saldo extra"
+                aria-label="Monto de productos extra"
               />
             </div>
             <Form.Text className="text-muted">
