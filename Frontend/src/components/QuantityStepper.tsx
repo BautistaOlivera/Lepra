@@ -8,6 +8,8 @@ interface QuantityStepperProps {
   className?: string
   /** Compacto para filas de tabla (mismo alto que inputs sm ≈ 31px). */
   size?: 'sm' | 'md'
+  /** Si se define, value < min se muestra como vacío (p. ej. "—") y se puede bajar a 0. */
+  emptyLabel?: string
 }
 
 export function QuantityStepper({
@@ -17,9 +19,11 @@ export function QuantityStepper({
   ariaLabel = 'Cantidad',
   className = '',
   size = 'md',
+  emptyLabel,
 }: QuantityStepperProps) {
   const compact = size === 'sm'
   const iconSize = compact ? 14 : 20
+  const isEmpty = emptyLabel != null && value < min
 
   const releaseBtn = (btn: HTMLButtonElement) => {
     window.setTimeout(() => {
@@ -55,6 +59,22 @@ export function QuantityStepper({
     action()
   }
 
+  const decrement = () => {
+    if (emptyLabel != null && value <= min) {
+      onChange(0)
+      return
+    }
+    onChange(Math.max(min, value - 1))
+  }
+
+  const increment = () => {
+    if (isEmpty) {
+      onChange(min)
+      return
+    }
+    onChange(value + 1)
+  }
+
   return (
     <div
       className={[
@@ -71,24 +91,24 @@ export function QuantityStepper({
         type="button"
         className="btn btn-outline-dark product-detail-qty-btn"
         onPointerDown={handlePointerDown}
-        onPointerUp={(e) => handlePointerUp(e, () => onChange(Math.max(min, value - 1)))}
+        onPointerUp={(e) => handlePointerUp(e, decrement)}
         onPointerLeave={handlePointerLeave}
-        onClick={handleClick(() => onChange(Math.max(min, value - 1)))}
-        disabled={value <= min}
+        onClick={handleClick(decrement)}
+        disabled={emptyLabel != null ? value <= 0 : value <= min}
         aria-label="Reducir cantidad"
       >
         <Minus size={iconSize} aria-hidden />
       </button>
       <span className="product-detail-qty-value" aria-live="polite" aria-atomic="true">
-        {value}
+        {isEmpty ? emptyLabel : value}
       </span>
       <button
         type="button"
         className="btn btn-outline-dark product-detail-qty-btn"
         onPointerDown={handlePointerDown}
-        onPointerUp={(e) => handlePointerUp(e, () => onChange(value + 1))}
+        onPointerUp={(e) => handlePointerUp(e, increment)}
         onPointerLeave={handlePointerLeave}
-        onClick={handleClick(() => onChange(value + 1))}
+        onClick={handleClick(increment)}
         aria-label="Aumentar cantidad"
       >
         <Plus size={iconSize} aria-hidden />

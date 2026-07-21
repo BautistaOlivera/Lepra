@@ -10,6 +10,7 @@ export const OUTBOX_TYPE_LABELS: Record<OutboxCommandType, string> = {
   PRODUCT_DEACTIVATE: 'Desactivar producto',
   PRODUCT_TIERS_SYNC: 'Precios por volumen',
   ORDER_CREATE_ADMIN: 'Crear pedido',
+  ORDER_UPDATE: 'Editar pedido',
   ORDER_STATUS_SET: 'Cambiar estado del pedido',
   ORDER_PAYMENT_UPDATE: 'Actualizar pago del pedido',
 }
@@ -68,6 +69,16 @@ export function outboxPayloadSummary(r: OutboxRow): string {
       const client =
         guest || (user != null && Number(user) !== 0 ? `Cliente n.º ${user}` : '')
       return [client, lines ? `${lines} línea(s)` : ''].filter(Boolean).join(' · ')
+    }
+    case 'ORDER_UPDATE': {
+      const id = p?.id ?? p?.data?.id
+      const lines = p?.data?.lines?.length ?? p?.lines?.length
+      return [
+        id != null ? `Pedido n.º ${id}` : '',
+        lines ? `${lines} línea(s)` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
     }
     case 'ORDER_STATUS_SET': {
       if (p?.id == null) return ''

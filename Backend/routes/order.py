@@ -22,10 +22,13 @@ def _compute_total(lines, products: dict[int, Product]):
     total = 0.0
     for line in lines:
         product = products.get(line.id_product)
+        weight = line.weight
+        if weight is None:
+            continue
         if product:
-            total += line_total(product, float(line.weight), float(line.price_per_kg))
+            total += line_total(product, float(weight), float(line.price_per_kg))
         else:
-            total += round(float(line.weight) * float(line.price_per_kg), 2)
+            total += round(float(weight) * float(line.price_per_kg), 2)
     return total
 
 
@@ -75,10 +78,49 @@ def _parse_extra(body_amount: Optional[float], body_note: Optional[str]) -> tupl
     return amount, note
 
 
-def _resolve_unit_price(product: Product, weight_kg: float, override: Optional[float] = None) -> float:
+def _resolve_unit_price(
+    product: Product,
+    weight_kg: Optional[float],
+    override: Optional[float] = None,
+) -> float:
     if override is not None:
         return float(override)
+    if weight_kg is None:
+        return float(product.price)
     return unit_price_for_line(product, weight_kg)
+
+
+def _normalize_admin_weight(raw) -> float | None | JSONResponse:
+    """None/ausente = sin pesar. 0 o negativo = error (no se confunde con vacío)."""
+    if raw is None:
+        return None
+    try:
+        weight_kg = float(raw)
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"message": "Peso inválido"})
+    return weight_kg
+
+
+def _build_admin_line(
+    product: Product,
+    weight_raw,
+    price_override: Optional[float],
+) -> tuple[OrderProduct, float] | JSONResponse:
+    """Construye OrderProduct + aporte al total. weight None → subtotal 0."""
+    weight_kg = _normalize_admin_weight(weight_raw)
+    if isinstance(weight_kg, JSONResponse):
+        return weight_kg
+    err = validate_line_weight(product, weight_kg, allow_missing=True)
+    if err:
+        return JSONResponse(status_code=400, content={"message": err})
+    price_per_kg = _resolve_unit_price(product, weight_kg, price_override)
+    op = OrderProduct(
+        id_product=product.id,
+        weight=weight_kg,
+        price_per_kg=price_per_kg,
+    )
+    contribution = line_total(product, weight_kg, price_per_kg)
+    return op, contribution
 
 
 @order_router.post("/paginated")
@@ -303,6 +345,12 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
         return parsed_extra
     extra_amount, extra_note = parsed_extra
 
+    if not body.lines:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "El pedido debe tener al menos un producto"},
+        )
+
     try:
         async with AsyncSessionLocal() as session:
             if id_user is not None:
@@ -339,19 +387,13 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
                         status_code=400,
                         content={"message": f"Producto id {line.id_product} no encontrado"},
                     )
-                weight_kg = float(line.weight)
-                err = validate_line_weight(product, weight_kg)
-                if err:
-                    return JSONResponse(status_code=400, content={"message": err})
-                price_per_kg = _resolve_unit_price(product, weight_kg, line.price_per_kg)
-                op = OrderProduct(
-                    id_order=order.id,
-                    id_product=line.id_product,
-                    weight=weight_kg,
-                    price_per_kg=price_per_kg,
-                )
+                built = _build_admin_line(product, line.weight, line.price_per_kg)
+                if isinstance(built, JSONResponse):
+                    return built
+                op, contribution = built
+                op.id_order = order.id
                 session.add(op)
-                total += line_total(product, weight_kg, price_per_kg)
+                total += contribution
 
             order.total = round(total + extra_amount, 2)
             await session.commit()
@@ -372,13 +414,33 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
 
 @order_router.put("/update")
 async def update_order(req: Request, body: InputOrderUpdate):
-    """Actualizar pedido (datos y/o líneas). Si hay lines, se reemplazan y se recalcula total. Solo ADMIN o propio."""
+    """Actualizar pedido (datos y/o líneas). Si hay lines, se reemplazan y se recalcula total.
+    Edición de líneas / cliente / extras: solo ADMIN. CLIENT puede actualizar payment de los propios."""
     payload = require_roles(req.headers, ["CLIENT", "ADMIN"])
     if isinstance(payload, JSONResponse):
         return payload
 
     user_id = int(payload["sub"])
     role = payload.get("role", "").upper()
+
+    touches_admin_fields = (
+        body.lines is not None
+        or body.id_user is not None
+        or body.customer_name is not None
+        or body.extra_amount is not None
+        or body.extra_note is not None
+        or body.status is not None
+        or body.active is not None
+        or body.date is not None
+    )
+    if touches_admin_fields and role != "ADMIN":
+        # CLIENT solo puede tocar payment de su pedido
+        if body.lines is not None or body.id_user is not None or body.customer_name is not None:
+            return JSONResponse(status_code=403, content={"message": "Solo el administrador puede editar líneas del pedido"})
+        if body.extra_amount is not None or body.extra_note is not None:
+            return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
+        if body.status is not None or body.active is not None or body.date is not None:
+            return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
 
     try:
         async with AsyncSessionLocal() as session:
@@ -390,41 +452,113 @@ async def update_order(req: Request, body: InputOrderUpdate):
             if role == "CLIENT" and order.id_user != user_id:
                 return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
 
-            if body.date is not None:
-                order.date = body.date
+            if role == "ADMIN":
+                changing_client = body.id_user is not None or body.customer_name is not None
+                if changing_client:
+                    new_id_user = body.id_user if body.id_user is not None else order.id_user
+                    new_guest = (
+                        (body.customer_name or "").strip() or None
+                        if body.customer_name is not None
+                        else (order.customer_name or "").strip() or None
+                    )
+                    # Preferencia explícita: si mandan id_user válido, gana el registrado;
+                    # si mandan customer_name no vacío, gana el nombre libre.
+                    if body.id_user is not None and body.id_user:
+                        new_guest = None
+                    elif body.customer_name is not None and (body.customer_name or "").strip():
+                        new_id_user = None
+
+                    if new_id_user is None and not new_guest:
+                        return JSONResponse(
+                            status_code=400,
+                            content={"message": "Indicá un cliente registrado o un nombre para el pedido"},
+                        )
+                    if new_id_user is not None and new_guest:
+                        return JSONResponse(
+                            status_code=400,
+                            content={"message": "Usá cliente registrado o nombre libre, no ambos"},
+                        )
+                    if new_id_user is not None:
+                        user_row = await session.get(User, new_id_user)
+                        if not user_row:
+                            return JSONResponse(status_code=400, content={"message": "Cliente no encontrado"})
+                    order.id_user = new_id_user
+                    order.customer_name = new_guest
+
+                if body.extra_amount is not None or body.extra_note is not None:
+                    amount_in = body.extra_amount if body.extra_amount is not None else float(order.extra_amount or 0)
+                    note_in = body.extra_note if body.extra_note is not None else order.extra_note
+                    parsed_extra = _parse_extra(amount_in, note_in)
+                    if isinstance(parsed_extra, JSONResponse):
+                        return parsed_extra
+                    extra_amount, extra_note = parsed_extra
+                    order.extra_amount = extra_amount
+                    order.extra_note = extra_note
+
+                if body.date is not None:
+                    order.date = body.date
+                if body.status is not None:
+                    order.status = body.status.upper()
+                if body.active is not None:
+                    order.active = body.active
+
             if body.payment is not None:
                 order.payment = body.payment
-            if body.status is not None:
-                order.status = body.status.upper()
-            if body.active is not None:
-                order.active = body.active
 
             if body.lines is not None:
+                if role != "ADMIN":
+                    return JSONResponse(
+                        status_code=403,
+                        content={"message": "Solo el administrador puede editar líneas del pedido"},
+                    )
+                if len(body.lines) == 0:
+                    return JSONResponse(
+                        status_code=400,
+                        content={"message": "El pedido debe tener al menos un producto"},
+                    )
                 for op in order.order_products:
                     await session.delete(op)
                 await session.flush()
                 product_ids = [line.id_product for line in body.lines]
-                stmt = select(Product).where(Product.id.in_(product_ids))
+                stmt = select(Product).where(Product.id.in_(product_ids)).options(
+                    selectinload(Product.price_tiers)
+                )
                 result = await session.execute(stmt)
-                products = {p.id: p for p in result.scalars().all()}
+                products = {p.id: p for p in result.scalars().unique().all()}
                 total = 0.0
                 for line in body.lines:
                     product = products.get(line.id_product)
-                    op = OrderProduct(
-                        id_order=order.id,
-                        id_product=line.id_product,
-                        weight=float(line.weight),
-                        price_per_kg=float(line.price_per_kg),
-                    )
+                    if not product:
+                        return JSONResponse(
+                            status_code=400,
+                            content={"message": f"Producto id {line.id_product} no encontrado"},
+                        )
+                    built = _build_admin_line(product, line.weight, line.price_per_kg)
+                    if isinstance(built, JSONResponse):
+                        return built
+                    op, contribution = built
+                    op.id_order = order.id
                     session.add(op)
-                    if product:
-                        total += line_total(product, float(line.weight), float(line.price_per_kg))
-                    else:
-                        total += round(float(line.weight) * float(line.price_per_kg), 2)
+                    total += contribution
                 order.total = round(total + float(order.extra_amount or 0), 2)
+            elif role == "ADMIN" and (body.extra_amount is not None or body.extra_note is not None):
+                # Recalcular total si solo cambió el extra (sin tocar líneas)
+                lines_total = 0.0
+                product_ids = [op.id_product for op in order.order_products]
+                if product_ids:
+                    stmt = select(Product).where(Product.id.in_(product_ids))
+                    result = await session.execute(stmt)
+                    products = {p.id: p for p in result.scalars().all()}
+                    for op in order.order_products:
+                        product = products.get(op.id_product)
+                        if product:
+                            lines_total += line_total(product, op.weight, float(op.price_per_kg))
+                        elif op.weight is not None:
+                            lines_total += round(float(op.weight) * float(op.price_per_kg), 2)
+                order.total = round(lines_total + float(order.extra_amount or 0), 2)
 
             await session.commit()
-            return JSONResponse(status_code=200, content={"message": "Pedido actualizado"})
+            return JSONResponse(status_code=200, content={"message": "Pedido actualizado", "total": order.total})
     except Exception as e:
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": "Error al actualizar pedido"})

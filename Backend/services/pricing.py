@@ -45,13 +45,26 @@ def unit_price_for_line(product: Product, weight_kg: float) -> float:
     return price_per_kg_for_weight(product, weight_kg)
 
 
-def line_total(product: Product, weight_kg: float, unit_price: float) -> float:
+def line_total(product: Product, weight_kg: Optional[float], unit_price: float) -> float:
+    """Subtotal de línea. Sin peso (None) aporta $0."""
+    if weight_kg is None:
+        return 0.0
     if product.fixed_weight:
         return round(_piece_count(product, weight_kg) * float(unit_price), 2)
     return round(float(weight_kg) * float(unit_price), 2)
 
 
-def validate_line_weight(product: Product, weight_kg: float) -> Optional[str]:
+def validate_line_weight(
+    product: Product,
+    weight_kg: Optional[float],
+    *,
+    allow_missing: bool = False,
+) -> Optional[str]:
+    """Valida el peso de una línea. Con allow_missing=True, None es válido (sin pesar)."""
+    if weight_kg is None:
+        if allow_missing:
+            return None
+        return "El peso debe ser mayor a 0"
     if weight_kg <= 0:
         return "El peso debe ser mayor a 0"
     if product.fixed_weight:

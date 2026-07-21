@@ -1,5 +1,5 @@
 import { api } from './client'
-import { Order, OrderProduct, PaginatedRequest, PaginatedResponse } from '@/types'
+import { Order, PaginatedRequest, PaginatedResponse } from '@/types'
 
 export async function getOrdersPaginated(params: PaginatedRequest) {
   return api<PaginatedResponse<Order>>('/order/paginated', {
@@ -26,7 +26,7 @@ export async function createOrder(data: {
   payment?: string
   extra_amount?: number
   extra_note?: string | null
-  lines: { id_product: number; weight: number; price_per_kg?: number }[]
+  lines: { id_product: number; weight: number | null; price_per_kg?: number }[]
 }) {
   return api<{ message: string; id: number; total: number }>('/order/create-admin', {
     method: 'POST',
@@ -34,8 +34,19 @@ export async function createOrder(data: {
   })
 }
 
-export async function updateOrder(data: { id: number; id_user?: number; date?: string; payment?: string; status?: string; active?: boolean; lines?: OrderProduct[] }) {
-  return api<{ message: string }>('/order/update', {
+export async function updateOrder(data: {
+  id: number
+  id_user?: number | null
+  customer_name?: string | null
+  date?: string
+  payment?: string
+  status?: string
+  active?: boolean
+  extra_amount?: number
+  extra_note?: string | null
+  lines?: { id_product: number; weight: number | null; price_per_kg?: number }[]
+}) {
+  return api<{ message: string; total?: number }>('/order/update', {
     method: 'PUT',
     body: JSON.stringify(data),
   })

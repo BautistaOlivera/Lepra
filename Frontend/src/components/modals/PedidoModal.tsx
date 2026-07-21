@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Modal, Form, Button, Table } from 'react-bootstrap'
 import { LepraModal } from '@/components/LepraModal'
 import { ModalBusyFrame } from '@/components/LoadingOverlay'
-import { createOrder } from '@/api/order'
+import { createOrder, updateOrder } from '@/api/order'
 import { createUser } from '@/api/user'
 import { getUsersPaginatedOfflineFirst } from '@/repositories/usersRepo'
 import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
@@ -18,7 +18,6 @@ import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { formatWeight, hasWeight, parseWeightInput } from '@/lib/formatWeight'
 import { buildQuickClientEmail, buildQuickClientPassword, findUserByClientQuery } from '@/lib/quickClient'
 import {
-  defaultLineWeightKg,
   isFixedWeightProduct,
   lineTotal,
   lineUnitPrice,
@@ -40,12 +39,12 @@ import { useConfirm } from '@/context/ConfirmContext'
 
 type SubmitPhase = 'idle' | 'client' | 'order'
 
-function submitPhaseMessage(phase: SubmitPhase): string {
+function submitPhaseMessage(phase: SubmitPhase, editing: boolean): string {
   switch (phase) {
     case 'client':
       return 'Creando cliente nuevo...'
     case 'order':
-      return 'Creando pedido...'
+      return editing ? 'Guardando pedido...' : 'Creando pedido...'
     default:
       return ''
   }
@@ -55,6 +54,8 @@ interface PedidoModalProps {
   show: boolean
   onClose: (refresh?: boolean) => void
   onDraftChange?: (hasDraft: boolean) => void
+  /** Si viene, el modal edita ese pedido en vez de crear uno nuevo. */
+  order?: Order | null
 }
 
 type PedidoLine = {
@@ -65,9 +66,11 @@ type PedidoLine = {
   product?: Product
 }
 
-function lineWeightKg(line: PedidoLine): number {
+type LinePayload = { id_product: number; weight: number | null; price_per_kg: number }
+
+function lineWeightKg(line: PedidoLine): number | null {
   const parsed = parseWeightInput(line.weight)
-  return parsed.ok && parsed.value != null ? parsed.value : 0
+  return parsed.ok && parsed.value != null ? parsed.value : null
 }
 
 function lineUnitPriceNumber(line: PedidoLine): number {
@@ -77,9 +80,10 @@ function lineUnitPriceNumber(line: PedidoLine): number {
 
 function linePieces(line: PedidoLine): number {
   const piece = line.product ? pieceWeightKg(line.product) : null
-  if (!piece) return 1
+  if (!piece) return 0
   const w = lineWeightKg(line)
-  return Math.max(1, Math.round(w / piece))
+  if (w == null) return 0
+  return Math.max(0, Math.round(w / piece))
 }
 
 function hydrateLines(draftLines: PedidoDraft['lines'], products: Product[]): PedidoLine[] {
@@ -89,6 +93,18 @@ function hydrateLines(draftLines: PedidoDraft['lines'], products: Product[]): Pe
     price: l.price,
     product: l.id_product ? products.find((p) => p.id === l.id_product) : undefined,
   }))
+}
+
+function hydrateOrderLines(order: Order, products: Product[]): PedidoLine[] {
+  return (order.lines || []).map((l) => {
+    const product = products.find((p) => p.id === l.id_product)
+    return {
+      id_product: l.id_product,
+      weight: l.weight == null ? '' : String(l.weight),
+      price: String(l.price_per_kg ?? product?.price ?? ''),
+      product,
+    }
+  })
 }
 
 function snapshotDraft(
@@ -109,8 +125,9 @@ function snapshotDraft(
   }
 }
 
-export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) {
+export function PedidoModal({ show, onClose, onDraftChange, order = null }: PedidoModalProps) {
   const confirm = useConfirm()
+  const editing = !!order
   const [users, setUsers] = useState<User[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [clientValue, setClientValue] = useState<ClientePedidoValue | null>(null)
@@ -140,21 +157,46 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
       return
     }
     setLoadingData(true)
-    const draft = loadPedidoDraft()
+    const draft = !editing ? loadPedidoDraft() : null
     const resuming = !!draft
     setResumedDraft(resuming)
-    setClientValue(draft?.client ?? null)
-    setLines(
-      draft?.lines?.length
-        ? draft.lines.map((l) => ({
-            id_product: l.id_product,
-            weight: l.weight,
-            price: l.price,
-          }))
-        : [],
-    )
-    setExtraAmount(draft?.extraAmount ?? '')
-    setExtraNote(draft?.extraNote ?? '')
+
+    if (editing && order) {
+      if (order.id_user != null && order.id_user !== 0) {
+        setClientValue({
+          kind: 'existing',
+          id: order.id_user,
+          label: order.user_name || order.customer_name || `Cliente #${order.id_user}`,
+        })
+      } else {
+        const name = (order.customer_name || order.user_name || '').trim()
+        setClientValue(name ? { kind: 'new', name } : null)
+      }
+      setLines(
+        (order.lines || []).map((l) => ({
+          id_product: l.id_product,
+          weight: l.weight == null ? '' : String(l.weight),
+          price: String(l.price_per_kg ?? ''),
+        })),
+      )
+      const ea = Number(order.extra_amount || 0)
+      setExtraAmount(ea > 0 ? String(ea) : '')
+      setExtraNote(order.extra_note || '')
+    } else {
+      setClientValue(draft?.client ?? null)
+      setLines(
+        draft?.lines?.length
+          ? draft.lines.map((l) => ({
+              id_product: l.id_product,
+              weight: l.weight,
+              price: l.price,
+            }))
+          : [],
+      )
+      setExtraAmount(draft?.extraAmount ?? '')
+      setExtraNote(draft?.extraNote ?? '')
+    }
+
     Promise.all([
       getUsersPaginatedOfflineFirst({ limit: 100, filters: {} }),
       getProductsPaginatedOfflineFirst({ limit: 100, filters: { admin_list: true } }),
@@ -163,7 +205,9 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
         const nextProducts = productsRes.data?.items ?? []
         if (usersRes.data) setUsers(usersRes.data.items)
         if (productsRes.data) setProducts(nextProducts)
-        if (draft?.lines?.length) {
+        if (editing && order) {
+          setLines(hydrateOrderLines(order, nextProducts))
+        } else if (draft?.lines?.length) {
           setLines(hydrateLines(draft.lines, nextProducts))
         }
         if (productsRes.error) toast.error(productsRes.error.message || 'Error al cargar productos')
@@ -171,9 +215,13 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
       })
       .catch(() => toast.error('Error al cargar datos'))
       .finally(() => setLoadingData(false))
-  }, [show])
+  }, [show, editing, order])
 
   function persistMinimize() {
+    if (editing) {
+      onClose()
+      return
+    }
     const snap = snapshotDraft(
       draftRef.current.clientValue,
       draftRef.current.lines,
@@ -187,6 +235,10 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
 
   async function handleDiscard() {
     if (loading) return
+    if (editing) {
+      onClose()
+      return
+    }
     const ok = await confirm({
       title: '¿Cancelar pedido?',
       message: 'Se descarta el pedido en curso y no se guarda el progreso.',
@@ -202,7 +254,8 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
   function recalcPrice(line: PedidoLine): void {
     if (!line.product) return
     const w = lineWeightKg(line)
-    line.price = String(lineUnitPrice(line.product, w))
+    // Sin peso: precio base del catálogo (se recalcula al completar kg).
+    line.price = String(lineUnitPrice(line.product, w ?? 0))
   }
 
   function addLine() {
@@ -231,9 +284,9 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
         if (product) {
           line.id_product = product.id
           line.product = product
-          const defaultW = defaultLineWeightKg(product)
-          line.weight = String(defaultW)
-          line.price = String(lineUnitPrice(product, defaultW))
+          // Admin puede dejar sin pesar: no autocompletar kg/cantidad.
+          line.weight = ''
+          line.price = String(product.price)
         }
       }
     } else if (field === 'weight' && typeof value === 'string') {
@@ -242,7 +295,11 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
     } else if (field === 'pieces' && typeof value === 'number' && line.product) {
       const piece = pieceWeightKg(line.product)
       if (piece) {
-        line.weight = String(minKgFromPieces(Math.max(1, value), piece))
+        if (value <= 0) {
+          line.weight = ''
+        } else {
+          line.weight = String(minKgFromPieces(value, piece))
+        }
         recalcPrice(line)
       }
     } else if (field === 'price' && typeof value === 'string') {
@@ -257,7 +314,9 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
 
   const linesTotal = validLines.reduce((s, l) => {
     if (!l.product) return s
-    return s + lineTotal(l.product, lineWeightKg(l), lineUnitPriceNumber(l))
+    const w = lineWeightKg(l)
+    if (w == null) return s
+    return s + lineTotal(l.product, w, lineUnitPriceNumber(l))
   }, 0)
 
   const extraParsed = extraAmount.trim() === '' ? null : parseUnitPriceInput(extraAmount)
@@ -315,22 +374,21 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
       return
     }
 
-    const parsedLines: { id_product: number; weight: number; price_per_kg: number }[] = []
+    const parsedLines: LinePayload[] = []
     for (const l of validLines) {
       const w = parseWeightInput(l.weight)
       if (!w.ok) {
         toast.error(w.message)
         return
       }
-      if (w.value == null) {
-        toast.error('Indicá el peso en kg')
-        return
-      }
-      if (l.product) {
-        const valid = validateLineWeightKg(l.product, w.value)
-        if (!valid.ok) {
-          toast.error(`${l.product.name}: ${valid.message}`)
-          return
+      // Admin: peso vacío permitido (null = sin pesar). 0 / negativo siguen rechazados.
+      if (w.value != null) {
+        if (l.product) {
+          const valid = validateLineWeightKg(l.product, w.value)
+          if (!valid.ok) {
+            toast.error(`${l.product.name}: ${valid.message}`)
+            return
+          }
         }
       }
       const priceParsed = parseUnitPriceInput(l.price)
@@ -415,53 +473,90 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
       }
 
       const linePayload = parsedLines
-      const body = {
-        id_user: idUser!,
-        lines: linePayload,
-        ...(extraPayloadAmount > 0
-          ? { extra_amount: extraPayloadAmount, extra_note: extraPayloadNote }
-          : {}),
+      const extraFields = {
+        extra_amount: extraPayloadAmount,
+        extra_note: extraPayloadNote,
       }
 
-      if (!isOnlineNow()) {
-        const orderTempId = nextTempId()
-        await enqueueCommand('ORDER_CREATE_ADMIN', { tempId: orderTempId, data: body })
-        await lepraDb.orders.put({
-          id: orderTempId,
+      if (editing && order) {
+        const body = {
+          id: order.id,
           id_user: idUser,
-          customer_name: null,
-          user_name: displayName,
-          total,
-          extra_amount: extraPayloadAmount,
-          extra_note: extraPayloadNote,
-          created_at: new Date().toISOString(),
-          status: 'PENDING',
-          active: true,
+          customer_name: null as string | null,
           lines: linePayload,
-        } as Order)
-        const dependsOnPending = idUser < 0 || validLines.some((l) => l.id_product < 0)
-        toast.success(
-          createdNewUser
-            ? dependsOnPending
-              ? 'Pedido y cliente nuevos guardados (pendientes de sincronizar)'
-              : 'Pedido creado con cliente nuevo (pendiente de sincronizar)'
-            : dependsOnPending
-              ? 'Pedido creado (pendiente; sincronizará después de productos o clientes nuevos)'
-              : 'Pedido creado (pendiente de sincronizar)'
-        )
-      } else {
-        const { error } = await createOrder(body)
-        if (error) {
-          toast.error(error.message)
-          setSubmitPhase('idle')
-          return
+          ...extraFields,
         }
-        toast.success(createdNewUser ? 'Pedido creado con cliente nuevo' : 'Pedido creado')
+
+        if (!isOnlineNow()) {
+          await enqueueCommand('ORDER_UPDATE', { id: order.id, data: body })
+          await lepraDb.orders.put({
+            ...order,
+            id_user: idUser,
+            customer_name: null,
+            user_name: displayName,
+            total,
+            extra_amount: extraPayloadAmount,
+            extra_note: extraPayloadNote,
+            lines: linePayload,
+          } as Order)
+          toast.success('Pedido actualizado (pendiente de sincronizar)')
+        } else {
+          const { error } = await updateOrder(body)
+          if (error) {
+            toast.error(error.message)
+            setSubmitPhase('idle')
+            return
+          }
+          toast.success('Pedido actualizado')
+        }
+      } else {
+        const body = {
+          id_user: idUser!,
+          lines: linePayload,
+          ...extraFields,
+        }
+
+        if (!isOnlineNow()) {
+          const orderTempId = nextTempId()
+          await enqueueCommand('ORDER_CREATE_ADMIN', { tempId: orderTempId, data: body })
+          await lepraDb.orders.put({
+            id: orderTempId,
+            id_user: idUser,
+            customer_name: null,
+            user_name: displayName,
+            total,
+            extra_amount: extraPayloadAmount,
+            extra_note: extraPayloadNote,
+            created_at: new Date().toISOString(),
+            status: 'PENDING',
+            active: true,
+            lines: linePayload,
+          } as Order)
+          const dependsOnPending = idUser < 0 || validLines.some((l) => l.id_product < 0)
+          toast.success(
+            createdNewUser
+              ? dependsOnPending
+                ? 'Pedido y cliente nuevos guardados (pendientes de sincronizar)'
+                : 'Pedido creado con cliente nuevo (pendiente de sincronizar)'
+              : dependsOnPending
+                ? 'Pedido creado (pendiente; sincronizará después de productos o clientes nuevos)'
+                : 'Pedido creado (pendiente de sincronizar)'
+          )
+        } else {
+          const { error } = await createOrder(body)
+          if (error) {
+            toast.error(error.message)
+            setSubmitPhase('idle')
+            return
+          }
+          toast.success(createdNewUser ? 'Pedido creado con cliente nuevo' : 'Pedido creado')
+        }
+
+        clearPedidoDraft()
+        notifyDraft(false)
       }
 
       setSubmitPhase('idle')
-      clearPedidoDraft()
-      notifyDraft(false)
       onClose(true)
     } catch {
       setSubmitPhase('idle')
@@ -473,7 +568,13 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
     (clientValue?.kind === 'new' && clientValue.name.trim().length >= 2)
 
   const busy = loading || loadingData
-  const busyMessage = loading ? submitPhaseMessage(submitPhase) : 'Cargando datos...'
+  const busyMessage = loading ? submitPhaseMessage(submitPhase, editing) : 'Cargando datos...'
+
+  const title = editing
+    ? `Editar pedido${order && order.id > 0 ? ` #${order.id}` : ''}`
+    : resumedDraft
+      ? 'Continuar pedido'
+      : 'Nuevo pedido'
 
   return (
     <LepraModal
@@ -481,13 +582,17 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
       onClose={persistMinimize}
       busy={busy}
       size="lg"
-      closeConfirmTitle="¿Minimizar pedido?"
-      closeConfirmMessage="Se guarda el progreso. Podés continuar después con Continuar pedido."
-      closeConfirmLabel="Minimizar"
+      closeConfirmTitle={editing ? '¿Cerrar sin guardar?' : '¿Minimizar pedido?'}
+      closeConfirmMessage={
+        editing
+          ? 'Se descartan los cambios no guardados de este pedido.'
+          : 'Se guarda el progreso. Podés continuar después con Continuar pedido.'
+      }
+      closeConfirmLabel={editing ? 'Cerrar' : 'Minimizar'}
       closeConfirmCancelLabel="Seguir editando"
     >
       <Modal.Header closeButton={!busy} className="border-dark">
-        <Modal.Title>{resumedDraft ? 'Continuar pedido' : 'Nuevo pedido'}</Modal.Title>
+        <Modal.Title>{title}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <ModalBusyFrame busy={busy} message={busyMessage}>
@@ -503,7 +608,8 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
             />
             <Form.Text className="text-muted">
               Elegí uno de la lista o escribí un nombre; si no hay coincidencia, se crea un cliente nuevo al guardar.
-              Cerrar con la X o tocando afuera guarda el progreso.
+              {!editing && ' Cerrar con la X o tocando afuera guarda el progreso.'}
+              {' '}Podés dejar productos sin kg y completarlos después.
             </Form.Text>
           </Form.Group>
 
@@ -542,7 +648,7 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
               {lines.map((l, i) => {
                 const w = lineWeightKg(l)
                 const unitPrice = lineUnitPriceNumber(l)
-                const sub = l.product ? lineTotal(l.product, w, unitPrice) : 0
+                const sub = l.product && w != null ? lineTotal(l.product, w, unitPrice) : 0
                 const fixed = l.product ? isFixedWeightProduct(l.product) : false
                 return (
                 <tr key={i}>
@@ -562,6 +668,8 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
                         <QuantityStepper
                           size="sm"
                           value={linePieces(l)}
+                          min={1}
+                          emptyLabel="—"
                           onChange={(p) => updateLine(i, 'pieces', p)}
                           ariaLabel="Piezas"
                         />
@@ -603,7 +711,13 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
                       {!fixed && <span className="text-muted small user-select-none">/kg</span>}
                     </div>
                   </td>
-                  <td className="text-end align-middle">{formatMoneyWithSymbol(sub)}</td>
+                  <td className="text-end align-middle">
+                    {w == null && l.product ? (
+                      <span className="text-muted small">Sin pesar</span>
+                    ) : (
+                      formatMoneyWithSymbol(sub)
+                    )}
+                  </td>
                   <td className="align-middle">
                     <Button variant="link" size="sm" className="text-danger p-0" onClick={() => removeLine(i)}>
                       ✕
@@ -665,7 +779,7 @@ export function PedidoModal({ show, onClose, onDraftChange }: PedidoModalProps) 
                   className="pedido-modal-submit-btn fw-semibold"
                   disabled={busy || !clientReady || validLines.length === 0 || !canSubmitExtra}
                 >
-                  Crear pedido
+                  {editing ? 'Guardar cambios' : 'Crear pedido'}
                 </Button>
               </div>
           </Form>

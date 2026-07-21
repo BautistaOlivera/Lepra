@@ -255,9 +255,11 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
   const body = lines.map((l) => {
     const info = productById[l.id_product]
     const fixed = info?.fixed_weight || l.sold_by_piece
-    const sub = pdfLineSubtotal(l.weight || 0, l.price_per_kg || 0, info)
-    const qtyCell =
-      fixed && info?.weight
+    const missingWeight = l.weight == null
+    const sub = missingWeight ? 0 : pdfLineSubtotal(l.weight || 0, l.price_per_kg || 0, info)
+    const qtyCell = missingWeight
+      ? 'Sin pesar'
+      : fixed && info?.weight
         ? String(Math.max(1, Math.round((l.weight || 0) / info.weight)))
         : formatWeight(l.weight)
     const priceCell = fixed
@@ -265,7 +267,7 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
       : `${formatMoneyWithSymbol(l.price_per_kg)}/kg`
     const row: string[] = [productName(info, l.id_product)]
     if (showBrandCol) row.push(productBrand(info))
-    row.push(qtyCell, priceCell, formatMoneyWithSymbol(sub))
+    row.push(qtyCell, priceCell, missingWeight ? 'Sin pesar' : formatMoneyWithSymbol(sub))
     return row
   })
 

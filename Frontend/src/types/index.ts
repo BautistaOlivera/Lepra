@@ -41,8 +41,8 @@ export interface User {
 export interface OrderProduct {
   id?: number
   id_product: number
-  /** Peso total de la línea en kg */
-  weight: number
+  /** Peso total de la línea en kg. null = sin pesar (admin). */
+  weight: number | null
   /** Precio unitario: $/kg o $/pieza según el producto */
   price_per_kg: number
   sold_by_piece?: boolean

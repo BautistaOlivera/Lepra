@@ -35,12 +35,25 @@ def test_line_total_by_piece():
 
 def test_piece_tier_uses_piece_count():
     product = _Product(100.0, weight=0.5, fixed_weight=True, tiers=[_Tier(3.0, 90.0)])
-    assert unit_price_for_line(product, 1.0) == 100.0
-    assert unit_price_for_line(product, 2.0) == 100.0
-    assert unit_price_for_line(product, 1.5) == 90.0
+    assert unit_price_for_line(product, 1.0) == 100.0  # 2 piezas
+    assert unit_price_for_line(product, 1.5) == 90.0  # 3 piezas
+    assert unit_price_for_line(product, 2.0) == 90.0  # 4 piezas
 
 
 def test_validate_fixed_weight_multiple():
     product = _Product(10.0, weight=0.5, fixed_weight=True)
     assert validate_line_weight(product, 1.0) is None
     assert validate_line_weight(product, 1.25) is not None
+
+
+def test_validate_missing_weight_allowed_for_admin():
+    product = _Product(10.0)
+    assert validate_line_weight(product, None, allow_missing=True) is None
+    assert validate_line_weight(product, None) is not None
+    assert validate_line_weight(product, 0) is not None
+    assert validate_line_weight(product, -1) is not None
+
+
+def test_line_total_missing_weight_is_zero():
+    product = _Product(10.0)
+    assert line_total(product, None, 10.0) == 0.0

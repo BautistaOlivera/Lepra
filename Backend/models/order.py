@@ -38,7 +38,8 @@ class OrderProduct(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_order = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
     id_product = Column(Integer, ForeignKey("products.id"), nullable=False)
-    weight = Column(Float, nullable=False)
+    # NULL = producto cargado pero aún sin pesar (solo admin).
+    weight = Column(Float, nullable=True)
     price_per_kg = Column(Float, nullable=False)
 
     order = relationship("Order", back_populates="order_products")
@@ -49,7 +50,7 @@ class OrderProduct(Base):
 
 class OrderProductCreate(BaseModel):
     id_product: int
-    weight: float
+    weight: Optional[float] = None
     price_per_kg: float
 
 
@@ -60,9 +61,9 @@ class OrderLineClientInput(BaseModel):
 
 
 class OrderLineAdminInput(BaseModel):
-    """Línea admin: peso en kg; price_per_kg opcional (si no viene, se calcula)."""
+    """Línea admin: peso en kg opcional (null = sin pesar); price_per_kg opcional."""
     id_product: int
-    weight: float
+    weight: Optional[float] = None
     price_per_kg: Optional[float] = None
 
 
@@ -86,7 +87,7 @@ class OrderProductResponse(BaseModel):
     id: int
     id_order: int
     id_product: int
-    weight: float
+    weight: Optional[float] = None
     price_per_kg: float
 
     class Config:
@@ -133,8 +134,11 @@ class InputOrder(BaseModel):
 class InputOrderUpdate(BaseModel):
     id: int
     id_user: Optional[int] = None
+    customer_name: Optional[str] = None
     date: Optional[date] = None
     payment: Optional[str] = None
     status: Optional[str] = None
     active: Optional[bool] = None
-    lines: Optional[List[OrderProductCreate]] = None
+    extra_amount: Optional[float] = None
+    extra_note: Optional[str] = None
+    lines: Optional[List[OrderLineAdminInput]] = None

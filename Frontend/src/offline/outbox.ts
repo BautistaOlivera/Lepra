@@ -285,6 +285,42 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
       }
       return { ok: true }
     }
+    case 'ORDER_UPDATE': {
+      const payload = row.payload as any
+      const localId = Number(payload?.id)
+      const data = payload?.data ?? payload
+      const realId = await resolveId('order', localId)
+      const rawUserId = data?.id_user
+      const hasRegisteredUser =
+        rawUserId != null && rawUserId !== '' && Number(rawUserId) !== 0
+      const resolved = {
+        id: realId,
+        id_user: hasRegisteredUser ? await resolveId('user', Number(rawUserId)) : data?.id_user ?? null,
+        customer_name:
+          data?.customer_name === null
+            ? null
+            : (data?.customer_name && String(data.customer_name).trim()) || undefined,
+        payment: data?.payment,
+        extra_amount: data?.extra_amount,
+        extra_note: data?.extra_note,
+        lines: Array.isArray(data?.lines)
+          ? await Promise.all(
+              data.lines.map(async (l: any) => ({
+                id_product: await resolveId('product', Number(l?.id_product)),
+                weight: l?.weight == null ? null : Number(l.weight),
+                price_per_kg: l?.price_per_kg != null ? Number(l.price_per_kg) : undefined,
+              }))
+            )
+          : undefined,
+      }
+      const res = await updateOrder(resolved as any)
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      const existing = await lepraDb.orders.get(localId)
+      if (existing && res.data?.total != null) {
+        await lepraDb.orders.put({ ...existing, total: Number(res.data.total) })
+      }
+      return { ok: true }
+    }
     default:
       return { ok: false, message: 'Unknown command' }
   }

@@ -52,6 +52,7 @@ export function Pedidos() {
   const [loading, setLoading] = useState(true)
   const [nextCursor, setNextCursor] = useState<number | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
+  const [editOrder, setEditOrder] = useState<Order | null>(null)
   const [pedidoDraftActive, setPedidoDraftActive] = useState(() => hasPedidoDraft())
   const [pdfOrder, setPdfOrder] = useState<Order | null>(null)
   const [notasOrder, setNotasOrder] = useState<Order | null>(null)
@@ -153,12 +154,18 @@ export function Pedidos() {
 
   function onAddModalClose(refresh?: boolean) {
     setAddModalOpen(false)
+    setEditOrder(null)
     setPedidoDraftActive(hasPedidoDraft())
     releaseBootstrapModalLock()
     if (refresh) {
       refreshPending().catch(() => {})
       loadOrders()
     }
+  }
+
+  function openEdit(order: Order) {
+    setAddModalOpen(false)
+    setEditOrder(order)
   }
 
   function onPdfClose() {
@@ -226,10 +233,11 @@ export function Pedidos() {
     columnHelper.display({
       id: 'actions',
       header: 'Acciones',
-      size: 260,
+      size: 300,
       cell: ({ row }) => (
         <PedidoRowActions
           order={row.original}
+          onEdit={() => openEdit(row.original)}
           onNotas={() => setNotasOrder(row.original)}
           onPdf={() => setPdfOrder(row.original)}
           onFulfill={() => requestFulfill(row.original)}
@@ -368,6 +376,7 @@ export function Pedidos() {
                         <div className="admin-list-pedido-tile-actions">
                           <PedidoRowActions
                             order={o}
+                            onEdit={() => openEdit(o)}
                             onNotas={() => setNotasOrder(o)}
                             onPdf={() => setPdfOrder(o)}
                             onFulfill={() => requestFulfill(o)}
@@ -402,8 +411,11 @@ export function Pedidos() {
         </div>
       )}
 
-      {addModalOpen && (
+      {addModalOpen && !editOrder && (
         <PedidoModal show onClose={onAddModalClose} onDraftChange={setPedidoDraftActive} />
+      )}
+      {editOrder && (
+        <PedidoModal show order={editOrder} onClose={onAddModalClose} />
       )}
       {notasOrder && (
         <PedidoNotasModal

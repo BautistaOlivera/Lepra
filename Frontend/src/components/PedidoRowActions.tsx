@@ -1,9 +1,10 @@
 import { Button } from 'react-bootstrap'
-import { Check, FileText, NotebookPen, X } from 'lucide-react'
+import { Check, FileText, NotebookPen, Pencil, X } from 'lucide-react'
 import type { Order } from '@/types'
 
 type PedidoRowActionsProps = {
   order: Order
+  onEdit: () => void
   onNotas: () => void
   onPdf: () => void
   onFulfill: () => void
@@ -13,6 +14,7 @@ type PedidoRowActionsProps = {
 
 export function PedidoRowActions({
   order,
+  onEdit,
   onNotas,
   onPdf,
   onFulfill,
@@ -24,6 +26,7 @@ export function PedidoRowActions({
   const canCancel = isPending || isFulfilled
   const syncDisabled = order.id < 0
   const hasNotas = Boolean(order.payment?.trim())
+  const editLabel = 'Editar pedido'
   const notasLabel = hasNotas ? 'Editar notas de pago' : 'Agregar notas de pago'
   const pdfLabel = 'Ver o imprimir pedido'
   const fulfillTitle = syncDisabled ? 'Sincronizá el pedido antes de cumplir' : 'Marcar como cumplido'
@@ -48,6 +51,16 @@ export function PedidoRowActions({
             : 'admin-list-pedido-actions'
       }
     >
+      <Button
+        variant="outline-dark"
+        size={isCard || isTile ? undefined : 'sm'}
+        className={iconBtnClass}
+        onClick={onEdit}
+        aria-label={editLabel}
+        title={editLabel}
+      >
+        <Pencil size={iconSize} aria-hidden />
+      </Button>
       <Button
         variant={hasNotas ? 'dark' : 'outline-dark'}
         size={isCard || isTile ? undefined : 'sm'}

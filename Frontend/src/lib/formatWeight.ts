@@ -7,8 +7,8 @@ export function hasWeight(weight: number | null | undefined): weight is number {
   return weight != null && Number.isFinite(weight)
 }
 
-export function formatWeight(weight: number): string {
-  if (!Number.isFinite(weight)) return '—'
+export function formatWeight(weight: number | null | undefined): string {
+  if (weight == null || !Number.isFinite(weight)) return '—'
   return `${weightFormatter.format(weight)} kg`
 }
 
