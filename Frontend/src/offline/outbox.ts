@@ -44,6 +44,101 @@ export async function enqueueCommand(type: OutboxCommandType, payload: unknown):
   return row.id
 }
 
+function isActionableOutboxStatus(status: OutboxRow['status']): boolean {
+  return status === 'pending' || status === 'failed'
+}
+
+/** Si el pedido temp ya se mapeó al servidor, devolver el id real; si no, el mismo. */
+export async function resolveLocalOrderId(orderId: number): Promise<number> {
+  if (orderId >= 0) return orderId
+  const row = await lepraDb.idmap.get(['order', orderId])
+  return row?.realId ?? orderId
+}
+
+async function findActionableOutbox(
+  predicate: (row: OutboxRow) => boolean,
+): Promise<OutboxRow | undefined> {
+  const rows = await lepraDb.outbox.toArray()
+  return rows.find((r) => isActionableOutboxStatus(r.status) && predicate(r))
+}
+
+/**
+ * Guarda un pedido admin offline.
+ * - Si aún hay un ORDER_CREATE_ADMIN pendiente del mismo tempId, lo actualiza (evita CREATE viejo + UPDATE).
+ * - Si no, encola/reemplaza un ORDER_UPDATE (una sola edición pendiente por pedido).
+ */
+export async function enqueueOfflineOrderSave(opts: {
+  orderId: number
+  data: Record<string, unknown>
+}): Promise<{ mode: 'create' | 'update'; localId: number }> {
+  const localId = await resolveLocalOrderId(opts.orderId)
+
+  if (localId < 0) {
+    const createRow = await findActionableOutbox(
+      (r) =>
+        r.type === 'ORDER_CREATE_ADMIN' &&
+        Number((r.payload as { tempId?: number })?.tempId) === localId,
+    )
+    if (createRow) {
+      await lepraDb.outbox.update(createRow.id, {
+        payload: { tempId: localId, data: opts.data },
+        status: 'pending',
+        nextAttemptAt: Date.now(),
+        lastError: undefined,
+      })
+      notifyOutboxChanged()
+      return { mode: 'create', localId }
+    }
+  }
+
+  const updateRow = await findActionableOutbox((r) => {
+    if (r.type !== 'ORDER_UPDATE') return false
+    const pid = Number((r.payload as { id?: number })?.id)
+    return pid === localId || pid === opts.orderId
+  })
+
+  const payload = { id: localId, data: { ...opts.data, id: localId } }
+  if (updateRow) {
+    await lepraDb.outbox.update(updateRow.id, {
+      payload,
+      status: 'pending',
+      nextAttemptAt: Date.now(),
+      lastError: undefined,
+    })
+    notifyOutboxChanged()
+  } else {
+    await enqueueCommand('ORDER_UPDATE', payload)
+  }
+  return { mode: 'update', localId }
+}
+
+/** True si hay mutación de pedido pendiente que no debe pisarse con sync del servidor. */
+export async function hasPendingOrderMutation(orderId: number): Promise<boolean> {
+  const rows = await lepraDb.outbox.toArray()
+  for (const r of rows) {
+    if (r.status === 'done') continue
+    const p = r.payload as { id?: number; tempId?: number } | null
+    if (r.type === 'ORDER_CREATE_ADMIN') {
+      if (Number(p?.tempId) === orderId) return true
+      continue
+    }
+    if (
+      r.type === 'ORDER_UPDATE' ||
+      r.type === 'ORDER_PAYMENT_UPDATE' ||
+      r.type === 'ORDER_STATUS_SET'
+    ) {
+      const pid = Number(p?.id)
+      if (!Number.isFinite(pid)) continue
+      if (pid === orderId) return true
+      if (pid < 0) {
+        const mapped = await lepraDb.idmap.get(['order', pid])
+        if (mapped?.realId === orderId) return true
+      }
+    }
+  }
+  return false
+}
+
 export async function getPendingCount(): Promise<number> {
   return lepraDb.outbox.where('status').equals('pending').count()
 }
@@ -267,8 +362,9 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
         lines: Array.isArray(data?.lines)
           ? await Promise.all(
               data.lines.map(async (l: any) => ({
-                ...l,
                 id_product: await resolveId('product', Number(l?.id_product)),
+                weight: l?.weight == null || l?.weight === '' ? null : Number(l.weight),
+                price_per_kg: l?.price_per_kg != null ? Number(l.price_per_kg) : undefined,
               }))
             )
           : [],
@@ -280,6 +376,7 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
         await replaceRowId(lepraDb.orders as any, tempId, newId, {
           id: newId,
           total: Number(res.data?.total) || (data?.total ?? 0),
+          lines: resolved.lines,
         } as any)
         await mapTempId('order', tempId, newId)
       }
@@ -293,6 +390,15 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
       const rawUserId = data?.id_user
       const hasRegisteredUser =
         rawUserId != null && rawUserId !== '' && Number(rawUserId) !== 0
+      const resolvedLines = Array.isArray(data?.lines)
+        ? await Promise.all(
+            data.lines.map(async (l: any) => ({
+              id_product: await resolveId('product', Number(l?.id_product)),
+              weight: l?.weight == null || l?.weight === '' ? null : Number(l.weight),
+              price_per_kg: l?.price_per_kg != null ? Number(l.price_per_kg) : undefined,
+            }))
+          )
+        : undefined
       const resolved = {
         id: realId,
         id_user: hasRegisteredUser ? await resolveId('user', Number(rawUserId)) : data?.id_user ?? null,
@@ -303,21 +409,24 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
         payment: data?.payment,
         extra_amount: data?.extra_amount,
         extra_note: data?.extra_note,
-        lines: Array.isArray(data?.lines)
-          ? await Promise.all(
-              data.lines.map(async (l: any) => ({
-                id_product: await resolveId('product', Number(l?.id_product)),
-                weight: l?.weight == null ? null : Number(l.weight),
-                price_per_kg: l?.price_per_kg != null ? Number(l.price_per_kg) : undefined,
-              }))
-            )
-          : undefined,
+        lines: resolvedLines,
       }
       const res = await updateOrder(resolved as any)
       if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
-      const existing = await lepraDb.orders.get(localId)
-      if (existing && res.data?.total != null) {
-        await lepraDb.orders.put({ ...existing, total: Number(res.data.total) })
+      const existing =
+        (await lepraDb.orders.get(realId)) ??
+        (localId !== realId ? await lepraDb.orders.get(localId) : undefined)
+      if (existing) {
+        const patch: Partial<typeof existing> = {}
+        if (res.data?.total != null) patch.total = Number(res.data.total)
+        if (resolvedLines) patch.lines = resolvedLines as any
+        if (resolved.id_user !== undefined) patch.id_user = resolved.id_user as any
+        if (resolved.extra_amount !== undefined) patch.extra_amount = resolved.extra_amount as any
+        if (resolved.extra_note !== undefined) patch.extra_note = resolved.extra_note as any
+        await lepraDb.orders.put({ ...existing, ...patch, id: realId })
+        if (localId !== realId && localId < 0) {
+          await lepraDb.orders.delete(localId).catch(() => {})
+        }
       }
       return { ok: true }
     }

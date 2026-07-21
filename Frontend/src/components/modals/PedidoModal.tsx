@@ -11,7 +11,7 @@ import toast from 'react-hot-toast'
 import { Select, type SelectOption } from '@/components/Select'
 import { ClientePedidoSelect, type ClientePedidoValue } from '@/components/ClientePedidoSelect'
 import { isOnlineNow } from '@/offline/network'
-import { enqueueCommand } from '@/offline/outbox'
+import { enqueueCommand, enqueueOfflineOrderSave } from '@/offline/outbox'
 import { lepraDb } from '@/offline/db'
 import { nextTempId } from '@/offline/ids'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
@@ -488,9 +488,14 @@ export function PedidoModal({ show, onClose, onDraftChange, order = null }: Pedi
         }
 
         if (!isOnlineNow()) {
-          await enqueueCommand('ORDER_UPDATE', { id: order.id, data: body })
+          const { localId } = await enqueueOfflineOrderSave({
+            orderId: order.id,
+            data: body,
+          })
+          const prev = (await lepraDb.orders.get(localId)) ?? order
           await lepraDb.orders.put({
-            ...order,
+            ...prev,
+            id: localId,
             id_user: idUser,
             customer_name: null,
             user_name: displayName,
@@ -499,6 +504,10 @@ export function PedidoModal({ show, onClose, onDraftChange, order = null }: Pedi
             extra_note: extraPayloadNote,
             lines: linePayload,
           } as Order)
+          // Evitar fila fantasma si el id temp ya se había mapeado.
+          if (order.id < 0 && localId !== order.id) {
+            await lepraDb.orders.delete(order.id).catch(() => {})
+          }
           toast.success('Pedido actualizado (pendiente de sincronizar)')
         } else {
           const { error } = await updateOrder(body)

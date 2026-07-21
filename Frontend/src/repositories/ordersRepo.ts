@@ -5,6 +5,7 @@ import { parseUtcFromApi } from '@/lib/dateApi'
 import { endOfIsoDayMs, startOfIsoDayMs } from '@/lib/formatDate'
 import { isAdminUser } from '@/offline/admin'
 import { isOnlineNow } from '@/offline/network'
+import { hasPendingOrderMutation } from '@/offline/outbox'
 import { clampLimit, toOfflinePage } from './pagination'
 
 function filterOrders(all: Order[], filters: Record<string, unknown> = {}): Order[] {
@@ -34,6 +35,12 @@ function filterOrders(all: Order[], filters: Record<string, unknown> = {}): Orde
   return items
 }
 
+async function preferLocalIfPending(serverItem: Order): Promise<Order> {
+  if (!(await hasPendingOrderMutation(serverItem.id))) return serverItem
+  const local = await lepraDb.orders.get(serverItem.id)
+  return local ?? serverItem
+}
+
 export async function getOrdersPaginatedOfflineFirst(
   params: PaginatedRequest
 ): Promise<{ data?: PaginatedResponse<Order>; error?: { status: number; message: string } }> {
@@ -43,7 +50,16 @@ export async function getOrdersPaginatedOfflineFirst(
   if (isOnlineNow()) {
     const res = await getOrdersPaginated({ ...params, limit })
     if (res.data?.items?.length) {
-      await lepraDb.orders.bulkPut(res.data.items)
+      const mergedItems: Order[] = []
+      for (const item of res.data.items) {
+        const preferred = await preferLocalIfPending(item)
+        mergedItems.push(preferred)
+        // Solo cachear servidor si no hay mutación local pendiente.
+        if (preferred === item) {
+          await lepraDb.orders.put(item)
+        }
+      }
+      return { data: { ...res.data, items: mergedItems } }
     }
     return res
   }
@@ -57,4 +73,3 @@ export async function getOrdersPaginatedOfflineFirst(
   const page = toOfflinePage(filtered, { ...params, limit }, (o) => o.id)
   return { data: page }
 }
-

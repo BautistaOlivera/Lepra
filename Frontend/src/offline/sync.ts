@@ -4,6 +4,7 @@ import { isOnlineNow } from './network'
 import { syncOrders, syncProducts, syncUsers } from '@/api/sync'
 import { mergeProductForCache } from '@/lib/productMerge'
 import type { Product } from '@/types'
+import { hasPendingOrderMutation } from './outbox'
 
 const TTL_MS = 5 * 60 * 1000
 
@@ -79,16 +80,22 @@ export async function runAdminIncrementalSync(opts?: { force?: boolean }): Promi
     serverTime = Math.max(serverTime, productsRes.data.serverTime)
   }
   if (ordersRes.data) {
+    let putCount = 0
     for (const item of ordersRes.data.items) {
+      // No pisar cambios locales todavía no enviados (edición / notas / estado).
+      if (await hasPendingOrderMutation(item.id)) {
+        continue
+      }
       const existing = await lepraDb.orders.get(item.id)
       const merged =
         existing?.lines?.length && !item.lines?.length
           ? { ...item, lines: existing.lines, user_name: item.user_name ?? existing.user_name }
           : item
       await lepraDb.orders.put(merged)
+      putCount++
     }
     await setLastSync('orders_lastSync', ordersRes.data.serverTime)
-    ordersUpserted = ordersRes.data.items.length
+    ordersUpserted = putCount
     serverTime = Math.max(serverTime, ordersRes.data.serverTime)
   }
 

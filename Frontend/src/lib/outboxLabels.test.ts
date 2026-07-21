@@ -28,4 +28,18 @@ describe('outboxPayloadSummary', () => {
     expect(outboxPayloadSummary(row)).toContain('Yogur')
     expect(outboxPayloadSummary(row)).toContain('volumen')
   })
+
+  it('summarizes order update', () => {
+    expect(outboxTypeLabel('ORDER_UPDATE')).toBe('Editar pedido')
+    const row: OutboxRow = {
+      id: '2',
+      type: 'ORDER_UPDATE',
+      payload: { id: 15, data: { id: 15, lines: [{ id_product: 1, weight: null }] } },
+      createdAt: 0,
+      status: 'pending',
+      retries: 0,
+    }
+    expect(outboxPayloadSummary(row)).toContain('15')
+    expect(outboxPayloadSummary(row)).toContain('1 línea')
+  })
 })
