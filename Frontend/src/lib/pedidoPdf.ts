@@ -1,10 +1,10 @@
 import { jsPDF } from 'jspdf'
 import { __createTable, __drawTable } from 'jspdf-autotable'
 import type { Order } from '@/types'
-import { orderCustomerLabel } from '@/lib/orderDisplay'
+import { orderCustomerLabel, orderDisplayPaid, orderBalance, paymentMethodLabel } from '@/lib/orderDisplay'
 import { getImageUrl } from '@/api/client'
 import { parseUtcFromApi } from '@/lib/dateApi'
-import { formatDateTimeAR } from '@/lib/formatDate'
+import { formatDateFromApi, formatDateTimeAR } from '@/lib/formatDate'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { formatWeight } from '@/lib/formatWeight'
 import { lineTotal, lineTotalFallback } from '@/lib/pricing'
@@ -239,7 +239,6 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
       : null
   metaLine('Fecha', when ? formatDateTimeAR(when) : '—')
   metaLine('Estado', STATUS_ES[order.status] || order.status)
-  if (order.payment?.trim()) metaLine('Notas de pago', String(order.payment).trim())
 
   const lines = order.lines || []
   const showBrandCol = lines.some((l) => productBrand(productById[l.id_product]))
@@ -371,6 +370,114 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
   const subCell = refRow ? tableCellAt(refRow, subCol) : undefined
   const totalX = subCell ? subCell.x + subCell.width - cellPadding : tableLeft + tableWidth - cellPadding
   doc.text(formatMoneyWithSymbol(order.total), totalX, textBaseline, { align: 'right' })
+
+  cursorY = totalBoxY + totalBoxH
+
+  const payments = [...(order.payments || [])].sort((a, b) => {
+    const da = (a.paid_at || a.created_at || '').localeCompare(b.paid_at || b.created_at || '')
+    if (da !== 0) return -da
+    return (b.id || 0) - (a.id || 0)
+  })
+  const amountPaid = orderDisplayPaid(order)
+  const balance = orderBalance(order)
+  const showPaymentBlock = payments.length > 0 || (order.status || '').toUpperCase() === 'FULFILLED'
+
+  const ensureSpace = (needed: number) => {
+    if (cursorY + needed <= pageH - margin) return
+    doc.addPage()
+    cursorY = margin
+  }
+
+  if (showPaymentBlock) {
+    cursorY += 6
+    ensureSpace(14)
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(26, 26, 26)
+    doc.text('Cobros', tableLeft, cursorY)
+    cursorY += 3
+
+    if (payments.length > 0) {
+      for (const p of payments) {
+        const when = formatDateFromApi(p.paid_at || p.created_at)
+        const method = paymentMethodLabel(p.method)
+        const noteBit = (p.note || '').trim() ? ` · ${String(p.note).trim()}` : ''
+        const left = `${when} · ${method}${noteBit}`
+        const right = formatMoneyWithSymbol(p.amount)
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(9)
+        const rightW = doc.getTextWidth(right)
+        doc.setFont('helvetica', 'normal')
+        const leftMax = Math.max(36, tableWidth - rightW - cellPadding * 4)
+        const leftLines = doc.splitTextToSize(left, leftMax) as string[]
+        const rowH = Math.max(8, leftLines.length * 4.2 + 3.5)
+        ensureSpace(rowH + 1)
+
+        const boxY = cursorY
+        doc.setDrawColor(160, 160, 160)
+        doc.setLineWidth(0.3)
+        doc.rect(tableLeft, boxY, tableWidth, rowH, 'S')
+        doc.setTextColor(22, 22, 22)
+        doc.text(leftLines, tableLeft + cellPadding, boxY + 4.2)
+        doc.setFont('helvetica', 'bold')
+        doc.text(right, tableLeft + tableWidth - cellPadding, boxY + 4.5, { align: 'right' })
+        cursorY = boxY + rowH
+      }
+      cursorY += 2
+    }
+
+    const summaryRows: { label: string; value: string }[] = [
+      { label: 'Pagado', value: formatMoneyWithSymbol(amountPaid) },
+      { label: 'Saldo restante', value: formatMoneyWithSymbol(balance) },
+    ]
+    const summaryRowH = 7.5
+    const summaryH = summaryRows.length * summaryRowH
+    ensureSpace(summaryH + 2)
+
+    doc.setDrawColor(0, 0, 0)
+    doc.setLineWidth(0.45)
+    doc.rect(tableLeft, cursorY, tableWidth, summaryH, 'S')
+
+    summaryRows.forEach((row, i) => {
+      const rowY = cursorY + i * summaryRowH
+      if (i > 0) {
+        doc.setDrawColor(180, 180, 180)
+        doc.setLineWidth(0.25)
+        doc.line(tableLeft, rowY, tableLeft + tableWidth, rowY)
+      }
+      const baseline = rowY + summaryRowH - 2.4
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(10)
+      doc.setTextColor(26, 26, 26)
+      doc.text(row.label, tableLeft + cellPadding, baseline)
+      doc.text(row.value, tableLeft + tableWidth - cellPadding, baseline, { align: 'right' })
+    })
+    cursorY += summaryH
+  }
+
+  const freeNote = (order.payment || '').trim()
+  if (freeNote) {
+    cursorY += 6
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(26, 26, 26)
+    const noteLines = doc.splitTextToSize(freeNote, tableWidth - cellPadding * 2) as string[]
+    const noteBlockH = Math.max(10, noteLines.length * 4.2 + 8)
+    ensureSpace(noteBlockH + 6)
+    doc.text('Notas', tableLeft, cursorY)
+    cursorY += 3
+    const boxY = cursorY
+    doc.setDrawColor(120, 120, 120)
+    doc.setLineWidth(0.35)
+    doc.rect(tableLeft, boxY, tableWidth, noteBlockH, 'S')
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(22, 22, 22)
+    doc.text(noteLines, tableLeft + cellPadding, boxY + 5)
+    cursorY = boxY + noteBlockH
+  }
 
   return doc.output('blob')
 }

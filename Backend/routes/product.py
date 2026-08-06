@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Request, File, UploadFile, Form
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import selectinload
 import traceback
 import os
 import uuid
 
 from models import Product, InputProduct, InputProductUpdate, InputPaginatedRequestFilter
+from models.order import Order, OrderProduct
 from models.product import InputProductVisibility
 from services.product_status import (
     STATUS_ACTIVE,
@@ -46,6 +47,20 @@ def _product_payload(p: Product) -> dict:
             for t in p.price_tiers
         ],
     }
+
+
+def _sold_kg_subquery():
+    """Kg vendidos por producto (pedidos activos no cancelados)."""
+    return (
+        select(
+            OrderProduct.id_product.label("id_product"),
+            func.coalesce(func.sum(OrderProduct.weight), 0.0).label("sold_kg"),
+        )
+        .join(Order, Order.id == OrderProduct.id_order)
+        .where(Order.active.is_(True), Order.status != "CANCELED")
+        .group_by(OrderProduct.id_product)
+        .subquery()
+    )
 
 
 def _apply_product_list_filters(stmt, filters: dict):
@@ -136,14 +151,46 @@ async def get_products_paginated(req: Request, body: InputPaginatedRequestFilter
     limit = body.limit or 20
     last_seen_id = body.last_seen_id
     filters = body.filters or {}
+    admin_list = filters.get("admin_list") is True
 
     async with AsyncSessionLocal() as session:
-        stmt = select(Product).options(selectinload(Product.price_tiers))
-        stmt = _apply_product_list_filters(stmt, filters)
+        if admin_list:
+            # Admin: orden por id (más reciente primero).
+            stmt = select(Product).options(selectinload(Product.price_tiers))
+            stmt = _apply_product_list_filters(stmt, filters)
+            stmt = stmt.order_by(Product.id.desc())
+            if last_seen_id is not None:
+                stmt = stmt.where(Product.id < last_seen_id)
+        else:
+            # Catálogo: más vendido → menos vendido (kg), respetando filtros (categoría, búsqueda).
+            sold_subq = _sold_kg_subquery()
+            sold_kg = func.coalesce(sold_subq.c.sold_kg, 0.0)
+            stmt = (
+                select(Product)
+                .options(selectinload(Product.price_tiers))
+                .outerjoin(sold_subq, Product.id == sold_subq.c.id_product)
+            )
+            stmt = _apply_product_list_filters(stmt, filters)
+            stmt = stmt.order_by(sold_kg.desc(), Product.id.desc())
+            if last_seen_id is not None:
+                last_sold_result = await session.execute(
+                    select(func.coalesce(func.sum(OrderProduct.weight), 0.0))
+                    .select_from(OrderProduct)
+                    .join(Order, Order.id == OrderProduct.id_order)
+                    .where(
+                        OrderProduct.id_product == last_seen_id,
+                        Order.active.is_(True),
+                        Order.status != "CANCELED",
+                    )
+                )
+                last_sold = float(last_sold_result.scalar() or 0.0)
+                stmt = stmt.where(
+                    or_(
+                        sold_kg < last_sold,
+                        and_(sold_kg == last_sold, Product.id < last_seen_id),
+                    )
+                )
 
-        stmt = stmt.order_by(Product.id.desc())
-        if last_seen_id is not None:
-            stmt = stmt.where(Product.id < last_seen_id)
         stmt = stmt.limit(limit)
 
         result = await session.execute(stmt)

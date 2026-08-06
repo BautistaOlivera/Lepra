@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -8,7 +8,14 @@ from models.user import User
 import traceback
 
 from models import Order, OrderProduct, InputOrderUpdate, InputPaginatedRequestFilter
-from models.order import OrderCreateClient, OrderCreateAdmin, OrderProduct
+from models.order import (
+    OrderCreateClient,
+    OrderCreateAdmin,
+    OrderProduct,
+    OrderPayment,
+    InputOrderPaymentCreate,
+    PAYMENT_METHODS,
+)
 from models.product import Product
 from config.db import AsyncSessionLocal
 from auth.roles import require_roles
@@ -16,6 +23,12 @@ from services.pricing import line_total, unit_price_for_line, validate_line_weig
 from utils.datetime_api import utc_naive_iso
 
 order_router = APIRouter(prefix="/order", tags=["Order"])
+
+_PAYMENT_EPS = 0.009
+
+
+def _utcnow_naive():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def _compute_total(lines, products: dict[int, Product]):
@@ -61,6 +74,56 @@ def _order_extra_fields(order: Order) -> dict:
     amount = float(order.extra_amount or 0)
     note = (order.extra_note or "").strip() or None
     return {"extra_amount": amount, "extra_note": note}
+
+
+def _payment_payload(p: OrderPayment) -> dict:
+    return {
+        "id": p.id,
+        "id_order": p.id_order,
+        "amount": float(p.amount or 0),
+        "method": p.method,
+        "paid_at": p.paid_at.isoformat() if p.paid_at else None,
+        "note": (p.note or "").strip() or None,
+        "created_at": utc_naive_iso(p.created_at),
+    }
+
+
+def _payments_summary(order: Order) -> dict:
+    payments = list(order.payments or [])
+    amount_paid = round(sum(float(p.amount or 0) for p in payments), 2)
+    total = round(float(order.total or 0), 2)
+    # Cumplido = cobrado: el saldo restante queda en 0.
+    if (order.status or "").upper() == "FULFILLED":
+        balance = 0.0
+    else:
+        balance = round(max(0.0, total - amount_paid), 2)
+    return {
+        "payments": [_payment_payload(p) for p in payments],
+        "amount_paid": amount_paid,
+        "balance": balance,
+    }
+
+
+def _order_payload(o: Order) -> dict:
+    return {
+        "id": o.id,
+        "id_user": o.id_user,
+        "customer_name": o.customer_name,
+        "user_name": _order_display_name(o),
+        "total": o.total,
+        "date": o.date.isoformat() if o.date else None,
+        "created_at": utc_naive_iso(o.created_at),
+        "payment": o.payment,
+        **_order_extra_fields(o),
+        **_payments_summary(o),
+        "status": o.status,
+        "active": o.active,
+        "lines": [_line_payload(op, op.product) for op in o.order_products],
+    }
+
+
+def _amount_paid(order: Order) -> float:
+    return round(sum(float(p.amount or 0) for p in (order.payments or [])), 2)
 
 
 def _parse_extra(body_amount: Optional[float], body_note: Optional[str]) -> tuple[float, Optional[str]] | JSONResponse:
@@ -145,6 +208,7 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
         stmt = select(Order).options(
             selectinload(Order.order_products).selectinload(OrderProduct.product),
             selectinload(Order.user),
+            selectinload(Order.payments),
         )
         if role == "CLIENT":
             stmt = stmt.where(Order.id_user == user_id)
@@ -185,22 +249,7 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
         result = await session.execute(stmt)
         orders = result.scalars().unique().all()
 
-        items = []
-        for o in orders:
-            items.append({
-                "id": o.id,
-                "id_user": o.id_user,
-                "customer_name": o.customer_name,
-                "user_name": _order_display_name(o),
-                "total": o.total,
-                "date": o.date.isoformat() if o.date else None,
-                "created_at": utc_naive_iso(o.created_at),
-                "payment": o.payment,
-                **_order_extra_fields(o),
-                "status": o.status,
-                "active": o.active,
-                "lines": [_line_payload(op, op.product) for op in o.order_products],
-            })
+        items = [_order_payload(o) for o in orders]
 
         return JSONResponse(
             status_code=200,
@@ -225,6 +274,7 @@ async def get_order(req: Request, order_id: int):
         stmt = select(Order).where(Order.id == order_id).options(
             selectinload(Order.order_products).selectinload(OrderProduct.product),
             selectinload(Order.user),
+            selectinload(Order.payments),
         )
         result = await session.execute(stmt)
         o = result.scalar_one_or_none()
@@ -233,23 +283,7 @@ async def get_order(req: Request, order_id: int):
         if role == "CLIENT" and o.id_user != user_id:
             return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
 
-        return JSONResponse(
-            status_code=200,
-            content={
-                "id": o.id,
-                "id_user": o.id_user,
-                "customer_name": o.customer_name,
-                "user_name": _order_display_name(o),
-                "total": o.total,
-                "date": o.date.isoformat() if o.date else None,
-                "created_at": utc_naive_iso(o.created_at),
-                "payment": o.payment,
-                **_order_extra_fields(o),
-                "status": o.status,
-                "active": o.active,
-                "lines": [_line_payload(op, op.product) for op in o.order_products],
-            },
-        )
+        return JSONResponse(status_code=200, content=_order_payload(o))
 
 
 @order_router.post("/create-client")
@@ -444,7 +478,10 @@ async def update_order(req: Request, body: InputOrderUpdate):
 
     try:
         async with AsyncSessionLocal() as session:
-            stmt = select(Order).where(Order.id == body.id).options(selectinload(Order.order_products))
+            stmt = select(Order).where(Order.id == body.id).options(
+                selectinload(Order.order_products),
+                selectinload(Order.payments),
+            )
             result = await session.execute(stmt)
             order = result.scalar_one_or_none()
             if not order:
@@ -557,11 +594,146 @@ async def update_order(req: Request, body: InputOrderUpdate):
                             lines_total += round(float(op.weight) * float(op.price_per_kg), 2)
                 order.total = round(lines_total + float(order.extra_amount or 0), 2)
 
+            paid = _amount_paid(order)
+            if float(order.total or 0) + _PAYMENT_EPS < paid:
+                return JSONResponse(
+                    status_code=400,
+                    content={
+                        "message": (
+                            f"El total del pedido (${float(order.total or 0):.2f}) "
+                            f"no puede ser menor a lo ya pagado (${paid:.2f})"
+                        )
+                    },
+                )
+
             await session.commit()
             return JSONResponse(status_code=200, content={"message": "Pedido actualizado", "total": order.total})
     except Exception as e:
         traceback.print_exc()
         return JSONResponse(status_code=500, content={"message": "Error al actualizar pedido"})
+
+
+@order_router.post("/{order_id}/payments")
+async def add_order_payment(req: Request, order_id: int, body: InputOrderPaymentCreate):
+    """Registrar un pago parcial. Solo ADMIN."""
+    payload = require_roles(req.headers, ["ADMIN"])
+    if isinstance(payload, JSONResponse):
+        return payload
+
+    try:
+        amount = float(body.amount)
+    except (TypeError, ValueError):
+        return JSONResponse(status_code=400, content={"message": "Monto inválido"})
+    if amount <= 0:
+        return JSONResponse(status_code=400, content={"message": "El monto debe ser mayor a 0"})
+
+    method = (body.method or "").strip().lower()
+    if method not in PAYMENT_METHODS:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "Medio de pago inválido. Use efectivo, transferencia u otro."},
+        )
+
+    note = (body.note or "").strip() or None
+    paid_at = body.paid_at or date.today()
+
+    async with AsyncSessionLocal() as session:
+        stmt = (
+            select(Order)
+            .where(Order.id == order_id)
+            .options(
+                selectinload(Order.payments),
+                selectinload(Order.order_products).selectinload(OrderProduct.product),
+                selectinload(Order.user),
+            )
+        )
+        result = await session.execute(stmt)
+        order = result.scalar_one_or_none()
+        if not order:
+            return JSONResponse(status_code=404, content={"message": "Pedido no encontrado"})
+        if not order.active:
+            return JSONResponse(status_code=400, content={"message": "El pedido está desactivado"})
+
+        paid = _amount_paid(order)
+        total = round(float(order.total or 0), 2)
+        if paid + amount > total + _PAYMENT_EPS:
+            balance = round(max(0.0, total - paid), 2)
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "message": (
+                        f"El pago supera el saldo restante (${balance:.2f}). "
+                        f"Total ${total:.2f}, ya pagado ${paid:.2f}."
+                    )
+                },
+            )
+
+        payment = OrderPayment(
+            id_order=order.id,
+            amount=round(amount, 2),
+            method=method,
+            paid_at=paid_at,
+            note=note,
+        )
+        session.add(payment)
+        order.updated_at = _utcnow_naive()
+        await session.commit()
+        await session.refresh(payment)
+
+        # Reload for ordered payments list
+        result = await session.execute(stmt)
+        order = result.scalar_one()
+        return JSONResponse(
+            status_code=201,
+            content={
+                "message": "Pago registrado",
+                "payment": _payment_payload(payment),
+                **_payments_summary(order),
+                "total": float(order.total or 0),
+            },
+        )
+
+
+@order_router.delete("/{order_id}/payments/{payment_id}")
+async def delete_order_payment(req: Request, order_id: int, payment_id: int):
+    """Eliminar un pago del historial. Solo ADMIN."""
+    payload = require_roles(req.headers, ["ADMIN"])
+    if isinstance(payload, JSONResponse):
+        return payload
+
+    async with AsyncSessionLocal() as session:
+        stmt = (
+            select(Order)
+            .where(Order.id == order_id)
+            .options(
+                selectinload(Order.payments),
+                selectinload(Order.order_products).selectinload(OrderProduct.product),
+                selectinload(Order.user),
+            )
+        )
+        result = await session.execute(stmt)
+        order = result.scalar_one_or_none()
+        if not order:
+            return JSONResponse(status_code=404, content={"message": "Pedido no encontrado"})
+
+        payment = next((p for p in order.payments if p.id == payment_id), None)
+        if not payment:
+            return JSONResponse(status_code=404, content={"message": "Pago no encontrado"})
+
+        await session.delete(payment)
+        order.updated_at = _utcnow_naive()
+        await session.commit()
+
+        result = await session.execute(stmt)
+        order = result.scalar_one()
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "Pago eliminado",
+                **_payments_summary(order),
+                "total": float(order.total or 0),
+            },
+        )
 
 
 @order_router.put("/{order_id}/deactivate")

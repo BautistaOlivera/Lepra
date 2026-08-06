@@ -2101,6 +2101,14 @@ body {
   font-style: italic;
 }
 
+.pedido-pagos-summary {
+  background: #f8f9fa;
+}
+
+.pedido-pago-item--flash {
+  background-color: #e8f5e9;
+}
+
 .admin-list-pedido-tile-actions {
   width: 100%;
   margin-top: auto;

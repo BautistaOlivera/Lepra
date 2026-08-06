@@ -18,6 +18,8 @@ export type OutboxCommandType =
   | 'ORDER_UPDATE'
   | 'ORDER_STATUS_SET'
   | 'ORDER_PAYMENT_UPDATE'
+  | 'ORDER_PAYMENT_ADD'
+  | 'ORDER_PAYMENT_DELETE'
 
 export type OutboxRow = {
   id: string

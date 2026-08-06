@@ -50,6 +50,18 @@ export interface OrderProduct {
   product_brand?: string
 }
 
+export type OrderPaymentMethod = 'efectivo' | 'transferencia' | 'otro'
+
+export interface OrderPayment {
+  id: number
+  id_order: number
+  amount: number
+  method: OrderPaymentMethod | string
+  paid_at?: string | null
+  note?: string | null
+  created_at?: string | null
+}
+
 export interface Order {
   id: number
   id_user: number | null
@@ -59,11 +71,18 @@ export interface Order {
   date?: string | null
   created_at?: string | null
   updated_at?: string | null
+  /** Nota libre legacy (no descuenta del total). */
   payment?: string | null
   /** Cargo puntual fuera de catálogo (suma al total). */
   extra_amount?: number | null
   /** Descripción del cargo extra (productos de favor / única vez). */
   extra_note?: string | null
+  /** Historial de cobros parciales. */
+  payments?: OrderPayment[]
+  /** Suma de pagos estructurados. */
+  amount_paid?: number
+  /** total - amount_paid (no negativo). */
+  balance?: number
   status: 'PENDING' | 'FULFILLED' | 'CANCELED'
   active: boolean
   lines?: OrderProduct[]

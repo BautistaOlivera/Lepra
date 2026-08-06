@@ -30,6 +30,12 @@ class Order(Base):
         back_populates="order",
         cascade="all, delete-orphan",
     )
+    payments = relationship(
+        "OrderPayment",
+        back_populates="order",
+        cascade="all, delete-orphan",
+        order_by="OrderPayment.paid_at.desc(), OrderPayment.id.desc()",
+    )
 
 
 class OrderProduct(Base):
@@ -44,6 +50,23 @@ class OrderProduct(Base):
 
     order = relationship("Order", back_populates="order_products")
     product = relationship("Product", back_populates="order_products")
+
+
+PAYMENT_METHODS = ("efectivo", "transferencia", "otro")
+
+
+class OrderPayment(Base):
+    __tablename__ = "order_payments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    id_order = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    amount = Column(Float, nullable=False)
+    method = Column(String, nullable=False)
+    paid_at = Column(Date, nullable=False)
+    note = Column(String, nullable=True)
+    created_at = Column(DateTime, default=_utcnow_naive)
+
+    order = relationship("Order", back_populates="payments")
 
 
 # Pydantic schemas
@@ -142,3 +165,10 @@ class InputOrderUpdate(BaseModel):
     extra_amount: Optional[float] = None
     extra_note: Optional[str] = None
     lines: Optional[List[OrderLineAdminInput]] = None
+
+
+class InputOrderPaymentCreate(BaseModel):
+    amount: float
+    method: str
+    paid_at: Optional[date] = None
+    note: Optional[str] = None

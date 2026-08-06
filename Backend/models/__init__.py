@@ -27,6 +27,7 @@ from models.product_price_tier import (
 from models.order import (
     Order,
     OrderProduct,
+    OrderPayment,
     OrderCreate,
     OrderResponse,
     OrderUpdate,
@@ -34,5 +35,7 @@ from models.order import (
     OrderProductResponse,
     InputOrder,
     InputOrderUpdate,
+    InputOrderPaymentCreate,
+    PAYMENT_METHODS,
 )
 from models.pagination import InputPaginatedRequestFilter

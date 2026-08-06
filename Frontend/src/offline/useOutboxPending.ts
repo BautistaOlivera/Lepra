@@ -47,6 +47,10 @@ function computeSets(rows: OutboxRow[]): PendingSets {
       case 'ORDER_PAYMENT_UPDATE':
         if (Number.isFinite(Number(p?.id))) orders.add(Number(p.id))
         break
+      case 'ORDER_PAYMENT_ADD':
+      case 'ORDER_PAYMENT_DELETE':
+        if (Number.isFinite(Number(p?.order_id))) orders.add(Number(p.order_id))
+        break
       default:
         break
     }

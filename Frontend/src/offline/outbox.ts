@@ -6,7 +6,7 @@ import { createProduct, updateProduct, deactivateProduct } from '@/api/product'
 import { applyTierDiffOnline } from '@/lib/productTiers'
 import { applyTierDiffToLocal } from '@/lib/productMerge'
 import type { PriceTier } from '@/types'
-import { createOrder, setOrderStatus, updateOrder } from '@/api/order'
+import { createOrder, setOrderStatus, updateOrder, addOrderPayment, deleteOrderPayment } from '@/api/order'
 
 function uuid(): string {
   // Suficiente para cola local (no criptográfico)
@@ -117,7 +117,7 @@ export async function hasPendingOrderMutation(orderId: number): Promise<boolean>
   const rows = await lepraDb.outbox.toArray()
   for (const r of rows) {
     if (r.status === 'done') continue
-    const p = r.payload as { id?: number; tempId?: number } | null
+    const p = r.payload as { id?: number; tempId?: number; order_id?: number } | null
     if (r.type === 'ORDER_CREATE_ADMIN') {
       if (Number(p?.tempId) === orderId) return true
       continue
@@ -132,6 +132,16 @@ export async function hasPendingOrderMutation(orderId: number): Promise<boolean>
       if (pid === orderId) return true
       if (pid < 0) {
         const mapped = await lepraDb.idmap.get(['order', pid])
+        if (mapped?.realId === orderId) return true
+      }
+      continue
+    }
+    if (r.type === 'ORDER_PAYMENT_ADD' || r.type === 'ORDER_PAYMENT_DELETE') {
+      const oid = Number(p?.order_id)
+      if (!Number.isFinite(oid)) continue
+      if (oid === orderId) return true
+      if (oid < 0) {
+        const mapped = await lepraDb.idmap.get(['order', oid])
         if (mapped?.realId === orderId) return true
       }
     }
@@ -346,6 +356,48 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
       const realId = await resolveId('order', Number(id))
       const res = await updateOrder({ id: realId, payment: payment ?? '' })
       return res.error ? { ok: false, status: res.error.status, message: res.error.message } : { ok: true }
+    }
+    case 'ORDER_PAYMENT_ADD': {
+      const payload = row.payload as any
+      const realOrderId = await resolveId('order', Number(payload?.order_id))
+      const res = await addOrderPayment(realOrderId, {
+        amount: Number(payload?.amount),
+        method: String(payload?.method || 'otro'),
+        paid_at: payload?.paid_at ?? null,
+        note: payload?.note ?? null,
+      })
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      const existing = await lepraDb.orders.get(realOrderId)
+      if (existing && res.data) {
+        await lepraDb.orders.put({
+          ...existing,
+          payments: res.data.payments,
+          amount_paid: res.data.amount_paid,
+          balance: res.data.balance,
+        })
+      }
+      return { ok: true }
+    }
+    case 'ORDER_PAYMENT_DELETE': {
+      const payload = row.payload as any
+      const realOrderId = await resolveId('order', Number(payload?.order_id))
+      const paymentId = Number(payload?.payment_id)
+      if (!Number.isFinite(paymentId) || paymentId < 0) {
+        // Pago solo local: ya se eliminó del cache; nada que sincronizar.
+        return { ok: true }
+      }
+      const res = await deleteOrderPayment(realOrderId, paymentId)
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      const existing = await lepraDb.orders.get(realOrderId)
+      if (existing && res.data) {
+        await lepraDb.orders.put({
+          ...existing,
+          payments: res.data.payments,
+          amount_paid: res.data.amount_paid,
+          balance: res.data.balance,
+        })
+      }
+      return { ok: true }
     }
     case 'ORDER_CREATE_ADMIN': {
       const payload = row.payload as any

@@ -118,7 +118,11 @@ async def sync_orders(req: Request, since: int | None = None):
         stmt = (
             select(Order)
             .where(Order.updated_at > since_dt)
-            .options(selectinload(Order.order_products), selectinload(Order.user))
+            .options(
+                selectinload(Order.order_products),
+                selectinload(Order.user),
+                selectinload(Order.payments),
+            )
         )
         result = await session.execute(stmt)
         items = result.scalars().unique().all()
@@ -147,6 +151,31 @@ async def sync_orders(req: Request, since: int | None = None):
                     "payment": o.payment,
                     "extra_amount": float(o.extra_amount or 0),
                     "extra_note": (o.extra_note or "").strip() or None,
+                    "payments": [
+                        {
+                            "id": p.id,
+                            "id_order": p.id_order,
+                            "amount": float(p.amount or 0),
+                            "method": p.method,
+                            "paid_at": p.paid_at.isoformat() if p.paid_at else None,
+                            "note": (p.note or "").strip() or None,
+                            "created_at": utc_naive_iso(p.created_at),
+                        }
+                        for p in (o.payments or [])
+                    ],
+                    "amount_paid": round(sum(float(p.amount or 0) for p in (o.payments or [])), 2),
+                    "balance": (
+                        0.0
+                        if (o.status or "").upper() == "FULFILLED"
+                        else round(
+                            max(
+                                0.0,
+                                float(o.total or 0)
+                                - sum(float(p.amount or 0) for p in (o.payments or [])),
+                            ),
+                            2,
+                        )
+                    ),
                     "status": o.status,
                     "active": o.active,
                     "updated_at": utc_naive_iso(o.updated_at),

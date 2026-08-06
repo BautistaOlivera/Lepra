@@ -21,7 +21,7 @@ import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 import { formatDateFromApi } from '@/lib/formatDate'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
-import { orderCustomerLabel, orderLinesPreview, orderPaymentPreview } from '@/lib/orderDisplay'
+import { orderBalancePreview, orderCustomerLabel, orderLinesPreview } from '@/lib/orderDisplay'
 import { DateInputAr } from '@/components/DateInputAr'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 import { AdminPageHero } from '@/components/AdminPageHero'
@@ -110,7 +110,9 @@ export function Pedidos() {
     }
     if (!isOnlineNow()) {
       await enqueueCommand('ORDER_STATUS_SET', { id: orderId, status: newStatus })
-      await lepraDb.orders.update(orderId, { status: newStatus as Order['status'] })
+      const patch: Partial<Order> = { status: newStatus as Order['status'] }
+      if (newStatus === 'FULFILLED') patch.balance = 0
+      await lepraDb.orders.update(orderId, patch)
       toast.success('Cambio guardado (pendiente de sincronizar)')
       refreshPending().catch(() => {})
       loadOrders()
@@ -178,15 +180,20 @@ export function Pedidos() {
     releaseBootstrapModalLock()
   }
 
-  function applyOrderPayment(orderId: number, payment: string) {
-    const value = payment.trim() || null
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, payment: value } : o)))
-    setPdfOrder((prev) => (prev?.id === orderId ? { ...prev, payment: value } : prev))
-    setNotasOrder((prev) => (prev?.id === orderId ? { ...prev, payment: value } : prev))
+  function applyOrderPatch(orderId: number, patch: Partial<Order>) {
+    const apply = (o: Order): Order => (o.id === orderId ? { ...o, ...patch } : o)
+    setOrders((prev) => prev.map(apply))
+    setPdfOrder((prev) => (prev?.id === orderId ? apply(prev) : prev))
+    setNotasOrder((prev) => (prev?.id === orderId ? apply(prev) : prev))
   }
 
-  function onNotasSaved(orderId: number, payment: string) {
-    applyOrderPayment(orderId, payment)
+  function onNotasSaved(next: Order) {
+    applyOrderPatch(next.id, {
+      payment: next.payment,
+      payments: next.payments,
+      amount_paid: next.amount_paid,
+      balance: next.balance,
+    })
     refreshPending().catch(() => {})
   }
 
@@ -332,7 +339,7 @@ export function Pedidos() {
                   const idLabel = o.id < 0 ? 'Nuevo' : `#${o.id}`
                   const itemsLabel =
                     lineCount === 1 ? '1 ítem' : lineCount > 0 ? `${lineCount} ítems` : 'Sin ítems'
-                  const paymentPreview = orderPaymentPreview(o.payment)
+                  const paymentPreview = orderBalancePreview(o)
 
                   return (
                     <Card key={o.id} className="card-lepra admin-list-pedido-tile">
@@ -363,15 +370,16 @@ export function Pedidos() {
                           {orderLinesPreview(o)}
                         </div>
 
-                        {paymentPreview ? (
-                          <div className="admin-list-pedido-tile-payment" title={o.payment || undefined}>
-                            {paymentPreview}
-                          </div>
-                        ) : (
-                          <div className="admin-list-pedido-tile-payment admin-list-pedido-tile-payment--empty">
-                            Sin notas de pago
-                          </div>
-                        )}
+                        <div
+                          className={
+                            paymentPreview === 'Sin pagos'
+                              ? 'admin-list-pedido-tile-payment admin-list-pedido-tile-payment--empty'
+                              : 'admin-list-pedido-tile-payment'
+                          }
+                          title={o.payment || undefined}
+                        >
+                          {paymentPreview}
+                        </div>
 
                         <div className="admin-list-pedido-tile-actions">
                           <PedidoRowActions
@@ -422,7 +430,7 @@ export function Pedidos() {
           show
           order={notasOrder}
           onClose={onNotasClose}
-          onSaved={(payment) => onNotasSaved(notasOrder.id, payment)}
+          onSaved={onNotasSaved}
         />
       )}
       {pdfOrder && <PedidoPdfModal order={pdfOrder} show onClose={onPdfClose} />}

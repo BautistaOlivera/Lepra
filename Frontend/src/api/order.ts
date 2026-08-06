@@ -1,5 +1,5 @@
 import { api } from './client'
-import { Order, PaginatedRequest, PaginatedResponse } from '@/types'
+import { Order, OrderPayment, OrderPaymentMethod, PaginatedRequest, PaginatedResponse } from '@/types'
 
 export async function getOrdersPaginated(params: PaginatedRequest) {
   return api<PaginatedResponse<Order>>('/order/paginated', {
@@ -54,4 +54,36 @@ export async function updateOrder(data: {
 
 export async function setOrderStatus(id: number, status: string) {
   return api<{ message: string }>(`/order/${id}/status?status=${status}`, { method: 'PUT' })
+}
+
+export async function addOrderPayment(
+  orderId: number,
+  data: {
+    amount: number
+    method: OrderPaymentMethod | string
+    paid_at?: string | null
+    note?: string | null
+  }
+) {
+  return api<{
+    message: string
+    payment: OrderPayment
+    payments: OrderPayment[]
+    amount_paid: number
+    balance: number
+    total: number
+  }>(`/order/${orderId}/payments`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function deleteOrderPayment(orderId: number, paymentId: number) {
+  return api<{
+    message: string
+    payments: OrderPayment[]
+    amount_paid: number
+    balance: number
+    total: number
+  }>(`/order/${orderId}/payments/${paymentId}`, { method: 'DELETE' })
 }

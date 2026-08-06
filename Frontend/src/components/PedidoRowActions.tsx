@@ -25,9 +25,9 @@ export function PedidoRowActions({
   const isFulfilled = order.status === 'FULFILLED'
   const canCancel = isPending || isFulfilled
   const syncDisabled = order.id < 0
-  const hasNotas = Boolean(order.payment?.trim())
+  const hasNotas = Boolean(order.payment?.trim()) || (order.payments?.length ?? 0) > 0 || (order.amount_paid ?? 0) > 0
   const editLabel = 'Editar pedido'
-  const notasLabel = hasNotas ? 'Editar notas de pago' : 'Agregar notas de pago'
+  const notasLabel = hasNotas ? 'Ver o editar pagos' : 'Registrar pagos'
   const pdfLabel = 'Ver o imprimir pedido'
   const fulfillTitle = syncDisabled ? 'Sincronizá el pedido antes de cumplir' : 'Marcar como cumplido'
   const cancelTitle = syncDisabled
