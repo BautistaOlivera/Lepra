@@ -27,8 +27,10 @@ export function telHref(phone: string): string {
 
 export function getContactConfig(): ContactConfig {
   const email = trimEnv(import.meta.env.VITE_CONTACT_EMAIL)
-  const phone = trimEnv(import.meta.env.VITE_CONTACT_PHONE)
-  const whatsapp = trimEnv(import.meta.env.VITE_CONTACT_WHATSAPP)
+  const phone =
+    trimEnv(import.meta.env.VITE_CONTACT_PHONE) ?? '+54 9 3433 02-2866'
+  const whatsapp =
+    trimEnv(import.meta.env.VITE_CONTACT_WHATSAPP) ?? phone.replace(/\D/g, '')
   const label = trimEnv(import.meta.env.VITE_CONTACT_LABEL) ?? 'El Lepra'
   const tagline =
     trimEnv(import.meta.env.VITE_CONTACT_TAGLINE) ?? 'Quesos y lácteos de calidad'

@@ -1168,6 +1168,14 @@ body {
   background: #faf8f4;
 }
 
+.catalog-footer-grid {
+  align-items: flex-start;
+}
+
+.catalog-footer-col {
+  min-width: 0;
+}
+
 .catalog-footer-heading {
   letter-spacing: 0.06em;
   font-size: 0.75rem;
@@ -1177,11 +1185,13 @@ body {
   color: var(--lepra-black, #1a1a1a);
   font-size: 1rem;
   margin-bottom: 0;
+  line-height: 1.45;
 }
 
 .catalog-footer-owner-name {
   color: var(--lepra-black, #1a1a1a);
   font-size: 1.05rem;
+  line-height: 1.4;
 }
 
 .catalog-footer-hint-label {
@@ -1193,8 +1203,12 @@ body {
   margin-bottom: 0 !important;
 }
 
+.catalog-footer-contact .catalog-footer-link {
+  word-break: break-word;
+}
+
 @media (max-width: 767.98px) {
-  .catalog-site-footer .row > [class*='col-'] {
+  .catalog-site-footer .catalog-footer-col {
     text-align: center;
   }
 
@@ -1204,8 +1218,17 @@ body {
 }
 
 @media (min-width: 768px) {
-  .catalog-footer-contact {
+  .catalog-footer-col--owner {
+    text-align: center;
+  }
+
+  .catalog-footer-col--consultas .catalog-footer-heading,
+  .catalog-footer-col--consultas .catalog-footer-contact {
     text-align: right;
+  }
+
+  .catalog-footer-col--consultas .catalog-footer-contact .catalog-footer-link {
+    justify-content: flex-end;
   }
 }
 
@@ -2101,12 +2124,35 @@ body {
   font-style: italic;
 }
 
+.admin-list-pedido-balance {
+  color: var(--lepra-yellow);
+  font-weight: 600;
+}
+
 .pedido-pagos-summary {
   background: #f8f9fa;
 }
 
 .pedido-pago-item--flash {
   background-color: #e8f5e9;
+}
+
+.pedido-pago-fill-balance-btn {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pedido-pago-fill-balance-btn:disabled,
+.pedido-pago-fill-balance-btn.disabled {
+  background-color: var(--lepra-btn-disabled-bg) !important;
+  border-color: #ced4da !important;
+  color: var(--lepra-btn-disabled-color) !important;
+  opacity: 1;
+  cursor: not-allowed;
 }
 
 .admin-list-pedido-tile-actions {

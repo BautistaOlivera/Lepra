@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, Form, Button, ListGroup, Spinner } from 'react-bootstrap'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Wallet } from 'lucide-react'
 import { LepraModal, ModalDismissButton } from '@/components/LepraModal'
 import toast from 'react-hot-toast'
-import { addOrderPayment, deleteOrderPayment, updateOrder } from '@/api/order'
+import { addOrderPayment, deleteOrderPayment, getOrder, updateOrder } from '@/api/order'
 import { Order, OrderPayment, OrderPaymentMethod } from '@/types'
 import { isOnlineNow } from '@/offline/network'
 import { enqueueCommand } from '@/offline/outbox'
@@ -41,8 +41,11 @@ interface PedidoNotasModalProps {
   onSaved?: (order: Order) => void
 }
 
+/**
+ * Modal controlado: historial / pagado / saldo salen de `order` (props).
+ * Solo el formulario de alta y la nota libre viven en estado local.
+ */
 export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasModalProps) {
-  const [localOrder, setLocalOrder] = useState(order)
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState<OrderPaymentMethod>('efectivo')
   const [paidAt, setPaidAt] = useState(todayIsoDate())
@@ -53,17 +56,15 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
   const [flashId, setFlashId] = useState<number | null>(null)
   const [statusMsg, setStatusMsg] = useState<string | null>(null)
   const amountRef = useRef<HTMLInputElement>(null)
-  const openedForId = useRef<number | null>(null)
+  const formOrderId = useRef<number | null>(null)
 
-  // Solo resetea al abrir / cambiar de pedido (no en cada update del padre).
   useEffect(() => {
     if (!show) {
-      openedForId.current = null
+      formOrderId.current = null
       return
     }
-    if (openedForId.current === order.id) return
-    openedForId.current = order.id
-    setLocalOrder(order)
+    if (formOrderId.current === order.id) return
+    formOrderId.current = order.id
     setAmount('')
     setMethod('efectivo')
     setPaidAt(todayIsoDate())
@@ -74,14 +75,15 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
     setFlashId(null)
     setStatusMsg(null)
     window.setTimeout(() => amountRef.current?.focus(), 50)
-  }, [show, order])
+  }, [show, order.id, order.payment])
 
-  const payments = localOrder.payments || []
-  const paid = orderDisplayPaid(localOrder)
-  const balance = orderBalance(localOrder)
-  const isFulfilled = (localOrder.status || '').toUpperCase() === 'FULFILLED'
-  const clientLabel = orderCustomerLabel(localOrder)
+  const payments = order.payments || []
+  const paid = orderDisplayPaid(order)
+  const balance = orderBalance(order)
+  const isFulfilled = (order.status || '').toUpperCase() === 'FULFILLED'
+  const clientLabel = orderCustomerLabel(order)
   const isBusy = busy != null
+  const canAddPayment = !isBusy && order.id >= 0 && !isFulfilled && balance > 0.009
 
   const sortedPayments = useMemo(() => {
     return [...payments].sort((a, b) => {
@@ -91,8 +93,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
     })
   }, [payments])
 
-  function applyLocal(next: Order, flashPaymentId?: number | null) {
-    setLocalOrder(next)
+  function publish(next: Order, flashPaymentId?: number | null) {
     onSaved?.(next)
     if (flashPaymentId != null) {
       setFlashId(flashPaymentId)
@@ -101,20 +102,26 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
   }
 
   async function persistOrderCache(next: Order) {
-    await lepraDb.orders
-      .update(next.id, {
-        payments: next.payments,
+    try {
+      const existing = await lepraDb.orders.get(next.id)
+      await lepraDb.orders.put({
+        ...(existing || next),
+        ...next,
+        id: next.id,
+        payments: next.payments ?? [],
         amount_paid: next.amount_paid,
         balance: next.balance,
         payment: next.payment ?? null,
       })
-      .catch(() => {})
+    } catch {
+      // Cache opcional
+    }
   }
 
   async function handleAddPayment(e: React.FormEvent) {
     e.preventDefault()
     if (isBusy) return
-    if (localOrder.id < 0) {
+    if (order.id < 0) {
       toast.error('Este pedido aún no está sincronizado; registrá el pago cuando tenga número definitivo')
       return
     }
@@ -139,27 +146,27 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
     const tempId = -Date.now()
     const optimisticPayment: OrderPayment = {
       id: tempId,
-      id_order: localOrder.id,
+      id_order: order.id,
       amount: payload.amount,
       method,
       paid_at: payload.paid_at,
       note: payload.note,
       created_at: new Date().toISOString(),
     }
-    const snapshot = localOrder
-    const optimistic = withPaymentSummary(localOrder, [optimisticPayment, ...payments])
+    const snapshot = order
+    const optimistic = withPaymentSummary(order, [optimisticPayment, ...payments])
 
     setBusy('add')
     setStatusMsg('Guardando pago…')
     setAmount('')
     setNote('')
-    applyLocal(optimistic, tempId)
+    publish(optimistic, tempId)
     await persistOrderCache(optimistic)
 
     try {
       if (!isOnlineNow()) {
         await enqueueCommand('ORDER_PAYMENT_ADD', {
-          order_id: localOrder.id,
+          order_id: order.id,
           tempId,
           ...payload,
         })
@@ -168,9 +175,9 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
         return
       }
 
-      const { data, error } = await addOrderPayment(localOrder.id, payload)
+      const { data, error } = await addOrderPayment(order.id, payload)
       if (error || !data) {
-        applyLocal(snapshot)
+        publish(snapshot)
         await persistOrderCache(snapshot)
         setStatusMsg(null)
         toast.error(error?.message || 'No se pudo guardar el pago')
@@ -179,9 +186,27 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
         return
       }
 
-      const next = withPaymentSummary(snapshot, data.payments, data.amount_paid, data.balance)
-      const newId = data.payment?.id ?? data.payments[0]?.id ?? null
-      applyLocal(next, newId)
+      let next = withPaymentSummary(
+        snapshot,
+        Array.isArray(data.payments) ? data.payments : optimistic.payments || [],
+        data.amount_paid,
+        data.balance
+      )
+
+      // Refresco del servidor por si el payload vino incompleto.
+      const refreshed = await getOrder(order.id)
+      if (refreshed.data) {
+        next = {
+          ...snapshot,
+          ...refreshed.data,
+          payments: refreshed.data.payments ?? next.payments,
+          amount_paid: refreshed.data.amount_paid ?? next.amount_paid,
+          balance: refreshed.data.balance ?? next.balance,
+        }
+      }
+
+      const newId = data.payment?.id ?? next.payments?.[0]?.id ?? null
+      publish(next, newId)
       await persistOrderCache(next)
       setStatusMsg('Pago guardado')
       toast.success('Pago guardado')
@@ -193,27 +218,27 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
 
   async function handleDeletePayment(payment: OrderPayment) {
     if (isBusy) return
-    if (localOrder.id < 0) {
+    if (order.id < 0) {
       toast.error('Este pedido aún no está sincronizado')
       return
     }
 
-    const snapshot = localOrder
+    const snapshot = order
     const optimistic = withPaymentSummary(
-      localOrder,
+      order,
       payments.filter((p) => p.id !== payment.id)
     )
 
     setBusy('delete')
     setDeletingId(payment.id)
     setStatusMsg('Eliminando pago…')
-    applyLocal(optimistic)
+    publish(optimistic)
     await persistOrderCache(optimistic)
 
     try {
       if (!isOnlineNow()) {
         await enqueueCommand('ORDER_PAYMENT_DELETE', {
-          order_id: localOrder.id,
+          order_id: order.id,
           payment_id: payment.id,
         })
         setStatusMsg('Pago eliminado (pendiente de sincronizar)')
@@ -227,17 +252,33 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
         return
       }
 
-      const { data, error } = await deleteOrderPayment(localOrder.id, payment.id)
+      const { data, error } = await deleteOrderPayment(order.id, payment.id)
       if (error || !data) {
-        applyLocal(snapshot)
+        publish(snapshot)
         await persistOrderCache(snapshot)
         setStatusMsg(null)
         toast.error(error?.message || 'No se pudo eliminar el pago')
         return
       }
 
-      const next = withPaymentSummary(snapshot, data.payments, data.amount_paid, data.balance)
-      applyLocal(next)
+      let next = withPaymentSummary(
+        snapshot,
+        Array.isArray(data.payments) ? data.payments : [],
+        data.amount_paid,
+        data.balance
+      )
+      const refreshed = await getOrder(order.id)
+      if (refreshed.data) {
+        next = {
+          ...snapshot,
+          ...refreshed.data,
+          payments: refreshed.data.payments ?? next.payments,
+          amount_paid: refreshed.data.amount_paid ?? next.amount_paid,
+          balance: refreshed.data.balance ?? next.balance,
+        }
+      }
+
+      publish(next)
       await persistOrderCache(next)
       setStatusMsg('Pago eliminado')
       toast.success('Pago eliminado')
@@ -249,30 +290,30 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
 
   async function handleSaveLegacyNote() {
     if (isBusy) return
-    if (localOrder.id < 0) {
+    if (order.id < 0) {
       toast.error('Este pedido aún no está sincronizado')
       return
     }
     const paymentText = legacyNote.trim()
-    const snapshot = localOrder
-    const optimistic = { ...localOrder, payment: paymentText || null }
+    const snapshot = order
+    const optimistic = { ...order, payment: paymentText || null }
 
     setBusy('note')
     setStatusMsg('Guardando nota…')
-    applyLocal(optimistic)
+    publish(optimistic)
     await persistOrderCache(optimistic)
 
     try {
       if (!isOnlineNow()) {
-        await enqueueCommand('ORDER_PAYMENT_UPDATE', { id: localOrder.id, payment: paymentText })
+        await enqueueCommand('ORDER_PAYMENT_UPDATE', { id: order.id, payment: paymentText })
         setStatusMsg('Nota guardada (pendiente de sincronizar)')
         toast.success('Nota guardada')
         return
       }
 
-      const { error } = await updateOrder({ id: localOrder.id, payment: paymentText })
+      const { error } = await updateOrder({ id: order.id, payment: paymentText })
       if (error) {
-        applyLocal(snapshot)
+        publish(snapshot)
         await persistOrderCache(snapshot)
         setLegacyNote(snapshot.payment || '')
         setStatusMsg(null)
@@ -289,7 +330,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
   return (
     <LepraModal show={show} onClose={onClose} busy={isBusy} centered scrollable>
       <Modal.Header closeButton={!isBusy} className="border-dark">
-        <Modal.Title className="h5 mb-0">Pagos — Pedido #{localOrder.id}</Modal.Title>
+        <Modal.Title className="h5 mb-0">Pagos — Pedido #{order.id}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <p className="text-muted small mb-2">{clientLabel}</p>
@@ -297,7 +338,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
         <div className="pedido-pagos-summary d-flex flex-wrap gap-3 mb-2 p-3 border rounded bg-light">
           <div>
             <div className="small text-muted">Total</div>
-            <div className="fw-bold fs-5">{formatMoneyWithSymbol(localOrder.total)}</div>
+            <div className="fw-bold fs-5">{formatMoneyWithSymbol(order.total)}</div>
           </div>
           <div>
             <div className="small text-muted">Pagado</div>
@@ -305,7 +346,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
           </div>
           <div>
             <div className="small text-muted">Saldo restante</div>
-            <div className={`fw-bold fs-5 ${balance <= 0.009 ? 'text-success' : 'text-danger'}`}>
+            <div className={`fw-bold fs-5 ${balance <= 0.009 ? 'text-success' : 'admin-list-pedido-balance'}`}>
               {formatMoneyWithSymbol(balance)}
             </div>
           </div>
@@ -390,18 +431,43 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
                 <Form.Label className="small fw-semibold mb-1" htmlFor="pedido-pago-monto">
                   Monto
                 </Form.Label>
-                <Form.Control
-                  id="pedido-pago-monto"
-                  ref={amountRef}
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  disabled={isBusy || localOrder.id < 0 || isFulfilled || balance <= 0}
-                  required
-                />
+                <div className="d-flex gap-1 align-items-stretch">
+                  <Form.Control
+                    id="pedido-pago-monto"
+                    ref={amountRef}
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    disabled={!canAddPayment}
+                    required
+                    className="flex-grow-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline-dark"
+                    className="pedido-pago-fill-balance-btn flex-shrink-0"
+                    disabled={!canAddPayment}
+                    title={
+                      canAddPayment
+                        ? `Cargar todo el saldo (${formatMoneyWithSymbol(balance)})`
+                        : 'Sin saldo restante'
+                    }
+                    aria-label={
+                      canAddPayment
+                        ? `Cargar todo el saldo restante: ${formatMoneyWithSymbol(balance)}`
+                        : 'Sin saldo restante'
+                    }
+                    onClick={() => {
+                      setAmount(String(Math.round(balance * 100) / 100))
+                      window.setTimeout(() => amountRef.current?.focus(), 0)
+                    }}
+                  >
+                    <Wallet size={16} aria-hidden />
+                  </Button>
+                </div>
               </Form.Group>
             </div>
             <div className="col-6 col-sm-4">
@@ -413,7 +479,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
                   id="pedido-pago-medio"
                   value={method}
                   onChange={(e) => setMethod(e.target.value as OrderPaymentMethod)}
-                  disabled={isBusy || localOrder.id < 0 || isFulfilled || balance <= 0}
+                  disabled={!canAddPayment}
                 >
                   {METHODS.map((m) => (
                     <option key={m.value} value={m.value}>
@@ -433,7 +499,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
                   type="date"
                   value={paidAt}
                   onChange={(e) => setPaidAt(e.target.value)}
-                  disabled={isBusy || localOrder.id < 0 || isFulfilled || balance <= 0}
+                  disabled={!canAddPayment}
                 />
               </Form.Group>
             </div>
@@ -446,7 +512,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
                   id="pedido-pago-nota"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  disabled={isBusy || localOrder.id < 0 || isFulfilled || balance <= 0}
+                  disabled={!canAddPayment}
                   placeholder="Ej. transferencia Banco Nación"
                 />
               </Form.Group>
@@ -456,7 +522,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
             <Button
               type="submit"
               className="btn-lepra"
-              disabled={isBusy || localOrder.id < 0 || balance <= 0 || isFulfilled}
+              disabled={!canAddPayment}
             >
               {busy === 'add' ? (
                 <>
@@ -481,7 +547,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
               rows={3}
               value={legacyNote}
               onChange={(e) => setLegacyNote(e.target.value)}
-              disabled={isBusy || localOrder.id < 0}
+              disabled={isBusy || order.id < 0}
               placeholder="Texto libre opcional para el comprobante"
             />
           </Form.Group>
@@ -490,7 +556,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
               type="button"
               variant="outline-dark"
               size="sm"
-              disabled={isBusy || localOrder.id < 0}
+              disabled={isBusy || order.id < 0}
               onClick={handleSaveLegacyNote}
             >
               {busy === 'note' ? (
@@ -505,7 +571,7 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
           </div>
         </div>
 
-        {localOrder.id < 0 && (
+        {order.id < 0 && (
           <p className="text-warning small mt-3 mb-0">
             Pedido en cola de sincronización: los pagos se podrán guardar cuando el pedido tenga número en el
             servidor.

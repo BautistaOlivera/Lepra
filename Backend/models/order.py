@@ -34,7 +34,7 @@ class Order(Base):
         "OrderPayment",
         back_populates="order",
         cascade="all, delete-orphan",
-        order_by="OrderPayment.paid_at.desc(), OrderPayment.id.desc()",
+        order_by="OrderPayment.id.desc()",
     )
 
 

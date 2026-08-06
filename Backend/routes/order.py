@@ -680,16 +680,29 @@ async def add_order_payment(req: Request, order_id: int, body: InputOrderPayment
         await session.commit()
         await session.refresh(payment)
 
-        # Reload for ordered payments list
-        result = await session.execute(stmt)
-        order = result.scalar_one()
+        pay_rows = (
+            await session.execute(
+                select(OrderPayment)
+                .where(OrderPayment.id_order == order_id)
+                .order_by(OrderPayment.paid_at.desc(), OrderPayment.id.desc())
+            )
+        ).scalars().all()
+        amount_paid = round(sum(float(p.amount or 0) for p in pay_rows), 2)
+        total = round(float(order.total or 0), 2)
+        balance = (
+            0.0
+            if (order.status or "").upper() == "FULFILLED"
+            else round(max(0.0, total - amount_paid), 2)
+        )
         return JSONResponse(
             status_code=201,
             content={
                 "message": "Pago registrado",
                 "payment": _payment_payload(payment),
-                **_payments_summary(order),
-                "total": float(order.total or 0),
+                "payments": [_payment_payload(p) for p in pay_rows],
+                "amount_paid": amount_paid,
+                "balance": balance,
+                "total": total,
             },
         )
 
@@ -724,14 +737,28 @@ async def delete_order_payment(req: Request, order_id: int, payment_id: int):
         order.updated_at = _utcnow_naive()
         await session.commit()
 
-        result = await session.execute(stmt)
-        order = result.scalar_one()
+        pay_rows = (
+            await session.execute(
+                select(OrderPayment)
+                .where(OrderPayment.id_order == order_id)
+                .order_by(OrderPayment.paid_at.desc(), OrderPayment.id.desc())
+            )
+        ).scalars().all()
+        amount_paid = round(sum(float(p.amount or 0) for p in pay_rows), 2)
+        total = round(float(order.total or 0), 2)
+        balance = (
+            0.0
+            if (order.status or "").upper() == "FULFILLED"
+            else round(max(0.0, total - amount_paid), 2)
+        )
         return JSONResponse(
             status_code=200,
             content={
                 "message": "Pago eliminado",
-                **_payments_summary(order),
-                "total": float(order.total or 0),
+                "payments": [_payment_payload(p) for p in pay_rows],
+                "amount_paid": amount_paid,
+                "balance": balance,
+                "total": total,
             },
         )
 

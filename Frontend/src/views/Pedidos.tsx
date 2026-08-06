@@ -21,7 +21,7 @@ import { lepraDb } from '@/offline/db'
 import { useOutboxPending } from '@/offline/useOutboxPending'
 import { formatDateFromApi } from '@/lib/formatDate'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
-import { orderBalancePreview, orderCustomerLabel, orderLinesPreview } from '@/lib/orderDisplay'
+import { orderBalance, orderBalancePreview, orderCustomerLabel, orderLinesPreview } from '@/lib/orderDisplay'
 import { DateInputAr } from '@/components/DateInputAr'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 import { AdminPageHero } from '@/components/AdminPageHero'
@@ -180,20 +180,19 @@ export function Pedidos() {
     releaseBootstrapModalLock()
   }
 
-  function applyOrderPatch(orderId: number, patch: Partial<Order>) {
-    const apply = (o: Order): Order => (o.id === orderId ? { ...o, ...patch } : o)
-    setOrders((prev) => prev.map(apply))
-    setPdfOrder((prev) => (prev?.id === orderId ? apply(prev) : prev))
-    setNotasOrder((prev) => (prev?.id === orderId ? apply(prev) : prev))
-  }
-
   function onNotasSaved(next: Order) {
-    applyOrderPatch(next.id, {
-      payment: next.payment,
-      payments: next.payments,
+    const merge = (o: Order): Order => ({
+      ...o,
+      ...next,
+      id: o.id,
+      payments: Array.isArray(next.payments) ? [...next.payments] : o.payments || [],
       amount_paid: next.amount_paid,
       balance: next.balance,
+      payment: next.payment,
     })
+    setOrders((prev) => prev.map((o) => (o.id === next.id ? merge(o) : o)))
+    setPdfOrder((prev) => (prev?.id === next.id ? merge(prev) : prev))
+    setNotasOrder((prev) => (prev?.id === next.id ? merge(prev) : prev))
     refreshPending().catch(() => {})
   }
 
@@ -212,6 +211,19 @@ export function Pedidos() {
     columnHelper.accessor('total', {
       header: 'Total',
       cell: (info) => formatMoneyWithSymbol(info.getValue()),
+    }),
+    columnHelper.display({
+      id: 'balance',
+      header: 'Saldo restante',
+      cell: ({ row }) => {
+        const balance = orderBalance(row.original)
+        if (balance <= 0.009) {
+          return <span className="text-success">Al día</span>
+        }
+        return (
+          <span className="admin-list-pedido-balance">{formatMoneyWithSymbol(balance)}</span>
+        )
+      },
     }),
     columnHelper.accessor('created_at', {
       header: 'Fecha',
@@ -372,8 +384,8 @@ export function Pedidos() {
 
                         <div
                           className={
-                            paymentPreview === 'Sin pagos'
-                              ? 'admin-list-pedido-tile-payment admin-list-pedido-tile-payment--empty'
+                            paymentPreview === 'Al día'
+                              ? 'admin-list-pedido-tile-payment text-success'
                               : 'admin-list-pedido-tile-payment'
                           }
                           title={o.payment || undefined}

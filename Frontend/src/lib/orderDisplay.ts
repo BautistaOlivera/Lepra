@@ -60,18 +60,12 @@ export function orderDisplayPaid(
   return paid
 }
 
-/** Texto corto de saldo para tiles/lista. */
+/** Texto corto de saldo para tiles/lista. Siempre muestra saldo restante para feedback visual. */
 export function orderBalancePreview(
   order: Pick<Order, 'total' | 'amount_paid' | 'payments' | 'balance' | 'payment' | 'status'>
 ): string {
   if ((order.status || '').toUpperCase() === 'FULFILLED') return 'Al día'
-  const paid = orderAmountPaid(order)
   const balance = orderBalance(order)
-  const hasPayments = paid > 0 || (order.payments && order.payments.length > 0)
-  if (!hasPayments) {
-    const legacy = orderPaymentPreview(order.payment)
-    return legacy || 'Sin pagos'
-  }
   if (balance <= 0.009) return 'Al día'
   return `Saldo restante ${formatMoneyWithSymbol(balance)}`
 }

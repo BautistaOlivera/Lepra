@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 import { __createTable, __drawTable } from 'jspdf-autotable'
 import type { Order } from '@/types'
 import { orderCustomerLabel, orderDisplayPaid, orderBalance, paymentMethodLabel } from '@/lib/orderDisplay'
+import { getContactConfig } from '@/lib/contactConfig'
 import { getImageUrl } from '@/api/client'
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { formatDateFromApi, formatDateTimeAR } from '@/lib/formatDate'
@@ -219,6 +220,10 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
   doc.text('Comprobante de pedido', pageW / 2, y + 11, { align: 'center' })
   y = 34
 
+  const contactPhone = (getContactConfig().phone || '').trim()
+  const footerReserve = contactPhone ? 12 : 0
+  const contentBottom = pageH - margin - footerReserve
+
   doc.setTextColor(0, 0, 0)
   doc.setFontSize(10)
   const metaLine = (label: string, value: string) => {
@@ -383,7 +388,7 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
   const showPaymentBlock = payments.length > 0 || (order.status || '').toUpperCase() === 'FULFILLED'
 
   const ensureSpace = (needed: number) => {
-    if (cursorY + needed <= pageH - margin) return
+    if (cursorY + needed <= contentBottom) return
     doc.addPage()
     cursorY = margin
   }
@@ -477,6 +482,17 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
     doc.setTextColor(22, 22, 22)
     doc.text(noteLines, tableLeft + cellPadding, boxY + 5)
     cursorY = boxY + noteBlockH
+  }
+
+  if (contactPhone) {
+    const totalPages = doc.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.setTextColor(90, 90, 90)
+      doc.text(`Contacto: ${contactPhone}`, pageW / 2, pageH - 8, { align: 'center' })
+    }
   }
 
   return doc.output('blob')
