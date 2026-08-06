@@ -2138,12 +2138,25 @@ body {
 }
 
 .pedido-pago-fill-balance-btn {
+  position: relative;
   width: 38px;
   min-width: 38px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  height: 38px;
+  padding: 0 !important;
+  line-height: 1 !important;
+  overflow: hidden;
+}
+
+.pedido-pago-fill-balance-glyph {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1;
+  color: inherit;
 }
 
 .pedido-pago-fill-balance-btn:disabled,

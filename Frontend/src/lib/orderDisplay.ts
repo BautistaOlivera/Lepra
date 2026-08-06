@@ -74,6 +74,7 @@ export function paymentMethodLabel(method: string | null | undefined): string {
   const key = (method || '').toLowerCase()
   if (key === 'efectivo') return 'Efectivo'
   if (key === 'transferencia') return 'Transferencia'
+  if (key === 'cheque') return 'Cheque'
   if (key === 'otro') return 'Otro'
   return method || 'Pago'
 }

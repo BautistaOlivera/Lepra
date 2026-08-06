@@ -631,7 +631,7 @@ async def add_order_payment(req: Request, order_id: int, body: InputOrderPayment
     if method not in PAYMENT_METHODS:
         return JSONResponse(
             status_code=400,
-            content={"message": "Medio de pago inválido. Use efectivo, transferencia u otro."},
+            content={"message": "Medio de pago inválido. Use efectivo, transferencia, cheque u otro."},
         )
 
     note = (body.note or "").strip() or None

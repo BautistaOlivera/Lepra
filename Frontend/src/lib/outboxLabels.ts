@@ -12,7 +12,9 @@ export const OUTBOX_TYPE_LABELS: Record<OutboxCommandType, string> = {
   ORDER_CREATE_ADMIN: 'Crear pedido',
   ORDER_UPDATE: 'Editar pedido',
   ORDER_STATUS_SET: 'Cambiar estado del pedido',
-  ORDER_PAYMENT_UPDATE: 'Actualizar pago del pedido',
+  ORDER_PAYMENT_UPDATE: 'Actualizar nota de pago',
+  ORDER_PAYMENT_ADD: 'Registrar pago del pedido',
+  ORDER_PAYMENT_DELETE: 'Eliminar pago del pedido',
 }
 
 export function outboxTypeLabel(type: OutboxCommandType): string {
@@ -87,6 +89,10 @@ export function outboxPayloadSummary(r: OutboxRow): string {
     }
     case 'ORDER_PAYMENT_UPDATE':
       return p?.id != null ? `Pedido n.º ${p.id} (notas de pago)` : ''
+    case 'ORDER_PAYMENT_ADD':
+      return p?.order_id != null ? `Pedido n.º ${p.order_id} (nuevo pago)` : ''
+    case 'ORDER_PAYMENT_DELETE':
+      return p?.order_id != null ? `Pedido n.º ${p.order_id} (borrar pago)` : ''
     default:
       return ''
   }

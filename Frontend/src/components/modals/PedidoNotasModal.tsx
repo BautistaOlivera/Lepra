@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, Form, Button, ListGroup, Spinner } from 'react-bootstrap'
-import { Trash2, Wallet } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { LepraModal, ModalDismissButton } from '@/components/LepraModal'
 import toast from 'react-hot-toast'
 import { addOrderPayment, deleteOrderPayment, getOrder, updateOrder } from '@/api/order'
@@ -21,6 +21,7 @@ import {
 const METHODS: { value: OrderPaymentMethod; label: string }[] = [
   { value: 'efectivo', label: 'Efectivo' },
   { value: 'transferencia', label: 'Transferencia' },
+  { value: 'cheque', label: 'Cheque' },
   { value: 'otro', label: 'Otro' },
 ]
 
@@ -465,7 +466,9 @@ export function PedidoNotasModal({ show, onClose, order, onSaved }: PedidoNotasM
                       window.setTimeout(() => amountRef.current?.focus(), 0)
                     }}
                   >
-                    <Wallet size={16} aria-hidden />
+                    <span className="pedido-pago-fill-balance-glyph" aria-hidden="true">
+                      $
+                    </span>
                   </Button>
                 </div>
               </Form.Group>

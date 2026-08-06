@@ -50,7 +50,7 @@ export interface OrderProduct {
   product_brand?: string
 }
 
-export type OrderPaymentMethod = 'efectivo' | 'transferencia' | 'otro'
+export type OrderPaymentMethod = 'efectivo' | 'transferencia' | 'cheque' | 'otro'
 
 export interface OrderPayment {
   id: number

@@ -52,7 +52,7 @@ class OrderProduct(Base):
     product = relationship("Product", back_populates="order_products")
 
 
-PAYMENT_METHODS = ("efectivo", "transferencia", "otro")
+PAYMENT_METHODS = ("efectivo", "transferencia", "cheque", "otro")
 
 
 class OrderPayment(Base):
