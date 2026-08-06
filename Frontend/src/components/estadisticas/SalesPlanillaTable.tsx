@@ -44,6 +44,28 @@ function formatQty(n: number): string {
   return String(Math.round(n * 1000) / 1000)
 }
 
+/** Unidades aproximadas: 1 decimal si hace falta. */
+function formatApproxUnits(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return '0'
+  const rounded = Math.round(n * 10) / 10
+  if (Number.isInteger(rounded)) return String(rounded)
+  return String(rounded)
+}
+
+/** Celda de planilla: kg + (~u.) cuando el producto por kg tiene peso de unidad. */
+function formatPlanillaQty(
+  qty: number,
+  opts: { soldByPiece: boolean; pieceWeight: number | null | undefined }
+): string {
+  if (!qty) return ''
+  if (opts.soldByPiece) return formatQty(qty)
+  const w = Number(opts.pieceWeight)
+  if (Number.isFinite(w) && w > 0) {
+    return `${formatQty(qty)} (~${formatApproxUnits(qty / w)} u.)`
+  }
+  return formatQty(qty)
+}
+
 function emptyPlanilla(): SalesPlanilla {
   return {
     customers: [],
@@ -126,7 +148,23 @@ export function SalesPlanillaTable({ stats, products }: Props) {
     return mergeCatalogProducts(base, products)
   }, [stats.planilla, products])
 
+  const weightByProductId = useMemo(() => {
+    const map = new Map<number, number>()
+    for (const p of products) {
+      const w = Number(p.weight)
+      if (Number.isFinite(w) && w > 0) map.set(p.id, w)
+    }
+    return map
+  }, [products])
+
   const hasData = planilla.blocks.length > 0 || planilla.by_period.some((r) => r.total > 0)
+
+  function cellQty(qty: number, soldByPiece: boolean, idProduct: number): string {
+    return formatPlanillaQty(qty, {
+      soldByPiece,
+      pieceWeight: weightByProductId.get(idProduct),
+    })
+  }
 
   // En "Por período" arrancar con el scroll a la derecha: el último dato primero.
   const periodScrollRef = useRef<HTMLDivElement | null>(null)
@@ -140,28 +178,29 @@ export function SalesPlanillaTable({ stats, products }: Props) {
   return (
     <Card className="card-lepra border-0 shadow-sm">
       <Card.Body className="p-0">
-        <div className="p-3 pb-2 d-flex flex-wrap align-items-start justify-content-between gap-2">
-          <div>
-            <Card.Title className="h6 mb-1">Planilla de caudal</Card.Title>
-            <Card.Text className="text-muted small mb-0">
-              Cantidades por producto (kg o u. según el producto). Usá el agrupamiento de arriba
-              para ver por día, semana, mes o año.
-            </Card.Text>
+        <div className="p-3 pb-2">
+          <div className="d-flex align-items-center justify-content-between gap-2 mb-1">
+            <Card.Title className="h6 mb-0">Planilla de caudal</Card.Title>
+            <ButtonGroup size="sm" className="flex-shrink-0">
+              <Button
+                variant={mode === 'customer' ? 'dark' : 'outline-dark'}
+                onClick={() => setMode('customer')}
+              >
+                Por cliente
+              </Button>
+              <Button
+                variant={mode === 'period' ? 'dark' : 'outline-dark'}
+                onClick={() => setMode('period')}
+              >
+                Por período
+              </Button>
+            </ButtonGroup>
           </div>
-          <ButtonGroup size="sm">
-            <Button
-              variant={mode === 'customer' ? 'dark' : 'outline-dark'}
-              onClick={() => setMode('customer')}
-            >
-              Por cliente
-            </Button>
-            <Button
-              variant={mode === 'period' ? 'dark' : 'outline-dark'}
-              onClick={() => setMode('period')}
-            >
-              Por período
-            </Button>
-          </ButtonGroup>
+          <Card.Text className="text-muted small mb-0">
+            Cantidades por producto (kg o u.). En productos por kg con peso cargado se muestra
+            también una estimación en unidades (kg ÷ peso). Usá el agrupamiento de arriba para
+            ver por día, semana, mes o año.
+          </Card.Text>
         </div>
 
         {!hasData ? (
@@ -198,11 +237,13 @@ export function SalesPlanillaTable({ stats, products }: Props) {
                             <span className="text-muted small">({row.unit})</span>
                           </td>
                           {row.qtys.map((q, i) => (
-                            <td key={i} className="text-end">
-                              {formatQty(q)}
+                            <td key={i} className="text-end text-nowrap">
+                              {cellQty(q, row.sold_by_piece, row.id_product)}
                             </td>
                           ))}
-                          <td className="text-end fw-semibold">{formatQty(row.total)}</td>
+                          <td className="text-end fw-semibold text-nowrap">
+                            {cellQty(row.total, row.sold_by_piece, row.id_product)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -247,11 +288,13 @@ export function SalesPlanillaTable({ stats, products }: Props) {
                       {row.name} <span className="text-muted small">({row.unit})</span>
                     </td>
                     {row.values.map((v, i) => (
-                      <td key={i} className="text-end">
-                        {formatQty(v)}
+                      <td key={i} className="text-end text-nowrap">
+                        {cellQty(v, row.sold_by_piece, row.id_product)}
                       </td>
                     ))}
-                    <td className="text-end fw-semibold">{formatQty(row.total)}</td>
+                    <td className="text-end fw-semibold text-nowrap">
+                      {cellQty(row.total, row.sold_by_piece, row.id_product)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
