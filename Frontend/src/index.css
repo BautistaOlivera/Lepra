@@ -1838,7 +1838,7 @@ body {
   flex: 1 1 100%;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: 0.75rem;
 }
 
@@ -1847,7 +1847,7 @@ body {
 }
 
 .estadisticas-view-tabs-badge {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0;
 }
 
 .estadisticas-filters-line {

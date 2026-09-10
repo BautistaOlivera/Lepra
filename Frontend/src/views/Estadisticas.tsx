@@ -231,10 +231,7 @@ export function Estadisticas() {
             ))}
           </ButtonGroup>
           <div className="admin-list-period-type">
-            <Form.Label className="small text-muted mb-1 d-block">
-              {isTables ? 'Tipo' : 'Agrupar'}
-            </Form.Label>
-            <ButtonGroup className="admin-list-granularity-group">
+            <ButtonGroup className="admin-list-granularity-group" aria-label={isTables ? 'Tipo' : 'Agrupar'}>
               {GRANULARITY_OPTIONS.map(({ key, label }) => (
                 <Button
                   key={key}
@@ -248,9 +245,6 @@ export function Estadisticas() {
             </ButtonGroup>
           </div>
           <div className="admin-list-period-select">
-            <Form.Label className="small text-muted mb-1">
-              {isTables ? 'Período' : 'Rango'}
-            </Form.Label>
             <Select<string>
               options={periodOptions}
               value={matchedPreset}

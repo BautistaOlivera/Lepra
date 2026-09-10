@@ -189,8 +189,8 @@ export function SalesPlanillaTable({ stats, products }: Props) {
     <Card className="card-lepra border-0 shadow-sm">
       <Card.Body className="p-0">
         <div className="p-3 pb-2 estadisticas-planilla-head">
-          <div className="estadisticas-planilla-toolbar mb-1">
-            <Card.Title className="h6 mb-0">Planilla de caudal</Card.Title>
+          <div className="estadisticas-planilla-toolbar mb-0">
+            <Card.Title className="h6 mb-0">Planilla</Card.Title>
             <ButtonGroup size="sm" className="estadisticas-planilla-modes">
               <Button
                 variant={mode === 'customer' ? 'dark' : 'outline-dark'}
@@ -206,14 +206,6 @@ export function SalesPlanillaTable({ stats, products }: Props) {
               </Button>
             </ButtonGroup>
           </div>
-          <Card.Text className="text-muted small mb-0 d-none d-md-block">
-            Cantidades por producto (kg o u.). En productos por kg con peso cargado se muestra
-            también una estimación en unidades (kg ÷ peso). El período de arriba recorta estas
-            tablas: si elegís «Hoy», se muestra solo ese día.
-          </Card.Text>
-          <Card.Text className="text-muted small mb-0 d-md-none">
-            Kg o u. por producto. Deslizá la tabla para ver el resto de columnas.
-          </Card.Text>
         </div>
 
         {!hasData ? (
