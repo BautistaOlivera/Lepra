@@ -2098,10 +2098,9 @@ body {
   }
 
   .estadisticas-planilla-table .estadisticas-matrix-sticky-col {
-    max-width: 7.25rem;
+    max-width: 8.5rem;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
   }
 
   .estadisticas-charts-page .card-body {

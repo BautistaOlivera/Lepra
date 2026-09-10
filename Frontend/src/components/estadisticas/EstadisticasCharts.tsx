@@ -18,6 +18,7 @@ import type { SalesGranularity, SalesStats } from '@/types/salesStats'
 import { CHART, formatMoney, formatMoneyAxis, pctChange } from '@/components/dashboard/chartTheme'
 import { ChartFrame } from '@/components/ChartFrame'
 import { isLegacyClient } from '@/lib/legacyBrowser'
+import { productDisplayName } from '@/lib/productBrand'
 
 const GRANULARITY_LABELS: Record<SalesGranularity, string> = {
   day: 'Por día',
@@ -84,7 +85,14 @@ export function EstadisticasCharts({ stats }: Props) {
     [stats.by_category]
   )
 
-  const topProducts = useMemo(() => stats.by_product.slice(0, 8), [stats.by_product])
+  const topProducts = useMemo(
+    () =>
+      stats.by_product.slice(0, 8).map((p) => ({
+        ...p,
+        label: productDisplayName(p.name, p.brand),
+      })),
+    [stats.by_product]
+  )
 
   const ordersDelta = pctChange(summary.orders, summary.previous_orders)
   const revenueDelta = pctChange(summary.revenue, summary.previous_revenue)
@@ -258,8 +266,8 @@ export function EstadisticasCharts({ stats }: Props) {
                       <XAxis type="number" allowDecimals={false} tick={{ fill: CHART.gray, fontSize: 11 }} />
                       <YAxis
                         type="category"
-                        dataKey="name"
-                        width={96}
+                        dataKey="label"
+                        width={128}
                         tick={{ fill: CHART.black, fontSize: 11 }}
                         interval={0}
                       />

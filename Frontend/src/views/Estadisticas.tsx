@@ -30,6 +30,7 @@ import {
 import { getSalesStatsHybrid } from '@/repositories/salesStatsRepo'
 import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
 import { useOnlineStatus } from '@/offline/network'
+import { productDisplayName } from '@/lib/productBrand'
 import type { Product } from '@/types'
 import type { SalesGranularity, SalesStats } from '@/types/salesStats'
 
@@ -83,8 +84,12 @@ export function Estadisticas() {
   const productOptions = useMemo(
     () =>
       [...products]
-        .sort((a, b) => a.name.localeCompare(b.name, 'es'))
-        .map((p) => ({ value: p.id, label: p.name })),
+        .sort((a, b) => {
+          const byName = a.name.localeCompare(b.name, 'es')
+          if (byName !== 0) return byName
+          return (a.brand || '').localeCompare(b.brand || '', 'es')
+        })
+        .map((p) => ({ value: p.id, label: productDisplayName(p.name, p.brand) })),
     [products]
   )
 

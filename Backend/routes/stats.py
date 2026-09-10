@@ -166,6 +166,7 @@ async def get_sales_stats(
                     User.name.label("user_name"),
                     OrderProduct.id_product,
                     Product.name.label("product_name"),
+                    Product.brand.label("product_brand"),
                     Product.category,
                     OrderProduct.weight,
                     OrderProduct.price_per_kg,
@@ -193,11 +194,12 @@ async def get_sales_stats(
                 "user_name": r[5],
                 "id_product": r[6],
                 "product_name": r[7],
-                "category": r[8],
-                "weight": r[9],
-                "price_per_kg": r[10],
-                "fixed_weight": r[11],
-                "piece_weight": r[12],
+                "product_brand": r[8],
+                "category": r[9],
+                "weight": r[10],
+                "price_per_kg": r[11],
+                "fixed_weight": r[12],
+                "piece_weight": r[13],
             }
             for r in line_rows
         ]

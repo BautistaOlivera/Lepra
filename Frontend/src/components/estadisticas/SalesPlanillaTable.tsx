@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, ButtonGroup, Card, Table } from 'react-bootstrap'
 import type { Product } from '@/types'
 import type { SalesGranularity, SalesPlanilla, SalesStats } from '@/types/salesStats'
+import { productDisplayName } from '@/lib/productBrand'
 
 type PlanillaMode = 'customer' | 'period'
 
@@ -87,16 +88,17 @@ function mergeCatalogProducts(planilla: SalesPlanilla, products: Product[]): Sal
     .map((p) => ({
       id_product: p.id,
       name: p.name,
+      brand: p.brand ?? null,
       category: p.category ?? null,
       sold_by_piece: !!p.fixed_weight,
       unit: p.fixed_weight ? 'u.' : 'kg',
     }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    .sort((a, b) => productDisplayName(a.name, a.brand).localeCompare(productDisplayName(b.name, b.brand), 'es'))
 
   if (extras.length === 0) return planilla
 
   const allProducts = [...planilla.products, ...extras].sort((a, b) =>
-    a.name.localeCompare(b.name, 'es')
+    productDisplayName(a.name, a.brand).localeCompare(productDisplayName(b.name, b.brand), 'es')
   )
   const nCust = planilla.customers.length
   const nPeriods = planilla.period_keys.length
@@ -115,6 +117,7 @@ function mergeCatalogProducts(planilla: SalesPlanilla, products: Product[]): Sal
             byId.get(p.id_product) ?? {
               id_product: p.id_product,
               name: p.name,
+              brand: p.brand,
               unit: p.unit,
               sold_by_piece: p.sold_by_piece,
               qtys: zeroCust.slice(),
@@ -129,6 +132,7 @@ function mergeCatalogProducts(planilla: SalesPlanilla, products: Product[]): Sal
         existing ?? {
           id_product: p.id_product,
           name: p.name,
+          brand: p.brand,
           unit: p.unit,
           sold_by_piece: p.sold_by_piece,
           values: zeroPeriods.slice(),
@@ -238,8 +242,13 @@ export function SalesPlanillaTable({ stats, products }: Props) {
                       {block.rows.map((row) => (
                         <tr key={row.id_product}>
                           <td className="estadisticas-matrix-sticky-col">
-                            {row.name}{' '}
-                            <span className="text-muted small d-none d-md-inline">({row.unit})</span>
+                            <span className="d-block text-truncate">
+                              {row.name}{' '}
+                              <span className="text-muted small d-none d-md-inline">({row.unit})</span>
+                            </span>
+                            {row.brand ? (
+                              <span className="text-muted small d-block text-truncate">{row.brand}</span>
+                            ) : null}
                           </td>
                           {row.qtys.map((q, i) => (
                             <td key={i} className="text-end text-nowrap">
@@ -290,8 +299,13 @@ export function SalesPlanillaTable({ stats, products }: Props) {
                 {planilla.by_period.map((row) => (
                   <tr key={row.id_product}>
                     <td className="estadisticas-matrix-sticky-col">
-                      {row.name}{' '}
-                      <span className="text-muted small d-none d-md-inline">({row.unit})</span>
+                      <span className="d-block text-truncate">
+                        {row.name}{' '}
+                        <span className="text-muted small d-none d-md-inline">({row.unit})</span>
+                      </span>
+                      {row.brand ? (
+                        <span className="text-muted small d-block text-truncate">{row.brand}</span>
+                      ) : null}
                     </td>
                     {row.values.map((v, i) => (
                       <td key={i} className="text-end text-nowrap">

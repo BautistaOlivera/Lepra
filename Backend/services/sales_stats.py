@@ -24,6 +24,14 @@ class SalesLine:
     line_revenue: float
     sold_by_piece: bool = False
     qty: float = 0.0  # piezas si sold_by_piece, kg si no
+    product_brand: str | None = None
+
+
+def _clean_brand(brand: object | None) -> str | None:
+    if brand is None:
+        return None
+    text = str(brand).strip()
+    return text or None
 
 
 def _line_qty(weight_kg: float, sold_by_piece: bool, piece_weight_kg: float | None) -> float:
@@ -208,6 +216,7 @@ def aggregate_by_product(
             by_id[pid] = {
                 "id_product": pid,
                 "name": line.product_name,
+                "brand": line.product_brand,
                 "category": line.category,
                 "total_kg": 0.0,
                 "revenue": 0.0,
@@ -304,6 +313,7 @@ def aggregate_product_by_customer(
             by_product[pid] = {
                 "id_product": pid,
                 "name": line.product_name,
+                "brand": line.product_brand,
                 "category": line.category,
                 "sold_by_piece": line.sold_by_piece,
                 "unit": "u." if line.sold_by_piece else "kg",
@@ -378,6 +388,7 @@ def aggregate_planilla(
             {
                 "id_product": line.id_product,
                 "name": line.product_name,
+                "brand": line.product_brand,
                 "category": line.category,
                 "sold_by_piece": line.sold_by_piece,
                 "unit": "u." if line.sold_by_piece else "kg",
@@ -393,7 +404,13 @@ def aggregate_planilla(
 
     customer_keys = sorted(customers_meta.keys(), key=lambda k: customers_meta[k].lower())
     customer_labels = [customers_meta[k] for k in customer_keys]
-    product_ids = sorted(products_meta.keys(), key=lambda pid: str(products_meta[pid]["name"]).lower())
+    product_ids = sorted(
+        products_meta.keys(),
+        key=lambda pid: (
+            str(products_meta[pid]["name"]).lower(),
+            str(products_meta[pid].get("brand") or "").lower(),
+        ),
+    )
 
     blocks: list[dict[str, object]] = []
     for period in period_keys:
@@ -415,6 +432,7 @@ def aggregate_planilla(
                 {
                     "id_product": pid,
                     "name": meta["name"],
+                    "brand": meta.get("brand"),
                     "unit": meta["unit"],
                     "sold_by_piece": meta["sold_by_piece"],
                     "qtys": qtys,
@@ -442,6 +460,7 @@ def aggregate_planilla(
             {
                 "id_product": pid,
                 "name": meta["name"],
+                "brand": meta.get("brand"),
                 "unit": meta["unit"],
                 "sold_by_piece": meta["sold_by_piece"],
                 "values": values,
@@ -520,6 +539,7 @@ def lines_from_rows(rows: Sequence[Mapping[str, object]]) -> list[SalesLine]:
                 line_revenue=revenue,
                 sold_by_piece=sold_by_piece,
                 qty=qty,
+                product_brand=_clean_brand(r.get("product_brand") or r.get("brand")),
             )
         )
     return out

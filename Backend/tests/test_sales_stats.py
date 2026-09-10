@@ -24,6 +24,7 @@ def _line(
     category: str = "Quesos",
     sold_by_piece: bool = False,
     qty: float | None = None,
+    product_brand: str | None = None,
 ):
     q = weight_kg if qty is None else qty
     return SalesLine(
@@ -39,6 +40,7 @@ def _line(
         line_revenue=round(q * price_per_kg, 2) if sold_by_piece else round(weight_kg * price_per_kg, 2),
         sold_by_piece=sold_by_piece,
         qty=q,
+        product_brand=product_brand,
     )
 
 
@@ -165,3 +167,18 @@ def test_build_sales_stats_structure():
     assert "product_by_customer" in stats
     assert "planilla" in stats
     assert stats["planilla"]["blocks"] == []
+
+
+def test_by_product_keeps_brand_for_same_name():
+    from services.sales_stats import aggregate_by_product
+
+    filters = SalesFilters(date(2026, 5, 1), date(2026, 5, 31))
+    lines = [
+        _line(1, datetime(2026, 5, 10), 1, "Mozzarella", 2, 10, product_brand="La Paulina"),
+        _line(2, datetime(2026, 5, 11), 2, "Mozzarella", 3, 10, product_brand="La Serenísima"),
+    ]
+    rows = aggregate_by_product(lines, filters)
+    assert len(rows) == 2
+    brands = {r["brand"] for r in rows}
+    assert brands == {"La Paulina", "La Serenísima"}
+    assert all(r["name"] == "Mozzarella" for r in rows)

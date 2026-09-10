@@ -27,6 +27,7 @@ export interface SalesTimePoint {
 export interface SalesByProduct {
   id_product: number
   name: string
+  brand?: string | null
   category: string | null
   total_kg: number
   revenue: number
@@ -56,6 +57,7 @@ export interface SalesProductCustomerCell {
 export interface SalesProductByCustomer {
   id_product: number
   name: string
+  brand?: string | null
   category: string | null
   total_kg: number
   total_qty?: number
@@ -67,6 +69,7 @@ export interface SalesProductByCustomer {
 export interface SalesPlanillaProduct {
   id_product: number
   name: string
+  brand?: string | null
   category: string | null
   sold_by_piece: boolean
   unit: string
@@ -75,6 +78,7 @@ export interface SalesPlanillaProduct {
 export interface SalesPlanillaBlockRow {
   id_product: number
   name: string
+  brand?: string | null
   unit: string
   sold_by_piece: boolean
   qtys: number[]
@@ -91,6 +95,7 @@ export interface SalesPlanillaBlock {
 export interface SalesPlanillaPeriodRow {
   id_product: number
   name: string
+  brand?: string | null
   unit: string
   sold_by_piece: boolean
   values: number[]
