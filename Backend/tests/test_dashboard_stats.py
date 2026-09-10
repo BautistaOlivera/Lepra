@@ -2,6 +2,7 @@ from datetime import datetime
 
 from services.dashboard_stats import (
     aggregate_daily_series,
+    aggregate_hourly_series,
     aggregate_periods,
     aggregate_status,
     aggregate_top_products,
@@ -92,6 +93,23 @@ def test_aggregate_daily_series_from_start():
     assert series[0]["orders"] == 1
 
 
+def test_aggregate_hourly_series_full_day():
+    now = datetime(2026, 5, 16, 15, 30, 0)
+    rows = [
+        _row(datetime(2026, 5, 16, 10, 0), 100),
+        _row(datetime(2026, 5, 16, 10, 40), 50),
+        _row(datetime(2026, 5, 16, 9, 0), 20, "CANCELED"),
+        _row(datetime(2026, 5, 15, 10, 0), 40),
+    ]
+    series = aggregate_hourly_series(rows, now)
+    assert len(series) == 24
+    assert series[0]["date"] == "2026-05-16T00"
+    assert series[23]["date"] == "2026-05-16T23"
+    assert series[10]["orders"] == 2
+    assert series[10]["revenue"] == 150
+    assert series[9]["orders"] == 0
+
+
 def test_aggregate_daily_series_full_month():
     now = datetime(2026, 9, 10, 12, 0, 0)
     rows = [_row(datetime(2026, 9, 10, 10, 0), 100)]
@@ -138,7 +156,8 @@ def test_build_dashboard_periods_scopes_charts():
     assert periods["day"]["status_breakdown"]["CANCELED"] == 1
     assert [p["name"] for p in periods["day"]["top_products"]] == ["Queso"]
     assert [p["name"] for p in periods["week"]["top_products"]] == ["Queso", "Yogur"]
-    assert len(periods["day"]["daily_series"]) == 1
+    assert len(periods["day"]["daily_series"]) == 24
+    assert periods["day"]["daily_series"][10]["orders"] == 1
     assert len(periods["week"]["daily_series"]) == 7
     month_series = periods["month"]["daily_series"]
     assert len(month_series) == 31

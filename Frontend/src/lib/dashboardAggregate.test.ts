@@ -29,7 +29,8 @@ describe('aggregateDashboardFromLocal', () => {
     expect(stats.periods.day.orders).toBe(1)
     expect(stats.periods.day.status_breakdown.FULFILLED).toBe(1)
     expect(stats.periods.day.status_breakdown.CANCELED).toBe(1)
-    expect(stats.periods.day.daily_series).toHaveLength(1)
+    expect(stats.periods.day.daily_series).toHaveLength(24)
+    expect(stats.periods.day.daily_series[10]?.orders).toBe(1)
   })
 
   it('filtra top productos y serie por período', () => {

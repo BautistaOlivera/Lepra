@@ -230,8 +230,37 @@ export function Estadisticas() {
               </Button>
             ))}
           </ButtonGroup>
+          <div className="admin-list-period-type">
+            <Form.Label className="small text-muted mb-1 d-block">
+              {isTables ? 'Tipo' : 'Agrupar'}
+            </Form.Label>
+            <ButtonGroup className="admin-list-granularity-group">
+              {GRANULARITY_OPTIONS.map(({ key, label }) => (
+                <Button
+                  key={key}
+                  variant={granularity === key ? 'dark' : 'outline-dark'}
+                  active={granularity === key}
+                  onClick={() => applyGranularity(key)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </ButtonGroup>
+          </div>
+          <div className="admin-list-period-select">
+            <Form.Label className="small text-muted mb-1">
+              {isTables ? 'Período' : 'Rango'}
+            </Form.Label>
+            <Select<string>
+              options={periodOptions}
+              value={matchedPreset}
+              onChange={applyPeriodPreset}
+              placeholder={isTables ? 'Período' : 'Rango'}
+              isSearchable={false}
+            />
+          </div>
           {stats.source === 'local' ? (
-            <Badge bg="secondary" className="fw-normal">
+            <Badge bg="secondary" className="fw-normal estadisticas-view-tabs-badge">
               Datos locales (última sincronización)
             </Badge>
           ) : null}
@@ -277,40 +306,6 @@ export function Estadisticas() {
             />
           </div>
           <AdminFilterResetButton onClick={clearFilters} />
-        </div>
-
-        <div className="admin-list-granularity">
-          <div className="admin-list-period-row">
-            <div className="admin-list-period-type">
-              <Form.Label className="small text-muted mb-1 d-block">
-                {isTables ? 'Tipo' : 'Agrupar'}
-              </Form.Label>
-              <ButtonGroup className="admin-list-granularity-group">
-                {GRANULARITY_OPTIONS.map(({ key, label }) => (
-                  <Button
-                    key={key}
-                    variant={granularity === key ? 'dark' : 'outline-dark'}
-                    active={granularity === key}
-                    onClick={() => applyGranularity(key)}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </ButtonGroup>
-            </div>
-            <div className="admin-list-period-select">
-              <Form.Label className="small text-muted mb-1">
-                {isTables ? 'Período' : 'Rango'}
-              </Form.Label>
-              <Select<string>
-                options={periodOptions}
-                value={matchedPreset}
-                onChange={applyPeriodPreset}
-                placeholder={isTables ? 'Período' : 'Rango'}
-                isSearchable={false}
-              />
-            </div>
-          </div>
         </div>
       </div>
 

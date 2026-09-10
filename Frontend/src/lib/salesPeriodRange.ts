@@ -41,7 +41,7 @@ export type SalesPeriodPreset = {
 
 export const CUSTOM_PERIOD_PRESET_ID = 'custom' as const
 export const CUSTOM_PERIOD_PRESET_LABEL = 'Personalizado'
-export const DEFAULT_PERIOD_PRESET_ID: NamedSalesPeriodPresetId = 'this_week'
+export const DEFAULT_PERIOD_PRESET_ID: NamedSalesPeriodPresetId = 'today'
 
 export const PERIOD_PRESETS: SalesPeriodPreset[] = [
   { id: 'today', label: 'Hoy', granularity: 'day' },
@@ -173,7 +173,7 @@ export function defaultRangeForGranularity(
   return { from: r.from, to: r.to }
 }
 
-/** Carga inicial y reset: esta semana. */
+/** Carga inicial y reset: hoy. */
 export function defaultSalesPeriod(now: Date = new Date()): SalesPeriodRange {
   return rangeForPreset(DEFAULT_PERIOD_PRESET_ID, now)
 }

@@ -138,6 +138,26 @@ def aggregate_daily_series(
     return [buckets[k] for k in sorted(buckets.keys())]
 
 
+def aggregate_hourly_series(
+    rows: Sequence[tuple[datetime, float, str]],
+    now: datetime,
+) -> list[dict[str, float | str | int]]:
+    day = start_of_day(now)
+    iso = day.date().isoformat()
+    buckets: dict[int, dict[str, float | int | str]] = {
+        h: {"date": f"{iso}T{h:02d}", "orders": 0, "revenue": 0.0} for h in range(24)
+    }
+    for created_at, total, status in rows:
+        if normalize_status(status) == "CANCELED":
+            continue
+        if start_of_day(created_at) != day:
+            continue
+        h = created_at.hour
+        buckets[h]["orders"] = int(buckets[h]["orders"]) + 1
+        buckets[h]["revenue"] = float(buckets[h]["revenue"]) + float(total or 0)
+    return [buckets[h] for h in range(24)]
+
+
 def aggregate_top_products(
     lines: Iterable[Mapping[str, object]],
     *,
@@ -208,11 +228,15 @@ def build_dashboard_periods(
             "previous_orders": m.previous_orders,
             "previous_revenue": round(m.previous_revenue, 2),
             "status_breakdown": aggregate_status(window_rows),
-            "daily_series": aggregate_daily_series(
-                rows,
-                now,
-                start=w.start,
-                end=end_of_month(now) if key == "month" else start_of_day(now),
+            "daily_series": (
+                aggregate_hourly_series(rows, now)
+                if key == "day"
+                else aggregate_daily_series(
+                    rows,
+                    now,
+                    start=w.start,
+                    end=end_of_month(now) if key == "month" else start_of_day(now),
+                )
             ),
             "top_products": _serialize_top_products(
                 aggregate_top_products(window_lines, limit=top_limit)

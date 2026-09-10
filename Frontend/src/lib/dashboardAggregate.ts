@@ -81,6 +81,31 @@ function buildStatus(orders: Order[], start: Date, end: Date): Record<string, nu
   return counts
 }
 
+function hourKey(isoDay: string, hour: number): string {
+  return `${isoDay}T${String(hour).padStart(2, '0')}`
+}
+
+function buildHourlySeries(rows: OrderRow[], now: Date): DashboardDailyPoint[] {
+  const day = startOfDay(now)
+  const iso = day.toISOString().slice(0, 10)
+  const buckets: DashboardDailyPoint[] = Array.from({ length: 24 }, (_, h) => ({
+    date: hourKey(iso, h),
+    orders: 0,
+    revenue: 0,
+  }))
+
+  for (const r of rows) {
+    if (isCanceledStatus(r.status)) continue
+    if (startOfDay(r.at).getTime() !== day.getTime()) continue
+    const h = r.at.getUTCHours()
+    const b = buckets[h]
+    b.orders += 1
+    b.revenue = Math.round((b.revenue + r.total) * 100) / 100
+  }
+
+  return buckets
+}
+
 function buildDailySeries(rows: OrderRow[], start: Date, end: Date): DashboardDailyPoint[] {
   const seriesStart = startOfDay(start)
   const seriesEnd = startOfDay(end)
@@ -163,11 +188,14 @@ function buildPeriods(
       previous_orders: prev.orders,
       previous_revenue: Math.round(prev.revenue * 100) / 100,
       status_breakdown: buildStatus(orders, w.start, w.end),
-      daily_series: buildDailySeries(
-        rows,
-        w.start,
-        key === 'month' ? endOfMonth(now) : startOfDay(now)
-      ),
+      daily_series:
+        key === 'day'
+          ? buildHourlySeries(rows, now)
+          : buildDailySeries(
+              rows,
+              w.start,
+              key === 'month' ? endOfMonth(now) : startOfDay(now)
+            ),
       top_products: buildTopProducts(orders, products, w.start, w.end),
     }
   }

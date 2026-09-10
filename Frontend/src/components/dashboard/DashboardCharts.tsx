@@ -73,11 +73,18 @@ export function DashboardCharts({ stats }: Props) {
 
   const seriesData = useMemo(
     () =>
-      p.daily_series.map((d) => ({
-        ...d,
-        label: period === 'month' ? String(Number(d.date.slice(8, 10))) : formatShortDate(d.date),
-        fullLabel: formatShortDate(d.date),
-      })),
+      p.daily_series.map((d) => {
+        if (period === 'day' && d.date.includes('T')) {
+          const hour = Number(d.date.slice(11, 13))
+          const label = `${hour}h`
+          return { ...d, label, fullLabel: `${String(hour).padStart(2, '0')}:00` }
+        }
+        return {
+          ...d,
+          label: period === 'month' ? String(Number(d.date.slice(8, 10))) : formatShortDate(d.date),
+          fullLabel: formatShortDate(d.date),
+        }
+      }),
     [p.daily_series, period]
   )
 
@@ -162,7 +169,9 @@ export function DashboardCharts({ stats }: Props) {
         <Col lg={8}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
-              <Card.Title className="h6 mb-3">Actividad ({periodLabel})</Card.Title>
+              <Card.Title className="h6 mb-3">
+                {period === 'day' ? 'Actividad por hora' : `Actividad (${periodLabel})`}
+              </Card.Title>
               {seriesData.length === 0 ? (
                 <p className="text-muted small mb-0">Sin pedidos en el período</p>
               ) : (
@@ -171,8 +180,8 @@ export function DashboardCharts({ stats }: Props) {
                       <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" />
                       <XAxis
                         dataKey="label"
-                        tick={{ fill: CHART.gray, fontSize: period === 'month' ? 10 : 11 }}
-                        interval={period === 'month' ? 0 : 'preserveStartEnd'}
+                        tick={{ fill: CHART.gray, fontSize: period === 'month' || period === 'day' ? 10 : 11 }}
+                        interval={period === 'month' ? 0 : period === 'day' ? 1 : 'preserveStartEnd'}
                       />
                       <YAxis
                         yAxisId="orders"
@@ -207,7 +216,7 @@ export function DashboardCharts({ stats }: Props) {
                         name="Facturación"
                         stroke={CHART.yellow}
                         strokeWidth={2}
-                        dot={period === 'day' || seriesData.length <= 2}
+                        dot={period === 'day' ? { r: 2 } : false}
                         isAnimationActive={animate}
                       />
                     </ComposedChart>

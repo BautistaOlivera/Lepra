@@ -1838,12 +1838,16 @@ body {
   flex: 1 1 100%;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.75rem;
 }
 
 .estadisticas-view-tabs .btn {
   min-height: 44px;
+}
+
+.estadisticas-view-tabs-badge {
+  margin-bottom: 0.35rem;
 }
 
 .estadisticas-filters-line {

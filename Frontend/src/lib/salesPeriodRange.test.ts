@@ -191,11 +191,11 @@ describe('defaultRangeForGranularity', () => {
 })
 
 describe('defaultSalesPeriod', () => {
-  it('carga inicial: esta semana', () => {
+  it('carga inicial: hoy', () => {
     expect(defaultSalesPeriod(NOW)).toEqual({
-      from: '2026-07-13',
-      to: '2026-07-19',
-      granularity: 'week',
+      from: '2026-07-15',
+      to: '2026-07-15',
+      granularity: 'day',
     })
   })
 })

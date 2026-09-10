@@ -209,7 +209,7 @@ export function SalesPlanillaTable({ stats, products }: Props) {
           <Card.Text className="text-muted small mb-0">
             Cantidades por producto (kg o u.). En productos por kg con peso cargado se muestra
             también una estimación en unidades (kg ÷ peso). El período de arriba recorta estas
-            tablas: si elegís «Esta semana», se muestra solo esa semana.
+            tablas: si elegís «Hoy», se muestra solo ese día.
           </Card.Text>
         </div>
 
