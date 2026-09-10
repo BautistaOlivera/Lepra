@@ -95,7 +95,7 @@ export function displayDateToIso(display: string): string | null {
 export function formatShortDateFromIso(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   if (!y || !m || !d) return iso
-  return dateMonthShort.format(new Date(Date.UTC(y, m - 1, d)))
+  return dateMonthShort.format(new Date(y, m - 1, d, 12, 0, 0, 0))
 }
 
 export function startOfIsoDayMs(iso: string): number {

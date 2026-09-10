@@ -10,12 +10,8 @@ from models.order import Order, OrderProduct
 from models.product import Product
 from models.user import User
 from services.dashboard_stats import (
-    aggregate_daily_series,
-    aggregate_periods,
-    aggregate_status,
-    aggregate_top_products,
+    build_dashboard_periods,
     period_windows,
-    start_of_day,
 )
 from services.sales_stats import (
     SalesFilters,
@@ -27,8 +23,6 @@ from services.sales_stats import (
 from utils.datetime_api import utc_naive_iso
 
 stats_router = APIRouter(prefix="/stats", tags=["Stats"])
-
-SERIES_DAYS = 30
 
 
 def _utcnow_naive() -> datetime:
@@ -43,9 +37,7 @@ async def get_dashboard_stats(req: Request):
         return payload
 
     now = _utcnow_naive()
-    series_start = start_of_day(now) - timedelta(days=SERIES_DAYS - 1)
     fetch_start = min(w.previous_start for w in period_windows(now).values())
-    fetch_start = min(fetch_start, series_start)
 
     async with AsyncSessionLocal() as session:
         products_active = (
@@ -76,13 +68,6 @@ async def get_dashboard_stats(req: Request):
         ).all()
         rows = [(r[0], r[1], r[2] or "PENDING") for r in order_rows]
 
-        status_rows = (
-            await session.execute(
-                select(Order.status).where(Order.active.is_(True))
-            )
-        ).all()
-        status_breakdown = aggregate_status([(now, 0.0, r[0] or "PENDING") for r in status_rows])
-
         line_rows = (
             await session.execute(
                 select(
@@ -90,31 +75,31 @@ async def get_dashboard_stats(req: Request):
                     Product.name,
                     OrderProduct.weight,
                     (OrderProduct.weight * OrderProduct.price_per_kg).label("line_total"),
+                    Order.created_at,
+                    Order.status,
                 )
                 .join(Order, Order.id == OrderProduct.id_order)
                 .join(Product, Product.id == OrderProduct.id_product)
                 .where(
                     Order.active.is_(True),
-                    Order.created_at >= series_start,
-                    Order.status != "CANCELED",
+                    Order.created_at >= fetch_start,
                 )
             )
         ).all()
 
-    periods = aggregate_periods(rows, now)
-    daily_series = aggregate_daily_series(rows, now, SERIES_DAYS)
-    top_products = aggregate_top_products(
-        [
-            {
-                "id_product": r[0],
-                "name": r[1],
-                "quantity": float(r[2] or 0),
-                "revenue": float(r[3] or 0),
-            }
-            for r in line_rows
-        ],
-        limit=5,
-    )
+    lines = [
+        {
+            "id_product": r[0],
+            "name": r[1],
+            "total_kg": float(r[2] or 0),
+            "revenue": float(r[3] or 0),
+            "created_at": r[4],
+            "status": r[5] or "PENDING",
+        }
+        for r in line_rows
+    ]
+    periods = build_dashboard_periods(rows, lines, now)
+    today = periods["day"]
 
     return JSONResponse(
         status_code=200,
@@ -126,26 +111,10 @@ async def get_dashboard_stats(req: Request):
                 "users_active": int(users_active or 0),
                 "orders_pending": int(orders_pending or 0),
             },
-            "periods": {
-                k: {
-                    "orders": v.orders,
-                    "revenue": round(v.revenue, 2),
-                    "previous_orders": v.previous_orders,
-                    "previous_revenue": round(v.previous_revenue, 2),
-                }
-                for k, v in periods.items()
-            },
-            "status_breakdown": status_breakdown,
-            "daily_series": daily_series,
-            "top_products": [
-                {
-                    "id_product": p["id_product"],
-                    "name": p["name"],
-                    "quantity": p["quantity"],
-                    "revenue": round(float(p["revenue"]), 2),
-                }
-                for p in top_products
-            ],
+            "periods": periods,
+            "status_breakdown": today["status_breakdown"],
+            "daily_series": today["daily_series"],
+            "top_products": today["top_products"],
         },
     )
 

@@ -10,12 +10,14 @@ import type {
   DashboardTopProduct,
 } from '@/types/dashboard'
 
-const SERIES_DAYS = 30
-
 type OrderRow = { at: Date; total: number; status: string }
 
 function startOfDay(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+}
+
+function endOfMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0))
 }
 
 function periodWindows(now: Date) {
@@ -68,41 +70,27 @@ function toRows(orders: Order[]): OrderRow[] {
     .filter((r) => r.at.getTime() > 0)
 }
 
-function buildPeriods(rows: OrderRow[], now: Date): Record<DashboardPeriodKey, DashboardPeriodStats> {
-  const windows = periodWindows(now)
-  const out = {} as Record<DashboardPeriodKey, DashboardPeriodStats>
-  for (const key of ['day', 'week', 'month'] as const) {
-    const w = windows[key]
-    const cur = countRevenue(rows, w.start, w.end)
-    const prev = countRevenue(rows, w.previous_start, w.previous_end)
-    out[key] = {
-      orders: cur.orders,
-      revenue: Math.round(cur.revenue * 100) / 100,
-      previous_orders: prev.orders,
-      previous_revenue: Math.round(prev.revenue * 100) / 100,
-    }
-  }
-  return out
-}
-
-function buildStatus(orders: Order[]): Record<string, number> {
+function buildStatus(orders: Order[], start: Date, end: Date): Record<string, number> {
   const counts: Record<string, number> = { PENDING: 0, FULFILLED: 0, CANCELED: 0 }
   for (const o of orders) {
     if (!o.active || o.id <= 0) continue
+    const at = parseUtcFromApi(o.created_at)
+    if (!at || !inRange(at, start, end)) continue
     counts[normalizeOrderStatus(o.status)] += 1
   }
   return counts
 }
 
-function buildDailySeries(rows: OrderRow[], now: Date): DashboardDailyPoint[] {
-  const today = startOfDay(now)
-  const start = new Date(today)
-  start.setUTCDate(start.getUTCDate() - (SERIES_DAYS - 1))
-
+function buildDailySeries(rows: OrderRow[], start: Date, end: Date): DashboardDailyPoint[] {
+  const seriesStart = startOfDay(start)
+  const seriesEnd = startOfDay(end)
   const buckets = new Map<string, DashboardDailyPoint>()
-  for (let i = 0; i < SERIES_DAYS; i++) {
-    const d = new Date(start)
+  const nDays = Math.max(1, Math.round((seriesEnd.getTime() - seriesStart.getTime()) / 86400000) + 1)
+
+  for (let i = 0; i < nDays; i++) {
+    const d = new Date(seriesStart)
     d.setUTCDate(d.getUTCDate() + i)
+    if (d > seriesEnd) break
     const key = d.toISOString().slice(0, 10)
     buckets.set(key, { date: key, orders: 0, revenue: 0 })
   }
@@ -119,18 +107,20 @@ function buildDailySeries(rows: OrderRow[], now: Date): DashboardDailyPoint[] {
   return [...buckets.values()]
 }
 
-function buildTopProducts(orders: Order[], products: Product[]): DashboardTopProduct[] {
+function buildTopProducts(
+  orders: Order[],
+  products: Product[],
+  start: Date,
+  end: Date
+): DashboardTopProduct[] {
   const byIdMap = new Map(products.map((p) => [p.id, p]))
   const names = new Map(products.map((p) => [p.id, p.name]))
   const byId = new Map<number, DashboardTopProduct>()
 
-  const seriesStart = startOfDay(new Date())
-  seriesStart.setUTCDate(seriesStart.getUTCDate() - (SERIES_DAYS - 1))
-
   for (const o of orders) {
     if (!o.active || o.id <= 0 || isCanceledStatus(o.status) || !o.lines?.length) continue
     const at = parseUtcFromApi(o.created_at)
-    if (!at || at < seriesStart) continue
+    if (!at || !inRange(at, start, end)) continue
     for (const line of o.lines) {
       const pid = line.id_product
       const prod = byIdMap.get(pid)
@@ -155,14 +145,45 @@ function buildTopProducts(orders: Order[], products: Product[]): DashboardTopPro
     .slice(0, 5)
 }
 
+function buildPeriods(
+  rows: OrderRow[],
+  orders: Order[],
+  products: Product[],
+  now: Date
+): Record<DashboardPeriodKey, DashboardPeriodStats> {
+  const windows = periodWindows(now)
+  const out = {} as Record<DashboardPeriodKey, DashboardPeriodStats>
+  for (const key of ['day', 'week', 'month'] as const) {
+    const w = windows[key]
+    const cur = countRevenue(rows, w.start, w.end)
+    const prev = countRevenue(rows, w.previous_start, w.previous_end)
+    out[key] = {
+      orders: cur.orders,
+      revenue: Math.round(cur.revenue * 100) / 100,
+      previous_orders: prev.orders,
+      previous_revenue: Math.round(prev.revenue * 100) / 100,
+      status_breakdown: buildStatus(orders, w.start, w.end),
+      daily_series: buildDailySeries(
+        rows,
+        w.start,
+        key === 'month' ? endOfMonth(now) : startOfDay(now)
+      ),
+      top_products: buildTopProducts(orders, products, w.start, w.end),
+    }
+  }
+  return out
+}
+
 export function aggregateDashboardFromLocal(
   orders: Order[],
   products: Product[],
-  users: { active: boolean }[]
+  users: { active: boolean }[],
+  now: Date = new Date()
 ): DashboardStats {
-  const now = new Date()
   const rows = toRows(orders)
   const activeOrders = orders.filter((o) => o.active && o.id > 0)
+  const periods = buildPeriods(rows, activeOrders, products, now)
+  const today = periods.day
 
   return {
     source: 'local',
@@ -172,9 +193,9 @@ export function aggregateDashboardFromLocal(
       users_active: users.filter((u) => u.active).length,
       orders_pending: activeOrders.filter((o) => o.status === 'PENDING').length,
     },
-    periods: buildPeriods(rows, now),
-    status_breakdown: buildStatus(activeOrders),
-    daily_series: buildDailySeries(rows, now),
-    top_products: buildTopProducts(activeOrders, products),
+    periods,
+    status_breakdown: today.status_breakdown,
+    daily_series: today.daily_series,
+    top_products: today.top_products,
   }
 }

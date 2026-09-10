@@ -14,7 +14,7 @@ import {
   Cell,
   BarChart,
 } from 'recharts'
-import type { DashboardPeriodKey, DashboardStats } from '@/types/dashboard'
+import type { DashboardPeriodKey, DashboardPeriodStats, DashboardStats, DashboardTopProduct } from '@/types/dashboard'
 import { mergeStatusBreakdown, ORDER_STATUS_LABELS, type OrderStatusKey } from '@/lib/orderStatus'
 import { CHART, formatMoney, formatMoneyAxis, formatShortDate, pctChange } from './chartTheme'
 import { ChartFrame } from '@/components/ChartFrame'
@@ -36,14 +36,28 @@ type Props = {
   stats: DashboardStats
 }
 
-export function DashboardCharts({ stats }: Props) {
-  const [period, setPeriod] = useState<DashboardPeriodKey>('week')
+function periodBundle(stats: DashboardStats, period: DashboardPeriodKey): DashboardPeriodStats {
   const p = stats.periods[period]
+  return {
+    orders: p.orders,
+    revenue: p.revenue,
+    previous_orders: p.previous_orders,
+    previous_revenue: p.previous_revenue,
+    status_breakdown: p.status_breakdown ?? (period === 'day' ? stats.status_breakdown : {}),
+    daily_series: p.daily_series ?? (period === 'day' ? stats.daily_series : []),
+    top_products: p.top_products ?? (period === 'day' ? stats.top_products : []),
+  }
+}
+
+export function DashboardCharts({ stats }: Props) {
+  const [period, setPeriod] = useState<DashboardPeriodKey>('day')
+  const p = useMemo(() => periodBundle(stats, period), [stats, period])
   const animate = !isLegacyClient()
+  const periodLabel = PERIOD_LABELS[period]
 
   const statusData = useMemo(
     () =>
-      Object.entries(mergeStatusBreakdown(stats.status_breakdown))
+      Object.entries(mergeStatusBreakdown(p.status_breakdown))
         .filter(([, v]) => v > 0)
         .map(([key, value]) => {
           const k = key as OrderStatusKey
@@ -54,16 +68,29 @@ export function DashboardCharts({ stats }: Props) {
             fill: STATUS_COLORS[k],
           }
         }),
-    [stats.status_breakdown]
+    [p.status_breakdown]
   )
 
   const seriesData = useMemo(
     () =>
-      stats.daily_series.map((d) => ({
+      p.daily_series.map((d) => ({
         ...d,
-        label: formatShortDate(d.date),
+        label: period === 'month' ? String(Number(d.date.slice(8, 10))) : formatShortDate(d.date),
+        fullLabel: formatShortDate(d.date),
       })),
-    [stats.daily_series]
+    [p.daily_series, period]
+  )
+
+  const topProducts = useMemo(
+    () =>
+      p.top_products.map((item) => {
+        const raw = item as DashboardTopProduct & { quantity?: number }
+        return {
+          ...item,
+          total_kg: Number(item.total_kg) || Number(raw.quantity) || 0,
+        }
+      }),
+    [p.top_products]
   )
 
   const ordersDelta = pctChange(p.orders, p.previous_orders)
@@ -94,7 +121,7 @@ export function DashboardCharts({ stats }: Props) {
         <Col md={6}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
-              <Card.Text className="text-muted small mb-1">Pedidos — {PERIOD_LABELS[period]}</Card.Text>
+              <Card.Text className="text-muted small mb-1">Pedidos — {periodLabel}</Card.Text>
               <div className="d-flex align-items-baseline gap-2">
                 <Card.Title className="mb-0 display-6">{p.orders}</Card.Title>
                 {ordersDelta != null && (
@@ -113,7 +140,7 @@ export function DashboardCharts({ stats }: Props) {
         <Col md={6}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
-              <Card.Text className="text-muted small mb-1">Facturación — {PERIOD_LABELS[period]}</Card.Text>
+              <Card.Text className="text-muted small mb-1">Facturación — {periodLabel}</Card.Text>
               <div className="d-flex align-items-baseline gap-2">
                 <Card.Title className="mb-0 h3">{formatMoney(p.revenue)}</Card.Title>
                 {revenueDelta != null && (
@@ -135,54 +162,66 @@ export function DashboardCharts({ stats }: Props) {
         <Col lg={8}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
-              <Card.Title className="h6 mb-3">Actividad (últimos 30 días)</Card.Title>
-              <ChartFrame height={280}>
-                  <ComposedChart data={seriesData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" />
-                    <XAxis dataKey="label" tick={{ fill: CHART.gray, fontSize: 11 }} interval="preserveStartEnd" />
-                    <YAxis
-                      yAxisId="orders"
-                      allowDecimals={false}
-                      tick={{ fill: CHART.gray, fontSize: 11 }}
-                      width={32}
-                    />
-                    <YAxis
-                      yAxisId="revenue"
-                      orientation="right"
-                      tick={{ fill: CHART.gray, fontSize: 11 }}
-                      tickFormatter={(v: number) => formatMoneyAxis(v)}
-                      width={44}
-                    />
-                    <Tooltip
-                      formatter={(value, name) =>
-                        String(name).toLowerCase().includes('factur') || name === 'revenue'
-                          ? formatMoney(Number(value))
-                          : String(value ?? '')
-                      }
-                    />
-                    <Legend />
-                    <Bar yAxisId="orders" dataKey="orders" name="Pedidos" fill={CHART.black} radius={[4, 4, 0, 0]} isAnimationActive={animate} />
-                    <Line
-                      yAxisId="revenue"
-                      type="monotone"
-                      dataKey="revenue"
-                      name="Facturación"
-                      stroke={CHART.yellow}
-                      strokeWidth={2}
-                      dot={false}
-                      isAnimationActive={animate}
-                    />
-                  </ComposedChart>
-              </ChartFrame>
+              <Card.Title className="h6 mb-3">Actividad ({periodLabel})</Card.Title>
+              {seriesData.length === 0 ? (
+                <p className="text-muted small mb-0">Sin pedidos en el período</p>
+              ) : (
+                <ChartFrame height={280}>
+                    <ComposedChart data={seriesData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fill: CHART.gray, fontSize: period === 'month' ? 10 : 11 }}
+                        interval={period === 'month' ? 0 : 'preserveStartEnd'}
+                      />
+                      <YAxis
+                        yAxisId="orders"
+                        allowDecimals={false}
+                        tick={{ fill: CHART.gray, fontSize: 11 }}
+                        width={32}
+                      />
+                      <YAxis
+                        yAxisId="revenue"
+                        orientation="right"
+                        tick={{ fill: CHART.gray, fontSize: 11 }}
+                        tickFormatter={(v: number) => formatMoneyAxis(v)}
+                        width={44}
+                      />
+                      <Tooltip
+                        labelFormatter={(_label, payload) => {
+                          const row = payload?.[0]?.payload as { fullLabel?: string } | undefined
+                          return row?.fullLabel ?? String(_label ?? '')
+                        }}
+                        formatter={(value, name) =>
+                          String(name).toLowerCase().includes('factur') || name === 'revenue'
+                            ? formatMoney(Number(value))
+                            : String(value ?? '')
+                        }
+                      />
+                      <Legend />
+                      <Bar yAxisId="orders" dataKey="orders" name="Pedidos" fill={CHART.black} radius={[4, 4, 0, 0]} maxBarSize={64} isAnimationActive={animate} />
+                      <Line
+                        yAxisId="revenue"
+                        type="monotone"
+                        dataKey="revenue"
+                        name="Facturación"
+                        stroke={CHART.yellow}
+                        strokeWidth={2}
+                        dot={period === 'day' || seriesData.length <= 2}
+                        isAnimationActive={animate}
+                      />
+                    </ComposedChart>
+                </ChartFrame>
+              )}
             </Card.Body>
           </Card>
         </Col>
         <Col lg={4}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
-              <Card.Title className="h6 mb-3">Estado de pedidos</Card.Title>
+              <Card.Title className="h6 mb-3">Estado de pedidos ({periodLabel})</Card.Title>
               {statusData.length === 0 ? (
-                <p className="text-muted small mb-0">Sin pedidos</p>
+                <p className="text-muted small mb-0">Sin pedidos en el período</p>
               ) : (
                 <ChartFrame height={280}>
                     <PieChart>
@@ -212,16 +251,16 @@ export function DashboardCharts({ stats }: Props) {
         <Col xs={12}>
           <Card className="card-lepra border-0 shadow-sm">
             <Card.Body>
-              <Card.Title className="h6 mb-3">Top productos (30 días)</Card.Title>
-              {stats.top_products.length === 0 ? (
+              <Card.Title className="h6 mb-3">Top productos ({periodLabel})</Card.Title>
+              {topProducts.length === 0 ? (
                 <p className="text-muted small mb-0">
-                  Sin datos de líneas de pedido. Sincronizá o abrí Pedidos con conexión para completar el catálogo local.
+                  Sin datos de líneas de pedido en el período. Sincronizá o abrí Pedidos con conexión para completar el catálogo local.
                 </p>
               ) : (
-                <ChartFrame height={Math.max(160, stats.top_products.length * 48)}>
+                <ChartFrame height={Math.max(160, topProducts.length * 48)}>
                     <BarChart
                       layout="vertical"
-                      data={stats.top_products}
+                      data={topProducts}
                       margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
                     >
                       <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" horizontal={false} />
@@ -229,7 +268,7 @@ export function DashboardCharts({ stats }: Props) {
                       <YAxis
                         type="category"
                         dataKey="name"
-                        width={120}
+                        width={140}
                         tick={{ fill: CHART.black, fontSize: 12 }}
                       />
                       <Tooltip formatter={(value) => [`${value ?? 0} kg`, 'Peso']} />

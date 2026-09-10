@@ -5,6 +5,9 @@ export interface DashboardPeriodStats {
   revenue: number
   previous_orders: number
   previous_revenue: number
+  status_breakdown: Record<string, number>
+  daily_series: DashboardDailyPoint[]
+  top_products: DashboardTopProduct[]
 }
 
 export interface DashboardDailyPoint {
@@ -29,6 +32,7 @@ export interface DashboardStats {
     orders_pending: number
   }
   periods: Record<DashboardPeriodKey, DashboardPeriodStats>
+  /** Alias del período por defecto (Hoy), por compatibilidad. */
   status_breakdown: Record<string, number>
   daily_series: DashboardDailyPoint[]
   top_products: DashboardTopProduct[]
