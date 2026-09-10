@@ -90,14 +90,14 @@ export function EstadisticasCharts({ stats }: Props) {
   const revenueDelta = pctChange(summary.revenue, summary.previous_revenue)
 
   return (
-    <>
-      <Row className="g-4 mb-4">
-        <Col sm={6} xl={3}>
+    <div className="estadisticas-charts-page">
+      <Row className="g-3 g-md-4 mb-4 estadisticas-kpis">
+        <Col xs={6} xl={3}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
               <Card.Text className="text-muted small mb-1">Pedidos</Card.Text>
               <div className="d-flex align-items-baseline gap-2">
-                <Card.Title className="mb-0 h3">{summary.orders}</Card.Title>
+                <Card.Title className="mb-0 estadisticas-kpi-value">{summary.orders}</Card.Title>
                 {ordersDelta != null && (
                   <span className={`small ${ordersDelta >= 0 ? 'text-success' : 'text-danger'}`}>
                     {ordersDelta >= 0 ? '+' : ''}
@@ -111,12 +111,12 @@ export function EstadisticasCharts({ stats }: Props) {
             </Card.Body>
           </Card>
         </Col>
-        <Col sm={6} xl={3}>
+        <Col xs={6} xl={3}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
               <Card.Text className="text-muted small mb-1">Facturación</Card.Text>
               <div className="d-flex align-items-baseline gap-2">
-                <Card.Title className="mb-0 h4">{formatMoney(summary.revenue)}</Card.Title>
+                <Card.Title className="mb-0 estadisticas-kpi-value">{formatMoney(summary.revenue)}</Card.Title>
                 {revenueDelta != null && (
                   <span className={`small ${revenueDelta >= 0 ? 'text-success' : 'text-danger'}`}>
                     {revenueDelta >= 0 ? '+' : ''}
@@ -130,25 +130,25 @@ export function EstadisticasCharts({ stats }: Props) {
             </Card.Body>
           </Card>
         </Col>
-        <Col sm={6} xl={3}>
+        <Col xs={6} xl={3}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
               <Card.Text className="text-muted small mb-1">Kg vendidos</Card.Text>
-              <Card.Title className="mb-0 h3">{summary.total_kg}</Card.Title>
+              <Card.Title className="mb-0 estadisticas-kpi-value">{summary.total_kg}</Card.Title>
             </Card.Body>
           </Card>
         </Col>
-        <Col sm={6} xl={3}>
+        <Col xs={6} xl={3}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
               <Card.Text className="text-muted small mb-1">Ticket promedio</Card.Text>
-              <Card.Title className="mb-0 h4">{formatMoney(summary.avg_ticket)}</Card.Title>
+              <Card.Title className="mb-0 estadisticas-kpi-value">{formatMoney(summary.avg_ticket)}</Card.Title>
             </Card.Body>
           </Card>
         </Col>
       </Row>
 
-      <Row className="g-4 mb-4">
+      <Row className="g-3 g-md-4 mb-4 estadisticas-charts">
         <Col lg={8}>
           <Card className="card-lepra border-0 shadow-sm h-100">
             <Card.Body>
@@ -156,8 +156,8 @@ export function EstadisticasCharts({ stats }: Props) {
               {seriesData.length === 0 ? (
                 <p className="text-muted small mb-0">Sin datos en el período seleccionado</p>
               ) : (
-                <ChartFrame height={300}>
-                    <ComposedChart data={seriesData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <ChartFrame height={300} className="estadisticas-chart-frame">
+                    <ComposedChart data={seriesData} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
                       <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" />
                       <XAxis
                         dataKey="label"
@@ -216,7 +216,7 @@ export function EstadisticasCharts({ stats }: Props) {
               {categoryData.length === 0 ? (
                 <p className="text-muted small mb-0">Sin datos</p>
               ) : (
-                <ChartFrame height={300}>
+                <ChartFrame height={240} className="estadisticas-chart-frame estadisticas-chart-frame--pie">
                     <PieChart>
                       <Pie
                         data={categoryData}
@@ -224,8 +224,8 @@ export function EstadisticasCharts({ stats }: Props) {
                         nameKey="name"
                         cx="50%"
                         cy="50%"
-                        innerRadius={52}
-                        outerRadius={88}
+                        innerRadius={44}
+                        outerRadius={76}
                         paddingAngle={2}
                         isAnimationActive={animate}
                       >
@@ -248,19 +248,20 @@ export function EstadisticasCharts({ stats }: Props) {
               {topProducts.length === 0 ? (
                 <p className="text-muted small mb-0">Sin datos de productos en el período</p>
               ) : (
-                <ChartFrame height={Math.max(180, topProducts.length * 44)}>
+                <ChartFrame height={Math.max(180, topProducts.length * 44)} className="estadisticas-chart-frame">
                     <BarChart
                       layout="vertical"
                       data={topProducts}
-                      margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
+                      margin={{ top: 4, right: 12, left: 0, bottom: 4 }}
                     >
                       <CartesianGrid stroke={CHART.grid} strokeDasharray="3 3" horizontal={false} />
                       <XAxis type="number" allowDecimals={false} tick={{ fill: CHART.gray, fontSize: 11 }} />
                       <YAxis
                         type="category"
                         dataKey="name"
-                        width={140}
-                        tick={{ fill: CHART.black, fontSize: 12 }}
+                        width={96}
+                        tick={{ fill: CHART.black, fontSize: 11 }}
+                        interval={0}
                       />
                       <Tooltip formatter={(value) => [`${value ?? 0} kg`, 'Peso']} />
                       <Bar
@@ -277,6 +278,6 @@ export function EstadisticasCharts({ stats }: Props) {
           </Card>
         </Col>
       </Row>
-    </>
+    </div>
   )
 }

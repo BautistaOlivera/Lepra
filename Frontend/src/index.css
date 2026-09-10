@@ -1908,6 +1908,7 @@ body {
 .estadisticas-matrix-scroll {
   max-height: 28rem;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* separate evita el “pixel gap” de border-collapse + sticky */
@@ -2004,6 +2005,123 @@ body {
 .estadisticas-planilla-table tbody tr td:not(.estadisticas-matrix-sticky-col):empty,
 .estadisticas-planilla-table tbody tr td:not(.estadisticas-matrix-sticky-col) {
   font-variant-numeric: tabular-nums;
+}
+
+.estadisticas-planilla-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.estadisticas-kpi-value {
+  font-size: 1.45rem;
+  font-weight: 600;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+@media (max-width: 991.98px) {
+  .estadisticas-page {
+    overflow-x: hidden;
+  }
+
+  .estadisticas-view-tabs {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .estadisticas-view-mode-group,
+  .estadisticas-view-tabs .admin-list-granularity-group {
+    width: 100%;
+    display: flex;
+  }
+
+  .estadisticas-view-mode-group > .btn,
+  .estadisticas-view-tabs .admin-list-granularity-group > .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+    font-size: 0.875rem;
+  }
+
+  .estadisticas-view-tabs .admin-list-period-type,
+  .estadisticas-view-tabs .admin-list-period-select {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .estadisticas-view-tabs-badge {
+    margin-bottom: 0;
+  }
+
+  .estadisticas-filters-line .admin-list-dates-sep {
+    display: inline;
+  }
+
+  .estadisticas-planilla-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .estadisticas-planilla-modes {
+    width: 100%;
+    display: flex;
+  }
+
+  .estadisticas-planilla-modes > .btn {
+    flex: 1 1 0;
+  }
+
+  .estadisticas-matrix-scroll {
+    max-height: min(70vh, 28rem);
+  }
+
+  .estadisticas-planilla-table .estadisticas-matrix-sticky-col {
+    max-width: 7.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .estadisticas-charts-page .card-body {
+    padding: 0.85rem;
+  }
+
+  .estadisticas-kpi-value {
+    font-size: 1.15rem;
+  }
+
+  .estadisticas-kpis .d-flex.align-items-baseline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+  }
+
+  .estadisticas-chart-frame {
+    height: 220px !important;
+    min-height: 220px !important;
+  }
+
+  .estadisticas-chart-frame--pie {
+    height: 210px !important;
+    min-height: 210px !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .estadisticas-kpi-value {
+    font-size: 1.02rem;
+  }
+
+  .estadisticas-view-mode-group > .btn,
+  .estadisticas-view-tabs .admin-list-granularity-group > .btn {
+    font-size: 0.8rem;
+  }
 }
 
 .admin-list-action-btn {

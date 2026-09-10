@@ -188,10 +188,10 @@ export function SalesPlanillaTable({ stats, products }: Props) {
   return (
     <Card className="card-lepra border-0 shadow-sm">
       <Card.Body className="p-0">
-        <div className="p-3 pb-2">
-          <div className="d-flex align-items-center justify-content-between gap-2 mb-1">
+        <div className="p-3 pb-2 estadisticas-planilla-head">
+          <div className="estadisticas-planilla-toolbar mb-1">
             <Card.Title className="h6 mb-0">Planilla de caudal</Card.Title>
-            <ButtonGroup size="sm" className="flex-shrink-0">
+            <ButtonGroup size="sm" className="estadisticas-planilla-modes">
               <Button
                 variant={mode === 'customer' ? 'dark' : 'outline-dark'}
                 onClick={() => setMode('customer')}
@@ -206,10 +206,13 @@ export function SalesPlanillaTable({ stats, products }: Props) {
               </Button>
             </ButtonGroup>
           </div>
-          <Card.Text className="text-muted small mb-0">
+          <Card.Text className="text-muted small mb-0 d-none d-md-block">
             Cantidades por producto (kg o u.). En productos por kg con peso cargado se muestra
             también una estimación en unidades (kg ÷ peso). El período de arriba recorta estas
             tablas: si elegís «Hoy», se muestra solo ese día.
+          </Card.Text>
+          <Card.Text className="text-muted small mb-0 d-md-none">
+            Kg o u. por producto. Deslizá la tabla para ver el resto de columnas.
           </Card.Text>
         </div>
 
@@ -242,9 +245,9 @@ export function SalesPlanillaTable({ stats, products }: Props) {
                     <tbody>
                       {block.rows.map((row) => (
                         <tr key={row.id_product}>
-                          <td className="estadisticas-matrix-sticky-col text-nowrap">
+                          <td className="estadisticas-matrix-sticky-col">
                             {row.name}{' '}
-                            <span className="text-muted small">({row.unit})</span>
+                            <span className="text-muted small d-none d-md-inline">({row.unit})</span>
                           </td>
                           {row.qtys.map((q, i) => (
                             <td key={i} className="text-end text-nowrap">
@@ -294,8 +297,9 @@ export function SalesPlanillaTable({ stats, products }: Props) {
               <tbody>
                 {planilla.by_period.map((row) => (
                   <tr key={row.id_product}>
-                    <td className="estadisticas-matrix-sticky-col text-nowrap">
-                      {row.name} <span className="text-muted small">({row.unit})</span>
+                    <td className="estadisticas-matrix-sticky-col">
+                      {row.name}{' '}
+                      <span className="text-muted small d-none d-md-inline">({row.unit})</span>
                     </td>
                     {row.values.map((v, i) => (
                       <td key={i} className="text-end text-nowrap">

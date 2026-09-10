@@ -210,10 +210,10 @@ export function Estadisticas() {
   }
 
   return (
-    <div className="admin-list-page">
+    <div className="admin-list-page estadisticas-page">
       <div className="admin-list-toolbar estadisticas-toolbar-sticky mb-4">
         <div className="estadisticas-view-tabs" role="tablist" aria-label="Vista de estadísticas">
-          <ButtonGroup>
+          <ButtonGroup className="estadisticas-view-mode-group">
             {VIEW_OPTIONS.map(({ key, label, Icon }) => (
               <Button
                 key={key}
@@ -324,7 +324,7 @@ export function Estadisticas() {
       {viewMode === 'charts' ? (
         <EstadisticasCharts stats={stats} />
       ) : (
-        <div className="d-flex flex-column gap-4">
+        <div className="estadisticas-tables d-flex flex-column gap-4">
           <SalesPlanillaTable stats={stats} products={products} />
           <SalesProductTable rows={stats.by_product} />
         </div>

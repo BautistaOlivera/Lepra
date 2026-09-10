@@ -120,20 +120,20 @@ export function SalesProductTable({ rows }: ProductTableProps) {
             <thead>
               <tr>
                 <th>Producto</th>
-                <th>Categoría</th>
+                <th className="d-none d-sm-table-cell">Categoría</th>
                 <th className="text-end">Kg</th>
                 <th className="text-end">Facturación</th>
-                <th className="text-end">Pedidos</th>
+                <th className="text-end d-none d-sm-table-cell">Pedidos</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id_product}>
                   <td>{row.name}</td>
-                  <td>{row.category || '-'}</td>
+                  <td className="d-none d-sm-table-cell">{row.category || '-'}</td>
                   <td className="text-end">{row.total_kg}</td>
                   <td className="text-end">{formatMoneyWithSymbol(row.revenue)}</td>
-                  <td className="text-end">{row.orders}</td>
+                  <td className="text-end d-none d-sm-table-cell">{row.orders}</td>
                 </tr>
               ))}
             </tbody>
