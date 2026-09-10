@@ -9,8 +9,18 @@ import { AdminPageHero } from '@/components/AdminPageHero'
 import { EstadisticasCharts } from '@/components/estadisticas/EstadisticasCharts'
 import { SalesProductTable } from '@/components/estadisticas/SalesMatrixTable'
 import { SalesPlanillaTable } from '@/components/estadisticas/SalesPlanillaTable'
-import { defaultSalesDateRange } from '@/lib/salesStatsAggregate'
-import { defaultRangeForGranularity, periodStart, periodEnd } from '@/lib/salesPeriodRange'
+import {
+  CUSTOM_PERIOD_PRESET_ID,
+  CUSTOM_PERIOD_PRESET_LABEL,
+  defaultRangeForGranularity,
+  defaultSalesPeriod,
+  matchPreset,
+  periodEnd,
+  periodStart,
+  presetsForGranularity,
+  rangeForPreset,
+  type SalesPeriodPresetId,
+} from '@/lib/salesPeriodRange'
 import { getSalesStatsHybrid } from '@/repositories/salesStatsRepo'
 import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
 import { useOnlineStatus } from '@/offline/network'
@@ -33,13 +43,13 @@ const VIEW_OPTIONS: { key: StatsViewMode; label: string; Icon: typeof LayoutDash
 
 export function Estadisticas() {
   const online = useOnlineStatus()
-  const defaults = defaultSalesDateRange()
+  const defaults = defaultSalesPeriod()
 
   const [dateFrom, setDateFrom] = useState(defaults.from)
   const [dateTo, setDateTo] = useState(defaults.to)
   const [productId, setProductId] = useState<number | null>(null)
   const [category, setCategory] = useState<string | null>(null)
-  const [granularity, setGranularity] = useState<SalesGranularity>('day')
+  const [granularity, setGranularity] = useState<SalesGranularity>(defaults.granularity)
   const [viewMode, setViewMode] = useState<StatsViewMode>('charts')
 
   const [products, setProducts] = useState<Product[]>([])
@@ -96,14 +106,34 @@ export function Estadisticas() {
     load()
   }, [load, online])
 
+  const matchedPreset = matchPreset(dateFrom, dateTo, granularity)
+
+  const periodOptions = useMemo(() => {
+    const named = presetsForGranularity(granularity).map((p) => ({
+      value: p.id as SalesPeriodPresetId,
+      label: p.label,
+    }))
+    if (matchedPreset === CUSTOM_PERIOD_PRESET_ID) {
+      named.push({ value: CUSTOM_PERIOD_PRESET_ID, label: CUSTOM_PERIOD_PRESET_LABEL })
+    }
+    return named
+  }, [granularity, matchedPreset])
+
   /**
-   * El agrupamiento funciona como atajo del selector de fechas:
-   * al elegirlo se aplica un rango de períodos completos acorde
-   * (semanas lunes-domingo, meses/años calendario).
+   * El tipo aplica el preset "actual" de ese agrupamiento
+   * (Hoy / Esta semana / Este mes / Este año), un solo período.
    */
   function applyGranularity(g: SalesGranularity) {
     const r = defaultRangeForGranularity(g)
     setGranularity(g)
+    setDateFrom(r.from)
+    setDateTo(r.to)
+  }
+
+  function applyPeriodPreset(id: SalesPeriodPresetId | null) {
+    if (!id || id === CUSTOM_PERIOD_PRESET_ID) return
+    const r = rangeForPreset(id)
+    setGranularity(r.granularity)
     setDateFrom(r.from)
     setDateTo(r.to)
   }
@@ -134,12 +164,12 @@ export function Estadisticas() {
   }
 
   function clearFilters() {
-    const d = defaultSalesDateRange()
+    const d = defaultSalesPeriod()
     setDateFrom(d.from)
     setDateTo(d.to)
     setProductId(null)
     setCategory(null)
-    setGranularity('day')
+    setGranularity(d.granularity)
   }
 
   if (loading && !stats) {
@@ -216,18 +246,33 @@ export function Estadisticas() {
         </div>
 
         <div className="admin-list-granularity">
-          <Form.Label className="small text-muted mb-1 d-block">Agrupar</Form.Label>
-          <ButtonGroup className="admin-list-granularity-group">
-            {GRANULARITY_OPTIONS.map(({ key, label }) => (
-              <Button
-                key={key}
-                variant={granularity === key ? 'dark' : 'outline-dark'}
-                onClick={() => applyGranularity(key)}
-              >
-                {label}
-              </Button>
-            ))}
-          </ButtonGroup>
+          <div className="admin-list-period-row">
+            <div className="admin-list-period-type">
+              <Form.Label className="small text-muted mb-1 d-block">Tipo</Form.Label>
+              <ButtonGroup className="admin-list-granularity-group">
+                {GRANULARITY_OPTIONS.map(({ key, label }) => (
+                  <Button
+                    key={key}
+                    variant={granularity === key ? 'dark' : 'outline-dark'}
+                    active={granularity === key}
+                    onClick={() => applyGranularity(key)}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </ButtonGroup>
+            </div>
+            <div className="admin-list-period-select">
+              <Form.Label className="small text-muted mb-1">Período</Form.Label>
+              <Select<SalesPeriodPresetId>
+                options={periodOptions}
+                value={matchedPreset}
+                onChange={applyPeriodPreset}
+                placeholder="Período"
+                isSearchable={false}
+              />
+            </div>
+          </div>
         </div>
       </div>
 

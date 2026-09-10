@@ -1,7 +1,8 @@
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { isCanceledStatus, normalizeOrderStatus } from '@/lib/orderStatus'
 import { orderCustomerLabel } from '@/lib/orderDisplay'
-import { lineTotal } from '@/lib/pricing'
+import { isFixedWeightProduct, lineTotal, piecesFromWeight } from '@/lib/pricing'
+import { defaultSalesPeriod } from '@/lib/salesPeriodRange'
 import type { Order, Product } from '@/types'
 import type {
   SalesByCategory,
@@ -15,7 +16,6 @@ import type {
   SalesSummary,
   SalesTimePoint,
 } from '@/types/salesStats'
-import { isFixedWeightProduct, piecesFromWeight } from '@/lib/pricing'
 
 type SalesLine = {
   orderId: number
@@ -53,21 +53,19 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function defaultSalesDateRange(): { from: string; to: string } {
-  const to = startOfDayUtc(new Date())
-  const from = new Date(to)
-  from.setUTCDate(from.getUTCDate() - 29)
-  return { from: isoDate(from), to: isoDate(to) }
+export function defaultSalesDateRange(now: Date = new Date()): { from: string; to: string } {
+  const r = defaultSalesPeriod(now)
+  return { from: r.from, to: r.to }
 }
 
 function resolveFilters(params: SalesStatsParams): SalesFilters {
-  const defaults = defaultSalesDateRange()
+  const defaults = defaultSalesPeriod()
   return {
     dateFrom: params.date_from || defaults.from,
     dateTo: params.date_to || defaults.to,
     productId: params.product_id ?? null,
     category: params.category ?? null,
-    granularity: params.granularity ?? 'day',
+    granularity: params.granularity ?? defaults.granularity,
   }
 }
 

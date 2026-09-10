@@ -1834,14 +1834,35 @@ body {
   }
 }
 
-/* Agrupar (estadísticas): mismo formato que los demás filtros,
-   etiqueta arriba y botones con el alto de los selects (44px) */
+/* Tipo + período (estadísticas): botones y select al mismo alto (44px) */
 .admin-list-granularity {
   flex: 1 1 100%;
   min-width: 0;
 }
 
+.admin-list-period-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.admin-list-period-type {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
 .admin-list-granularity-group .btn {
+  min-height: 44px;
+}
+
+.admin-list-period-select {
+  flex: 1 1 200px;
+  min-width: 180px;
+  max-width: 280px;
+}
+
+.admin-list-period-select .lepra-select__control {
   min-height: 44px;
 }
 
@@ -2373,6 +2394,11 @@ body {
 
   .admin-list-load-more {
     width: 100%;
+  }
+
+  .admin-list-period-select {
+    flex: 1 1 100%;
+    max-width: none;
   }
 
   .admin-list-dates-row {

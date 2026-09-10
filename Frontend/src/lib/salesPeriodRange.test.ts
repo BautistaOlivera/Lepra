@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { periodStart, periodEnd, defaultRangeForGranularity } from './salesPeriodRange'
+import {
+  periodStart,
+  periodEnd,
+  defaultRangeForGranularity,
+  defaultSalesPeriod,
+  matchPreset,
+  rangeForPreset,
+  todayLocalIso,
+} from './salesPeriodRange'
+
+/** Miércoles 15/07/2026 mediodía local (evita corrimientos UTC). */
+const NOW = new Date(2026, 6, 15, 12, 0, 0)
 
 describe('periodStart', () => {
   it('día: devuelve el mismo día', () => {
@@ -49,43 +60,160 @@ describe('periodEnd', () => {
   })
 })
 
-describe('defaultRangeForGranularity', () => {
-  const now = new Date(Date.UTC(2026, 6, 15)) // miércoles 15/07/2026
+describe('todayLocalIso', () => {
+  it('usa el calendario local, no UTC', () => {
+    expect(todayLocalIso(NOW)).toBe('2026-07-15')
+  })
+})
 
-  it('día: últimos 30 días', () => {
-    expect(defaultRangeForGranularity('day', now)).toEqual({
-      from: '2026-06-16',
+describe('rangeForPreset', () => {
+  it('día: hoy, ayer y anteayer son un solo día', () => {
+    expect(rangeForPreset('today', NOW)).toEqual({
+      from: '2026-07-15',
+      to: '2026-07-15',
+      granularity: 'day',
+    })
+    expect(rangeForPreset('yesterday', NOW)).toEqual({
+      from: '2026-07-14',
+      to: '2026-07-14',
+      granularity: 'day',
+    })
+    expect(rangeForPreset('day_before_yesterday', NOW)).toEqual({
+      from: '2026-07-13',
+      to: '2026-07-13',
+      granularity: 'day',
+    })
+  })
+
+  it('semana: esta, pasada y hace 2 son lunes–domingo de un solo período', () => {
+    expect(rangeForPreset('this_week', NOW)).toEqual({
+      from: '2026-07-13',
+      to: '2026-07-19',
+      granularity: 'week',
+    })
+    expect(rangeForPreset('last_week', NOW)).toEqual({
+      from: '2026-07-06',
+      to: '2026-07-12',
+      granularity: 'week',
+    })
+    expect(rangeForPreset('week_before_last', NOW)).toEqual({
+      from: '2026-06-29',
+      to: '2026-07-05',
+      granularity: 'week',
+    })
+  })
+
+  it('mes: este, pasado y hace 2 son un mes calendario', () => {
+    expect(rangeForPreset('this_month', NOW)).toEqual({
+      from: '2026-07-01',
+      to: '2026-07-31',
+      granularity: 'month',
+    })
+    expect(rangeForPreset('last_month', NOW)).toEqual({
+      from: '2026-06-01',
+      to: '2026-06-30',
+      granularity: 'month',
+    })
+    expect(rangeForPreset('month_before_last', NOW)).toEqual({
+      from: '2026-05-01',
+      to: '2026-05-31',
+      granularity: 'month',
+    })
+  })
+
+  it('mes pasado no desborda desde el 31 de enero', () => {
+    const jan31 = new Date(2026, 0, 31, 12, 0, 0)
+    expect(rangeForPreset('this_month', jan31)).toEqual({
+      from: '2026-01-01',
+      to: '2026-01-31',
+      granularity: 'month',
+    })
+    expect(rangeForPreset('last_month', jan31)).toEqual({
+      from: '2025-12-01',
+      to: '2025-12-31',
+      granularity: 'month',
+    })
+  })
+
+  it('año: este y pasado son un año calendario', () => {
+    expect(rangeForPreset('this_year', NOW)).toEqual({
+      from: '2026-01-01',
+      to: '2026-12-31',
+      granularity: 'year',
+    })
+    expect(rangeForPreset('last_year', NOW)).toEqual({
+      from: '2025-01-01',
+      to: '2025-12-31',
+      granularity: 'year',
+    })
+  })
+})
+
+describe('defaultRangeForGranularity', () => {
+  it('día: solo hoy (un período)', () => {
+    expect(defaultRangeForGranularity('day', NOW)).toEqual({
+      from: '2026-07-15',
       to: '2026-07-15',
     })
   })
 
-  it('semana: 12 semanas completas terminando en la semana actual', () => {
-    const r = defaultRangeForGranularity('week', now)
-    expect(r).toEqual({ from: '2026-04-27', to: '2026-07-19' })
-    // Bordes alineados: lunes y domingo
+  it('semana: solo la semana actual, lunes a domingo', () => {
+    const r = defaultRangeForGranularity('week', NOW)
+    expect(r).toEqual({ from: '2026-07-13', to: '2026-07-19' })
     expect(periodStart(r.from, 'week')).toBe(r.from)
     expect(periodEnd(r.to, 'week')).toBe(r.to)
   })
 
-  it('mes: 12 meses calendario completos', () => {
-    expect(defaultRangeForGranularity('month', now)).toEqual({
-      from: '2025-08-01',
+  it('mes: solo el mes calendario actual', () => {
+    expect(defaultRangeForGranularity('month', NOW)).toEqual({
+      from: '2026-07-01',
       to: '2026-07-31',
     })
   })
 
   it('mes: no desborda desde fin de mes (31 de enero)', () => {
-    const jan31 = new Date(Date.UTC(2026, 0, 31))
+    const jan31 = new Date(2026, 0, 31, 12, 0, 0)
     expect(defaultRangeForGranularity('month', jan31)).toEqual({
-      from: '2025-02-01',
+      from: '2026-01-01',
       to: '2026-01-31',
     })
   })
 
-  it('año: 3 años calendario completos', () => {
-    expect(defaultRangeForGranularity('year', now)).toEqual({
-      from: '2024-01-01',
+  it('año: solo el año calendario actual', () => {
+    expect(defaultRangeForGranularity('year', NOW)).toEqual({
+      from: '2026-01-01',
       to: '2026-12-31',
     })
+  })
+})
+
+describe('defaultSalesPeriod', () => {
+  it('carga inicial: esta semana', () => {
+    expect(defaultSalesPeriod(NOW)).toEqual({
+      from: '2026-07-13',
+      to: '2026-07-19',
+      granularity: 'week',
+    })
+  })
+})
+
+describe('matchPreset', () => {
+  it('reconoce presets del tipo activo', () => {
+    expect(matchPreset('2026-07-15', '2026-07-15', 'day', NOW)).toBe('today')
+    expect(matchPreset('2026-07-14', '2026-07-14', 'day', NOW)).toBe('yesterday')
+    expect(matchPreset('2026-07-13', '2026-07-19', 'week', NOW)).toBe('this_week')
+    expect(matchPreset('2026-07-06', '2026-07-12', 'week', NOW)).toBe('last_week')
+    expect(matchPreset('2026-07-01', '2026-07-31', 'month', NOW)).toBe('this_month')
+    expect(matchPreset('2026-01-01', '2026-12-31', 'year', NOW)).toBe('this_year')
+  })
+
+  it('rango que no coincide → personalizado', () => {
+    expect(matchPreset('2026-07-01', '2026-07-19', 'week', NOW)).toBe('custom')
+    expect(matchPreset('2026-07-13', '2026-07-19', 'day', NOW)).toBe('custom')
+  })
+
+  it('fechas vacías → personalizado', () => {
+    expect(matchPreset('', '2026-07-19', 'week', NOW)).toBe('custom')
+    expect(matchPreset('2026-07-13', '', 'week', NOW)).toBe('custom')
   })
 })
