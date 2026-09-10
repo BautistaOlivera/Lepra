@@ -1862,6 +1862,22 @@ body {
 .estadisticas-filters-line .admin-list-dates-row {
   flex: 1.2 1 220px;
   min-width: 0;
+  align-items: flex-end;
+}
+
+.estadisticas-filters-line .admin-list-date-labeled {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.estadisticas-filters-line .admin-list-date-labeled .admin-list-date-field {
+  width: 100%;
+}
+
+.estadisticas-filters-line .admin-list-dates-sep {
+  display: flex;
+  align-items: center;
+  height: 44px;
 }
 
 .estadisticas-filters-line .admin-list-filter {
@@ -2060,7 +2076,7 @@ body {
   }
 
   .estadisticas-filters-line .admin-list-dates-sep {
-    display: inline;
+    display: flex;
   }
 
   .estadisticas-planilla-toolbar {

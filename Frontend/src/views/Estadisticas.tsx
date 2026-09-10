@@ -262,21 +262,27 @@ export function Estadisticas() {
 
         <div className="estadisticas-filters-line">
           <div className="admin-list-dates-row">
-            <InputGroup className="admin-list-date-field">
-              <InputGroup.Text>
-                <Calendar size={16} aria-hidden />
-              </InputGroup.Text>
-              <DateInputAr value={dateFrom} onChange={applyDateFrom} aria-label="Fecha desde" />
-            </InputGroup>
+            <div className="admin-list-date-labeled">
+              <Form.Label className="small text-muted mb-1">Desde</Form.Label>
+              <InputGroup className="admin-list-date-field">
+                <InputGroup.Text>
+                  <Calendar size={16} aria-hidden />
+                </InputGroup.Text>
+                <DateInputAr value={dateFrom} onChange={applyDateFrom} aria-label="Fecha desde" />
+              </InputGroup>
+            </div>
             <span className="admin-list-dates-sep" aria-hidden>
               –
             </span>
-            <InputGroup className="admin-list-date-field">
-              <InputGroup.Text>
-                <Calendar size={16} aria-hidden />
-              </InputGroup.Text>
-              <DateInputAr value={dateTo} onChange={applyDateTo} aria-label="Fecha hasta" />
-            </InputGroup>
+            <div className="admin-list-date-labeled">
+              <Form.Label className="small text-muted mb-1">Hasta</Form.Label>
+              <InputGroup className="admin-list-date-field">
+                <InputGroup.Text>
+                  <Calendar size={16} aria-hidden />
+                </InputGroup.Text>
+                <DateInputAr value={dateTo} onChange={applyDateTo} aria-label="Fecha hasta" />
+              </InputGroup>
+            </div>
           </div>
 
           <div className="admin-list-filter">
