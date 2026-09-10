@@ -4,6 +4,7 @@ import { LoadingCenter } from '@/components/LoadingOverlay'
 import { Link } from 'react-router-dom'
 import { Package, ClipboardList, Users, BarChart3 } from 'lucide-react'
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
+import { ResumenHoy } from '@/components/dashboard/ResumenHoy'
 import { getDashboardStatsHybrid } from '@/repositories/dashboardRepo'
 import { useOnlineStatus } from '@/offline/network'
 import type { DashboardStats } from '@/types/dashboard'
@@ -125,6 +126,8 @@ export function Admin() {
           </Card>
         </Col>
       </Row>
+
+      <ResumenHoy cash={stats.today_cash} />
 
       <DashboardCharts stats={stats} />
     </>

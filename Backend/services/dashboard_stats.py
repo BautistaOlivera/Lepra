@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Iterable, Mapping, Sequence
+from zoneinfo import ZoneInfo
+
+AR_TZ = ZoneInfo("America/Argentina/Buenos_Aires")
+CASH_METHODS = ("efectivo", "transferencia", "cheque", "otro")
 
 
 @dataclass(frozen=True)
@@ -243,3 +247,114 @@ def build_dashboard_periods(
             ),
         }
     return out
+
+
+def today_ar_date(now: datetime) -> date:
+    """Día calendario en Argentina. `now` naive se trata como UTC."""
+    aware = now if now.tzinfo is not None else now.replace(tzinfo=timezone.utc)
+    return aware.astimezone(AR_TZ).date()
+
+
+def utc_naive_to_ar_date(dt: datetime) -> date:
+    aware = dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+    return aware.astimezone(AR_TZ).date()
+
+
+def ar_day_utc_naive_bounds(day: date) -> tuple[datetime, datetime]:
+    """Inicio (inclusive) y fin (exclusive) del día AR, en UTC naive."""
+    start_ar = datetime(day.year, day.month, day.day, tzinfo=AR_TZ)
+    nxt = day + timedelta(days=1)
+    end_ar = datetime(nxt.year, nxt.month, nxt.day, tzinfo=AR_TZ)
+    start = start_ar.astimezone(timezone.utc).replace(tzinfo=None)
+    end = end_ar.astimezone(timezone.utc).replace(tzinfo=None)
+    return start, end
+
+
+def _as_calendar_date(value: object) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str) and len(value) >= 10:
+        try:
+            return date.fromisoformat(value[:10])
+        except ValueError:
+            return None
+    return None
+
+
+def _cash_method(method: str | None) -> str:
+    key = (method or "").strip().lower()
+    return key if key in CASH_METHODS else "otro"
+
+
+def empty_today_cash(day: date) -> dict[str, float | str]:
+    return {
+        "date": day.isoformat(),
+        "efectivo": 0.0,
+        "transferencia": 0.0,
+        "cheque": 0.0,
+        "otro": 0.0,
+        "collected": 0.0,
+        "owed": 0.0,
+    }
+
+
+def aggregate_today_cash(
+    orders: Sequence[Mapping[str, object]],
+    payments: Sequence[Mapping[str, object]],
+    now: datetime,
+) -> dict[str, float | str]:
+    """Cierre de caja del día AR: cobros por medio (`paid_at`) y saldo de pedidos de hoy."""
+    day = today_ar_date(now)
+    methods = {m: 0.0 for m in CASH_METHODS}
+
+    meta: dict[int, dict[str, object]] = {}
+    for o in orders:
+        oid = int(o["id"])
+        meta[oid] = {
+            "active": bool(o.get("active", True)),
+            "status": normalize_status(str(o.get("status"))),
+            "total": float(o.get("total") or 0),
+            "created_at": o.get("created_at"),
+        }
+
+    paid_by_order: dict[int, float] = {}
+    for p in payments:
+        oid = int(p["id_order"])
+        info = meta.get(oid)
+        if info is not None and (not info["active"] or info["status"] == "CANCELED"):
+            continue
+        if info is None:
+            continue
+        amount = float(p.get("amount") or 0)
+        paid_by_order[oid] = round(paid_by_order.get(oid, 0.0) + amount, 2)
+        paid_on = _as_calendar_date(p.get("paid_at"))
+        if paid_on != day:
+            continue
+        method = _cash_method(str(p.get("method") or ""))
+        methods[method] = round(methods[method] + amount, 2)
+
+    owed = 0.0
+    for oid, info in meta.items():
+        if not info["active"] or info["status"] == "CANCELED":
+            continue
+        created = info["created_at"]
+        if not isinstance(created, datetime):
+            continue
+        if utc_naive_to_ar_date(created) != day:
+            continue
+        if info["status"] == "FULFILLED":
+            continue
+        owed += max(0.0, float(info["total"]) - paid_by_order.get(oid, 0.0))
+
+    collected = round(sum(methods.values()), 2)
+    return {
+        "date": day.isoformat(),
+        "efectivo": round(methods["efectivo"], 2),
+        "transferencia": round(methods["transferencia"], 2),
+        "cheque": round(methods["cheque"], 2),
+        "otro": round(methods["otro"], 2),
+        "collected": collected,
+        "owed": round(owed, 2),
+    }

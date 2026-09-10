@@ -1,14 +1,18 @@
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { isCanceledStatus, normalizeOrderStatus } from '@/lib/orderStatus'
 import { lineTotal } from '@/lib/pricing'
-import type { Order, Product } from '@/types'
+import type { Order, OrderPayment, Product } from '@/types'
 import type {
   DashboardDailyPoint,
   DashboardPeriodKey,
   DashboardPeriodStats,
   DashboardStats,
+  DashboardTodayCash,
   DashboardTopProduct,
 } from '@/types/dashboard'
+
+const AR_TZ = 'America/Argentina/Buenos_Aires'
+const CASH_METHODS = ['efectivo', 'transferencia', 'cheque', 'otro'] as const
 
 type OrderRow = { at: Date; total: number; status: string }
 
@@ -170,6 +174,83 @@ function buildTopProducts(
     .slice(0, 5)
 }
 
+function calendarDateInAr(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: AR_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+
+function paymentPaidAtIso(p: OrderPayment): string | null {
+  const raw = (p.paid_at || '').trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+  const created = parseUtcFromApi(p.created_at)
+  return created ? calendarDateInAr(created) : null
+}
+
+function cashMethod(method: string | null | undefined): (typeof CASH_METHODS)[number] {
+  const key = (method || '').trim().toLowerCase()
+  if (key === 'efectivo' || key === 'transferencia' || key === 'cheque' || key === 'otro') {
+    return key
+  }
+  return 'otro'
+}
+
+export function emptyTodayCash(date: string): DashboardTodayCash {
+  return {
+    date,
+    efectivo: 0,
+    transferencia: 0,
+    cheque: 0,
+    otro: 0,
+    collected: 0,
+    owed: 0,
+  }
+}
+
+export function aggregateTodayCash(orders: Order[], now: Date): DashboardTodayCash {
+  const day = calendarDateInAr(now)
+  const methods = { efectivo: 0, transferencia: 0, cheque: 0, otro: 0 }
+  const paidByOrder = new Map<number, number>()
+
+  for (const o of orders) {
+    if (!o.active || o.id <= 0) continue
+    const status = normalizeOrderStatus(o.status)
+    if (isCanceledStatus(status)) continue
+    for (const p of o.payments || []) {
+      const amount = Number(p.amount) || 0
+      paidByOrder.set(o.id, Math.round(((paidByOrder.get(o.id) || 0) + amount) * 100) / 100)
+      if (paymentPaidAtIso(p) !== day) continue
+      const method = cashMethod(p.method)
+      methods[method] = Math.round((methods[method] + amount) * 100) / 100
+    }
+  }
+
+  let owed = 0
+  for (const o of orders) {
+    if (!o.active || o.id <= 0) continue
+    const status = normalizeOrderStatus(o.status)
+    if (isCanceledStatus(status) || status === 'FULFILLED') continue
+    const at = parseUtcFromApi(o.created_at)
+    if (!at || calendarDateInAr(at) !== day) continue
+    const paid = paidByOrder.get(o.id) || 0
+    owed += Math.max(0, (Number(o.total) || 0) - paid)
+  }
+
+  const collected = Math.round((methods.efectivo + methods.transferencia + methods.cheque + methods.otro) * 100) / 100
+  return {
+    date: day,
+    efectivo: methods.efectivo,
+    transferencia: methods.transferencia,
+    cheque: methods.cheque,
+    otro: methods.otro,
+    collected,
+    owed: Math.round(owed * 100) / 100,
+  }
+}
+
 function buildPeriods(
   rows: OrderRow[],
   orders: Order[],
@@ -225,5 +306,6 @@ export function aggregateDashboardFromLocal(
     status_breakdown: today.status_breakdown,
     daily_series: today.daily_series,
     top_products: today.top_products,
+    today_cash: aggregateTodayCash(orders, now),
   }
 }

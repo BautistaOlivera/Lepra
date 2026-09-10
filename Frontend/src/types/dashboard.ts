@@ -23,6 +23,16 @@ export interface DashboardTopProduct {
   revenue: number
 }
 
+export interface DashboardTodayCash {
+  date: string
+  efectivo: number
+  transferencia: number
+  cheque: number
+  otro: number
+  collected: number
+  owed: number
+}
+
 export interface DashboardStats {
   source: 'server' | 'local'
   generated_at: string
@@ -36,4 +46,5 @@ export interface DashboardStats {
   status_breakdown: Record<string, number>
   daily_series: DashboardDailyPoint[]
   top_products: DashboardTopProduct[]
+  today_cash: DashboardTodayCash
 }

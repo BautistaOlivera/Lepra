@@ -2,16 +2,19 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 
 from auth.roles import require_roles
 from config.db import AsyncSessionLocal
-from models.order import Order, OrderProduct
+from models.order import Order, OrderPayment, OrderProduct
 from models.product import Product
 from models.user import User
 from services.dashboard_stats import (
+    aggregate_today_cash,
+    ar_day_utc_naive_bounds,
     build_dashboard_periods,
     period_windows,
+    today_ar_date,
 )
 from services.sales_stats import (
     SalesFilters,
@@ -87,6 +90,32 @@ async def get_dashboard_stats(req: Request):
             )
         ).all()
 
+        cash_day = today_ar_date(now)
+        cash_start, cash_end = ar_day_utc_naive_bounds(cash_day)
+        cash_order_rows = (
+            await session.execute(
+                select(Order.id, Order.created_at, Order.total, Order.status, Order.active).where(
+                    or_(
+                        and_(Order.created_at >= cash_start, Order.created_at < cash_end),
+                        Order.id.in_(select(OrderPayment.id_order).where(OrderPayment.paid_at == cash_day)),
+                    )
+                )
+            )
+        ).all()
+        cash_order_ids = [r[0] for r in cash_order_rows]
+        cash_pay_rows = []
+        if cash_order_ids:
+            cash_pay_rows = (
+                await session.execute(
+                    select(
+                        OrderPayment.id_order,
+                        OrderPayment.amount,
+                        OrderPayment.method,
+                        OrderPayment.paid_at,
+                    ).where(OrderPayment.id_order.in_(cash_order_ids))
+                )
+            ).all()
+
     lines = [
         {
             "id_product": r[0],
@@ -100,6 +129,28 @@ async def get_dashboard_stats(req: Request):
     ]
     periods = build_dashboard_periods(rows, lines, now)
     today = periods["day"]
+    today_cash = aggregate_today_cash(
+        [
+            {
+                "id": r[0],
+                "created_at": r[1],
+                "total": float(r[2] or 0),
+                "status": r[3] or "PENDING",
+                "active": bool(r[4]),
+            }
+            for r in cash_order_rows
+        ],
+        [
+            {
+                "id_order": r[0],
+                "amount": float(r[1] or 0),
+                "method": r[2] or "",
+                "paid_at": r[3],
+            }
+            for r in cash_pay_rows
+        ],
+        now,
+    )
 
     return JSONResponse(
         status_code=200,
@@ -115,6 +166,7 @@ async def get_dashboard_stats(req: Request):
             "status_breakdown": today["status_breakdown"],
             "daily_series": today["daily_series"],
             "top_products": today["top_products"],
+            "today_cash": today_cash,
         },
     )
 

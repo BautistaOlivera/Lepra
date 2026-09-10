@@ -1538,6 +1538,30 @@ body {
   min-height: 100%;
 }
 
+.resumen-hoy-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+}
+
+.resumen-hoy-owed {
+  border-top: 1px solid #eee;
+  padding-top: 0.35rem;
+}
+
+@media (min-width: 992px) {
+  .resumen-hoy-owed {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .resumen-hoy-value {
+    font-size: 1.35rem;
+  }
+}
+
 .admin-quick-btn {
   display: inline-flex;
   align-items: center;

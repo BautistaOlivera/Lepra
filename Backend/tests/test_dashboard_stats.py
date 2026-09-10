@@ -163,3 +163,52 @@ def test_build_dashboard_periods_scopes_charts():
     assert len(month_series) == 31
     assert month_series[0]["date"] == "2026-05-01"
     assert month_series[-1]["date"] == "2026-05-31"
+
+
+def test_today_cash_methods_and_owed_only_today_orders():
+    from datetime import date
+
+    from services.dashboard_stats import aggregate_today_cash
+
+    now = datetime(2026, 5, 16, 12, 0, 0)
+    orders = [
+        {"id": 1, "created_at": datetime(2026, 5, 16, 10, 0), "total": 1000, "status": "PENDING", "active": True},
+        {"id": 2, "created_at": datetime(2026, 5, 16, 11, 0), "total": 500, "status": "PENDING", "active": True},
+        {"id": 3, "created_at": datetime(2026, 5, 10, 10, 0), "total": 800, "status": "PENDING", "active": True},
+        {"id": 4, "created_at": datetime(2026, 5, 16, 9, 0), "total": 200, "status": "CANCELED", "active": True},
+        {"id": 5, "created_at": datetime(2026, 5, 16, 8, 0), "total": 300, "status": "FULFILLED", "active": True},
+    ]
+    payments = [
+        {"id_order": 1, "amount": 400, "method": "efectivo", "paid_at": date(2026, 5, 16)},
+        {"id_order": 1, "amount": 100, "method": "otro", "paid_at": date(2026, 5, 15)},
+        {"id_order": 2, "amount": 500, "method": "transferencia", "paid_at": date(2026, 5, 16)},
+        {"id_order": 3, "amount": 200, "method": "cheque", "paid_at": date(2026, 5, 16)},
+        {"id_order": 4, "amount": 50, "method": "efectivo", "paid_at": date(2026, 5, 16)},
+        {"id_order": 5, "amount": 300, "method": "efectivo", "paid_at": date(2026, 5, 16)},
+    ]
+    cash = aggregate_today_cash(orders, payments, now)
+    assert cash["date"] == "2026-05-16"
+    assert cash["efectivo"] == 700.0
+    assert cash["transferencia"] == 500.0
+    assert cash["cheque"] == 200.0
+    assert cash["otro"] == 0.0
+    assert cash["collected"] == 1400.0
+    assert cash["owed"] == 500.0
+
+
+def test_today_cash_uses_argentina_calendar_at_night():
+    from datetime import date
+
+    from services.dashboard_stats import aggregate_today_cash
+
+    now = datetime(2026, 5, 17, 1, 0, 0)
+    orders = [
+        {"id": 1, "created_at": datetime(2026, 5, 17, 1, 0), "total": 100, "status": "PENDING", "active": True},
+    ]
+    payments = [
+        {"id_order": 1, "amount": 30, "method": "efectivo", "paid_at": date(2026, 5, 16)},
+    ]
+    cash = aggregate_today_cash(orders, payments, now)
+    assert cash["date"] == "2026-05-16"
+    assert cash["efectivo"] == 30.0
+    assert cash["owed"] == 70.0
