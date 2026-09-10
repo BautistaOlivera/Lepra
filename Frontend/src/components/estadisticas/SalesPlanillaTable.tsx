@@ -166,13 +166,23 @@ export function SalesPlanillaTable({ stats, products }: Props) {
     })
   }
 
-  // En "Por período" arrancar con el scroll a la derecha: el último dato primero.
-  const periodScrollRef = useRef<HTMLDivElement | null>(null)
+  // Arrancar con el scroll a la derecha para ver la columna Total (y, en período, el último dato).
+  const tablesScrollRootRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    const el = periodScrollRef.current
-    if (mode === 'period' && el) {
-      el.scrollLeft = el.scrollWidth
+    const root = tablesScrollRootRef.current
+    if (!root) return
+    const pinRight = () => {
+      const scrollers = root.querySelectorAll<HTMLElement>('.estadisticas-matrix-scroll')
+      if (scrollers.length > 0) {
+        scrollers.forEach((el) => {
+          el.scrollLeft = el.scrollWidth
+        })
+        return
+      }
+      root.scrollLeft = root.scrollWidth
     }
+    const id = window.requestAnimationFrame(pinRight)
+    return () => window.cancelAnimationFrame(id)
   }, [mode, planilla])
 
   return (
@@ -206,7 +216,7 @@ export function SalesPlanillaTable({ stats, products }: Props) {
         {!hasData ? (
           <p className="text-muted small px-3 pb-3 mb-0">Sin datos en el período seleccionado</p>
         ) : mode === 'customer' ? (
-          <div className="px-0 pb-3">
+          <div ref={tablesScrollRootRef} className="px-0 pb-3">
             {planilla.blocks.map((block) => (
               <div key={block.period} className="mb-3">
                 <div className="px-3 py-1 small fw-semibold bg-light border-top border-bottom">
@@ -264,7 +274,7 @@ export function SalesPlanillaTable({ stats, products }: Props) {
             ))}
           </div>
         ) : (
-          <div ref={periodScrollRef} className="table-responsive estadisticas-matrix-scroll mb-3">
+          <div ref={tablesScrollRootRef} className="table-responsive estadisticas-matrix-scroll mb-3">
             <Table
               bordered
               size="sm"

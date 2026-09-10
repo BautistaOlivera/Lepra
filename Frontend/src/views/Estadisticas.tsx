@@ -1,25 +1,31 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Alert, Badge, ButtonGroup, Button, Form, InputGroup } from 'react-bootstrap'
-import { Calendar, BarChart3, LayoutDashboard, Table2 } from 'lucide-react'
+import { Calendar, LayoutDashboard, Table2 } from 'lucide-react'
 import { LoadingCenter } from '@/components/LoadingOverlay'
 import { DateInputAr } from '@/components/DateInputAr'
 import { Select } from '@/components/Select'
 import { AdminFilterResetButton } from '@/components/AdminFilterResetButton'
-import { AdminPageHero } from '@/components/AdminPageHero'
 import { EstadisticasCharts } from '@/components/estadisticas/EstadisticasCharts'
 import { SalesProductTable } from '@/components/estadisticas/SalesMatrixTable'
 import { SalesPlanillaTable } from '@/components/estadisticas/SalesPlanillaTable'
 import {
   CUSTOM_PERIOD_PRESET_ID,
   CUSTOM_PERIOD_PRESET_LABEL,
+  chartPresetsForGranularity,
+  defaultChartPeriod,
+  defaultChartRangeForGranularity,
   defaultRangeForGranularity,
   defaultSalesPeriod,
+  matchChartPreset,
   matchPreset,
   periodEnd,
   periodStart,
   presetsForGranularity,
+  rangeForChartPreset,
   rangeForPreset,
+  type NamedChartPeriodPresetId,
   type SalesPeriodPresetId,
+  type SalesPeriodRange,
 } from '@/lib/salesPeriodRange'
 import { getSalesStatsHybrid } from '@/repositories/salesStatsRepo'
 import { getProductsPaginatedOfflineFirst } from '@/repositories/productsRepo'
@@ -37,25 +43,36 @@ const GRANULARITY_OPTIONS: { key: SalesGranularity; label: string }[] = [
 type StatsViewMode = 'charts' | 'data'
 
 const VIEW_OPTIONS: { key: StatsViewMode; label: string; Icon: typeof LayoutDashboard }[] = [
+  { key: 'data', label: 'Tablas', Icon: Table2 },
   { key: 'charts', label: 'Gráficos', Icon: LayoutDashboard },
-  { key: 'data', label: 'Datos', Icon: Table2 },
 ]
 
 export function Estadisticas() {
   const online = useOnlineStatus()
-  const defaults = defaultSalesPeriod()
+  const tableDefaults = defaultSalesPeriod()
+  const chartDefaults = defaultChartPeriod()
 
-  const [dateFrom, setDateFrom] = useState(defaults.from)
-  const [dateTo, setDateTo] = useState(defaults.to)
+  const [tablesPeriod, setTablesPeriod] = useState<SalesPeriodRange>(tableDefaults)
+  const [chartsPeriod, setChartsPeriod] = useState<SalesPeriodRange>(chartDefaults)
   const [productId, setProductId] = useState<number | null>(null)
   const [category, setCategory] = useState<string | null>(null)
-  const [granularity, setGranularity] = useState<SalesGranularity>(defaults.granularity)
-  const [viewMode, setViewMode] = useState<StatsViewMode>('charts')
+  const [viewMode, setViewMode] = useState<StatsViewMode>('data')
 
   const [products, setProducts] = useState<Product[]>([])
   const [stats, setStats] = useState<SalesStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const isTables = viewMode === 'data'
+  const period = isTables ? tablesPeriod : chartsPeriod
+  const dateFrom = period.from
+  const dateTo = period.to
+  const granularity = period.granularity
+
+  function setActivePeriod(next: SalesPeriodRange) {
+    if (isTables) setTablesPeriod(next)
+    else setChartsPeriod(next)
+  }
 
   useEffect(() => {
     getProductsPaginatedOfflineFirst({ limit: 500, filters: { active: true } }).then(({ data }) => {
@@ -106,70 +123,78 @@ export function Estadisticas() {
     load()
   }, [load, online])
 
-  const matchedPreset = matchPreset(dateFrom, dateTo, granularity)
+  const matchedTablePreset = matchPreset(dateFrom, dateTo, granularity)
+  const matchedChartPreset = matchChartPreset(dateFrom, dateTo, granularity)
 
   const periodOptions = useMemo(() => {
-    const named = presetsForGranularity(granularity).map((p) => ({
-      value: p.id as SalesPeriodPresetId,
+    if (isTables) {
+      const named = presetsForGranularity(granularity).map((p) => ({
+        value: p.id as string,
+        label: p.label,
+      }))
+      if (matchedTablePreset === CUSTOM_PERIOD_PRESET_ID) {
+        named.push({ value: CUSTOM_PERIOD_PRESET_ID, label: CUSTOM_PERIOD_PRESET_LABEL })
+      }
+      return named
+    }
+    const named = chartPresetsForGranularity(granularity).map((p) => ({
+      value: p.id as string,
       label: p.label,
     }))
-    if (matchedPreset === CUSTOM_PERIOD_PRESET_ID) {
+    if (matchedChartPreset === CUSTOM_PERIOD_PRESET_ID) {
       named.push({ value: CUSTOM_PERIOD_PRESET_ID, label: CUSTOM_PERIOD_PRESET_LABEL })
     }
     return named
-  }, [granularity, matchedPreset])
+  }, [isTables, granularity, matchedTablePreset, matchedChartPreset])
+
+  const matchedPreset = isTables ? matchedTablePreset : matchedChartPreset
 
   /**
-   * El tipo aplica el preset "actual" de ese agrupamiento
-   * (Hoy / Esta semana / Este mes / Este año), un solo período.
+   * Tablas: un solo período (Hoy / Esta semana…).
+   * Gráficos: un rango de varios buckets para la evolución.
    */
   function applyGranularity(g: SalesGranularity) {
-    const r = defaultRangeForGranularity(g)
-    setGranularity(g)
-    setDateFrom(r.from)
-    setDateTo(r.to)
+    const r = isTables ? defaultRangeForGranularity(g) : defaultChartRangeForGranularity(g)
+    setActivePeriod({ from: r.from, to: r.to, granularity: g })
   }
 
-  function applyPeriodPreset(id: SalesPeriodPresetId | null) {
+  function applyPeriodPreset(id: string | null) {
     if (!id || id === CUSTOM_PERIOD_PRESET_ID) return
-    const r = rangeForPreset(id)
-    setGranularity(r.granularity)
-    setDateFrom(r.from)
-    setDateTo(r.to)
+    if (isTables) {
+      const r = rangeForPreset(id as Exclude<SalesPeriodPresetId, 'custom'>)
+      setActivePeriod(r)
+      return
+    }
+    const r = rangeForChartPreset(id as NamedChartPeriodPresetId)
+    setActivePeriod(r)
   }
 
   /** Fechas elegidas a mano se alinean al inicio/fin del período agrupado. */
   function applyDateFrom(iso: string) {
     if (!iso) {
-      setDateFrom('')
+      setActivePeriod({ ...period, from: '' })
       return
     }
     const snapped = periodStart(iso, granularity)
-    setDateFrom(snapped)
-    if (dateTo && snapped > dateTo) {
-      setDateTo(periodEnd(iso, granularity))
-    }
+    const nextTo = dateTo && snapped > dateTo ? periodEnd(iso, granularity) : dateTo
+    setActivePeriod({ from: snapped, to: nextTo, granularity })
   }
 
   function applyDateTo(iso: string) {
     if (!iso) {
-      setDateTo('')
+      setActivePeriod({ ...period, to: '' })
       return
     }
     const snapped = periodEnd(iso, granularity)
-    setDateTo(snapped)
-    if (dateFrom && snapped < dateFrom) {
-      setDateFrom(periodStart(iso, granularity))
-    }
+    const nextFrom = dateFrom && snapped < dateFrom ? periodStart(iso, granularity) : dateFrom
+    setActivePeriod({ from: nextFrom, to: snapped, granularity })
   }
 
   function clearFilters() {
-    const d = defaultSalesPeriod()
-    setDateFrom(d.from)
-    setDateTo(d.to)
     setProductId(null)
     setCategory(null)
-    setGranularity(d.granularity)
+    if (isTables) setTablesPeriod(defaultSalesPeriod())
+    else setChartsPeriod(defaultChartPeriod())
   }
 
   if (loading && !stats) {
@@ -186,43 +211,52 @@ export function Estadisticas() {
 
   return (
     <div className="admin-list-page">
-      <AdminPageHero
-        end={
-          stats.source === 'local' ? (
+      <div className="admin-list-toolbar estadisticas-toolbar-sticky mb-4">
+        <div className="estadisticas-view-tabs" role="tablist" aria-label="Vista de estadísticas">
+          <ButtonGroup>
+            {VIEW_OPTIONS.map(({ key, label, Icon }) => (
+              <Button
+                key={key}
+                variant={viewMode === key ? 'dark' : 'outline-dark'}
+                active={viewMode === key}
+                onClick={() => setViewMode(key)}
+                role="tab"
+                aria-selected={viewMode === key}
+              >
+                <span className="d-inline-flex align-items-center">
+                  <Icon size={16} className="me-2" aria-hidden />
+                  <span>{label}</span>
+                </span>
+              </Button>
+            ))}
+          </ButtonGroup>
+          {stats.source === 'local' ? (
             <Badge bg="secondary" className="fw-normal">
               Datos locales (última sincronización)
             </Badge>
-          ) : null
-        }
-      >
-        <span className="d-inline-flex align-items-center gap-2">
-          <BarChart3 size={28} aria-hidden />
-          Estadísticas
-        </span>
-      </AdminPageHero>
-      <p className="text-muted mb-3">Análisis detallado de ventas y productos</p>
-
-      <div className="admin-list-toolbar estadisticas-toolbar-sticky mb-4">
-        <div className="admin-list-dates-row">
-          <InputGroup className="admin-list-date-field">
-            <InputGroup.Text>
-              <Calendar size={16} aria-hidden />
-            </InputGroup.Text>
-            <DateInputAr value={dateFrom} onChange={applyDateFrom} aria-label="Fecha desde" />
-          </InputGroup>
-          <span className="admin-list-dates-sep" aria-hidden>
-            –
-          </span>
-          <InputGroup className="admin-list-date-field">
-            <InputGroup.Text>
-              <Calendar size={16} aria-hidden />
-            </InputGroup.Text>
-            <DateInputAr value={dateTo} onChange={applyDateTo} aria-label="Fecha hasta" />
-          </InputGroup>
+          ) : null}
         </div>
 
-        <div className="admin-list-filters-row">
-          <div className="admin-list-filter admin-list-filter-wide">
+        <div className="estadisticas-filters-line">
+          <div className="admin-list-dates-row">
+            <InputGroup className="admin-list-date-field">
+              <InputGroup.Text>
+                <Calendar size={16} aria-hidden />
+              </InputGroup.Text>
+              <DateInputAr value={dateFrom} onChange={applyDateFrom} aria-label="Fecha desde" />
+            </InputGroup>
+            <span className="admin-list-dates-sep" aria-hidden>
+              –
+            </span>
+            <InputGroup className="admin-list-date-field">
+              <InputGroup.Text>
+                <Calendar size={16} aria-hidden />
+              </InputGroup.Text>
+              <DateInputAr value={dateTo} onChange={applyDateTo} aria-label="Fecha hasta" />
+            </InputGroup>
+          </div>
+
+          <div className="admin-list-filter">
             <Form.Label className="small text-muted mb-1">Producto</Form.Label>
             <Select
               options={productOptions}
@@ -232,7 +266,7 @@ export function Estadisticas() {
               isClearable
             />
           </div>
-          <div className="admin-list-filter admin-list-filter-wide">
+          <div className="admin-list-filter">
             <Form.Label className="small text-muted mb-1">Categoría</Form.Label>
             <Select<string>
               options={categoryOptions}
@@ -248,7 +282,9 @@ export function Estadisticas() {
         <div className="admin-list-granularity">
           <div className="admin-list-period-row">
             <div className="admin-list-period-type">
-              <Form.Label className="small text-muted mb-1 d-block">Tipo</Form.Label>
+              <Form.Label className="small text-muted mb-1 d-block">
+                {isTables ? 'Tipo' : 'Agrupar'}
+              </Form.Label>
               <ButtonGroup className="admin-list-granularity-group">
                 {GRANULARITY_OPTIONS.map(({ key, label }) => (
                   <Button
@@ -263,36 +299,19 @@ export function Estadisticas() {
               </ButtonGroup>
             </div>
             <div className="admin-list-period-select">
-              <Form.Label className="small text-muted mb-1">Período</Form.Label>
-              <Select<SalesPeriodPresetId>
+              <Form.Label className="small text-muted mb-1">
+                {isTables ? 'Período' : 'Rango'}
+              </Form.Label>
+              <Select<string>
                 options={periodOptions}
                 value={matchedPreset}
                 onChange={applyPeriodPreset}
-                placeholder="Período"
+                placeholder={isTables ? 'Período' : 'Rango'}
                 isSearchable={false}
               />
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="d-flex flex-wrap align-items-center gap-2 mb-3" role="tablist" aria-label="Vista de estadísticas">
-        <ButtonGroup>
-          {VIEW_OPTIONS.map(({ key, label, Icon }) => (
-            <Button
-              key={key}
-              variant={viewMode === key ? 'dark' : 'outline-dark'}
-              onClick={() => setViewMode(key)}
-              role="tab"
-              aria-selected={viewMode === key}
-            >
-              <span className="d-inline-flex align-items-center">
-                <Icon size={16} className="me-2" aria-hidden />
-                <span>{label}</span>
-              </span>
-            </Button>
-          ))}
-        </ButtonGroup>
       </div>
 
       {loading && (

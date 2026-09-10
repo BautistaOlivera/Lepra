@@ -1834,6 +1834,41 @@ body {
   }
 }
 
+.estadisticas-view-tabs {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.estadisticas-view-tabs .btn {
+  min-height: 44px;
+}
+
+.estadisticas-filters-line {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.estadisticas-filters-line .admin-list-dates-row {
+  flex: 1.2 1 220px;
+  min-width: 0;
+}
+
+.estadisticas-filters-line .admin-list-filter {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.estadisticas-filters-line .admin-list-toolbar-reset {
+  flex: 0 0 44px;
+}
+
 /* Tipo + período (estadísticas): botones y select al mismo alto (44px) */
 .admin-list-granularity {
   flex: 1 1 100%;
@@ -2403,6 +2438,14 @@ body {
 
   .admin-list-dates-row {
     gap: 0.35rem;
+  }
+
+  .estadisticas-filters-line {
+    flex-wrap: wrap;
+  }
+
+  .estadisticas-filters-line .admin-list-dates-row {
+    flex: 1 1 100%;
   }
 
   .admin-list-dates-sep {

@@ -4,8 +4,11 @@ import {
   periodEnd,
   defaultRangeForGranularity,
   defaultSalesPeriod,
+  defaultChartPeriod,
   matchPreset,
+  matchChartPreset,
   rangeForPreset,
+  rangeForChartPreset,
   todayLocalIso,
 } from './salesPeriodRange'
 
@@ -215,5 +218,85 @@ describe('matchPreset', () => {
   it('fechas vacías → personalizado', () => {
     expect(matchPreset('', '2026-07-19', 'week', NOW)).toBe('custom')
     expect(matchPreset('2026-07-13', '', 'week', NOW)).toBe('custom')
+  })
+})
+
+describe('rangeForChartPreset', () => {
+  it('día: últimos 7 / 15 / 30 cubren varios días hasta hoy', () => {
+    expect(rangeForChartPreset('last_7_days', NOW)).toEqual({
+      from: '2026-07-09',
+      to: '2026-07-15',
+      granularity: 'day',
+    })
+    expect(rangeForChartPreset('last_15_days', NOW)).toEqual({
+      from: '2026-07-01',
+      to: '2026-07-15',
+      granularity: 'day',
+    })
+    expect(rangeForChartPreset('last_30_days', NOW)).toEqual({
+      from: '2026-06-16',
+      to: '2026-07-15',
+      granularity: 'day',
+    })
+  })
+
+  it('semana: 4 / 12 semanas completas lunes–domingo', () => {
+    expect(rangeForChartPreset('last_4_weeks', NOW)).toEqual({
+      from: '2026-06-22',
+      to: '2026-07-19',
+      granularity: 'week',
+    })
+    expect(rangeForChartPreset('last_12_weeks', NOW)).toEqual({
+      from: '2026-04-27',
+      to: '2026-07-19',
+      granularity: 'week',
+    })
+  })
+
+  it('mes: 3 / 12 meses calendario completos', () => {
+    expect(rangeForChartPreset('last_3_months', NOW)).toEqual({
+      from: '2026-05-01',
+      to: '2026-07-31',
+      granularity: 'month',
+    })
+    expect(rangeForChartPreset('last_12_months', NOW)).toEqual({
+      from: '2025-08-01',
+      to: '2026-07-31',
+      granularity: 'month',
+    })
+  })
+
+  it('año: 2 / 3 años calendario', () => {
+    expect(rangeForChartPreset('last_2_years', NOW)).toEqual({
+      from: '2025-01-01',
+      to: '2026-12-31',
+      granularity: 'year',
+    })
+    expect(rangeForChartPreset('last_3_years', NOW)).toEqual({
+      from: '2024-01-01',
+      to: '2026-12-31',
+      granularity: 'year',
+    })
+  })
+})
+
+describe('defaultChartPeriod', () => {
+  it('gráficos arrancan en últimos 30 días', () => {
+    expect(defaultChartPeriod(NOW)).toEqual({
+      from: '2026-06-16',
+      to: '2026-07-15',
+      granularity: 'day',
+    })
+  })
+})
+
+describe('matchChartPreset', () => {
+  it('reconoce el rango de evolución', () => {
+    expect(matchChartPreset('2026-06-16', '2026-07-15', 'day', NOW)).toBe('last_30_days')
+    expect(matchChartPreset('2026-04-27', '2026-07-19', 'week', NOW)).toBe('last_12_weeks')
+  })
+
+  it('un solo día no es un preset de gráficos', () => {
+    expect(matchChartPreset('2026-07-15', '2026-07-15', 'day', NOW)).toBe('custom')
   })
 })

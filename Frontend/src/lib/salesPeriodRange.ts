@@ -191,3 +191,118 @@ export function matchPreset(
   }
   return CUSTOM_PERIOD_PRESET_ID
 }
+
+/**
+ * Presets de gráficos: varios períodos para que la evolución tenga curva.
+ * No reutilizan los de tablas (Hoy / Esta semana), que son un solo bucket.
+ */
+export type ChartPeriodPresetId =
+  | 'last_7_days'
+  | 'last_15_days'
+  | 'last_30_days'
+  | 'last_4_weeks'
+  | 'last_8_weeks'
+  | 'last_12_weeks'
+  | 'last_3_months'
+  | 'last_6_months'
+  | 'last_12_months'
+  | 'last_2_years'
+  | 'last_3_years'
+  | 'custom'
+
+export type NamedChartPeriodPresetId = Exclude<ChartPeriodPresetId, 'custom'>
+
+export type ChartPeriodPreset = {
+  id: NamedChartPeriodPresetId
+  label: string
+  granularity: SalesGranularity
+}
+
+export const DEFAULT_CHART_PRESET_ID: NamedChartPeriodPresetId = 'last_30_days'
+
+export const CHART_PERIOD_PRESETS: ChartPeriodPreset[] = [
+  { id: 'last_7_days', label: 'Últimos 7 días', granularity: 'day' },
+  { id: 'last_15_days', label: 'Últimos 15 días', granularity: 'day' },
+  { id: 'last_30_days', label: 'Últimos 30 días', granularity: 'day' },
+  { id: 'last_4_weeks', label: 'Últimas 4 semanas', granularity: 'week' },
+  { id: 'last_8_weeks', label: 'Últimas 8 semanas', granularity: 'week' },
+  { id: 'last_12_weeks', label: 'Últimas 12 semanas', granularity: 'week' },
+  { id: 'last_3_months', label: 'Últimos 3 meses', granularity: 'month' },
+  { id: 'last_6_months', label: 'Últimos 6 meses', granularity: 'month' },
+  { id: 'last_12_months', label: 'Últimos 12 meses', granularity: 'month' },
+  { id: 'last_2_years', label: 'Últimos 2 años', granularity: 'year' },
+  { id: 'last_3_years', label: 'Últimos 3 años', granularity: 'year' },
+]
+
+const CURRENT_CHART_PRESET_BY_GRANULARITY: Record<SalesGranularity, NamedChartPeriodPresetId> = {
+  day: 'last_30_days',
+  week: 'last_12_weeks',
+  month: 'last_12_months',
+  year: 'last_3_years',
+}
+
+const CHART_PRESET_COUNT: Record<NamedChartPeriodPresetId, { granularity: SalesGranularity; count: number }> = {
+  last_7_days: { granularity: 'day', count: 7 },
+  last_15_days: { granularity: 'day', count: 15 },
+  last_30_days: { granularity: 'day', count: 30 },
+  last_4_weeks: { granularity: 'week', count: 4 },
+  last_8_weeks: { granularity: 'week', count: 8 },
+  last_12_weeks: { granularity: 'week', count: 12 },
+  last_3_months: { granularity: 'month', count: 3 },
+  last_6_months: { granularity: 'month', count: 6 },
+  last_12_months: { granularity: 'month', count: 12 },
+  last_2_years: { granularity: 'year', count: 2 },
+  last_3_years: { granularity: 'year', count: 3 },
+}
+
+function lookbackRange(
+  todayIso: string,
+  granularity: SalesGranularity,
+  count: number
+): { from: string; to: string } {
+  const { from } = shiftPeriod(todayIso, granularity, -(count - 1))
+  return { from, to: periodEnd(todayIso, granularity) }
+}
+
+export function chartPresetsForGranularity(granularity: SalesGranularity): ChartPeriodPreset[] {
+  return CHART_PERIOD_PRESETS.filter((p) => p.granularity === granularity)
+}
+
+export function currentChartPresetId(granularity: SalesGranularity): NamedChartPeriodPresetId {
+  return CURRENT_CHART_PRESET_BY_GRANULARITY[granularity]
+}
+
+export function rangeForChartPreset(
+  id: NamedChartPeriodPresetId,
+  now: Date = new Date()
+): SalesPeriodRange {
+  const spec = CHART_PRESET_COUNT[id]
+  const { from, to } = lookbackRange(todayLocalIso(now), spec.granularity, spec.count)
+  return { from, to, granularity: spec.granularity }
+}
+
+export function defaultChartRangeForGranularity(
+  granularity: SalesGranularity,
+  now: Date = new Date()
+): { from: string; to: string } {
+  const r = rangeForChartPreset(currentChartPresetId(granularity), now)
+  return { from: r.from, to: r.to }
+}
+
+export function defaultChartPeriod(now: Date = new Date()): SalesPeriodRange {
+  return rangeForChartPreset(DEFAULT_CHART_PRESET_ID, now)
+}
+
+export function matchChartPreset(
+  from: string,
+  to: string,
+  granularity: SalesGranularity,
+  now: Date = new Date()
+): ChartPeriodPresetId {
+  if (!from || !to) return CUSTOM_PERIOD_PRESET_ID
+  for (const preset of chartPresetsForGranularity(granularity)) {
+    const r = rangeForChartPreset(preset.id, now)
+    if (r.from === from && r.to === to) return preset.id
+  }
+  return CUSTOM_PERIOD_PRESET_ID
+}
