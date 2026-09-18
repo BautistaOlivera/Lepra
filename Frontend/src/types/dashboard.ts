@@ -5,6 +5,9 @@ export interface DashboardPeriodStats {
   revenue: number
   previous_orders: number
   previous_revenue: number
+  status_breakdown: Record<string, number>
+  daily_series: DashboardDailyPoint[]
+  top_products: DashboardTopProduct[]
 }
 
 export interface DashboardDailyPoint {
@@ -20,6 +23,16 @@ export interface DashboardTopProduct {
   revenue: number
 }
 
+export interface DashboardTodayCash {
+  date: string
+  efectivo: number
+  transferencia: number
+  cheque: number
+  otro: number
+  collected: number
+  owed: number
+}
+
 export interface DashboardStats {
   source: 'server' | 'local'
   generated_at: string
@@ -29,7 +42,9 @@ export interface DashboardStats {
     orders_pending: number
   }
   periods: Record<DashboardPeriodKey, DashboardPeriodStats>
+  /** Alias del período por defecto (Hoy), por compatibilidad. */
   status_breakdown: Record<string, number>
   daily_series: DashboardDailyPoint[]
   top_products: DashboardTopProduct[]
+  today_cash: DashboardTodayCash
 }

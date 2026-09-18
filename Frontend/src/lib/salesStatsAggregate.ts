@@ -1,7 +1,8 @@
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { isCanceledStatus, normalizeOrderStatus } from '@/lib/orderStatus'
 import { orderCustomerLabel } from '@/lib/orderDisplay'
-import { lineTotal } from '@/lib/pricing'
+import { isFixedWeightProduct, lineTotal, piecesFromWeight } from '@/lib/pricing'
+import { defaultSalesPeriod } from '@/lib/salesPeriodRange'
 import type { Order, Product } from '@/types'
 import type {
   SalesByCategory,
@@ -15,7 +16,6 @@ import type {
   SalesSummary,
   SalesTimePoint,
 } from '@/types/salesStats'
-import { isFixedWeightProduct, piecesFromWeight } from '@/lib/pricing'
 
 type SalesLine = {
   orderId: number
@@ -25,6 +25,7 @@ type SalesLine = {
   customerLabel: string
   idProduct: number
   productName: string
+  productBrand: string | null
   category: string | null
   total_kg: number
   lineRevenue: number
@@ -53,21 +54,19 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-export function defaultSalesDateRange(): { from: string; to: string } {
-  const to = startOfDayUtc(new Date())
-  const from = new Date(to)
-  from.setUTCDate(from.getUTCDate() - 29)
-  return { from: isoDate(from), to: isoDate(to) }
+export function defaultSalesDateRange(now: Date = new Date()): { from: string; to: string } {
+  const r = defaultSalesPeriod(now)
+  return { from: r.from, to: r.to }
 }
 
 function resolveFilters(params: SalesStatsParams): SalesFilters {
-  const defaults = defaultSalesDateRange()
+  const defaults = defaultSalesPeriod()
   return {
     dateFrom: params.date_from || defaults.from,
     dateTo: params.date_to || defaults.to,
     productId: params.product_id ?? null,
     category: params.category ?? null,
-    granularity: params.granularity ?? 'day',
+    granularity: params.granularity ?? defaults.granularity,
   }
 }
 
@@ -158,6 +157,7 @@ function toLines(orders: Order[], products: Product[]): SalesLine[] {
         customerLabel: label,
         idProduct: line.id_product,
         productName: prod?.name ?? `Producto #${line.id_product}`,
+        productBrand: (prod?.brand || '').trim() || null,
         category: prod?.category ?? null,
         total_kg: kg,
         lineRevenue: rev,
@@ -244,6 +244,7 @@ function buildByProduct(allLines: SalesLine[], filters: SalesFilters): SalesByPr
     const cur = byId.get(line.idProduct) ?? {
       id_product: line.idProduct,
       name: line.productName,
+      brand: line.productBrand,
       category: line.category,
       total_kg: 0,
       revenue: 0,
@@ -315,6 +316,7 @@ function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): S
     {
       id_product: number
       name: string
+      brand: string | null
       category: string | null
       sold_by_piece: boolean
       unit: string
@@ -328,6 +330,7 @@ function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): S
     const cur = byProduct.get(line.idProduct) ?? {
       id_product: line.idProduct,
       name: line.productName,
+      brand: line.productBrand,
       category: line.category,
       sold_by_piece: line.soldByPiece,
       unit: line.soldByPiece ? 'u.' : 'kg',
@@ -352,6 +355,7 @@ function buildProductByCustomer(allLines: SalesLine[], filters: SalesFilters): S
     .map((row) => ({
       id_product: row.id_product,
       name: row.name,
+      brand: row.brand,
       category: row.category,
       sold_by_piece: row.sold_by_piece,
       unit: row.unit,
@@ -384,7 +388,7 @@ function buildPlanilla(allLines: SalesLine[], filters: SalesFilters): SalesPlani
 
   const productsMeta = new Map<
     number,
-    { id_product: number; name: string; category: string | null; sold_by_piece: boolean; unit: string }
+    { id_product: number; name: string; brand: string | null; category: string | null; sold_by_piece: boolean; unit: string }
   >()
   const customersMeta = new Map<string, string>()
   const cells = new Map<string, Map<number, Map<string, number>>>()
@@ -396,6 +400,7 @@ function buildPlanilla(allLines: SalesLine[], filters: SalesFilters): SalesPlani
       productsMeta.set(line.idProduct, {
         id_product: line.idProduct,
         name: line.productName,
+        brand: line.productBrand,
         category: line.category,
         sold_by_piece: line.soldByPiece,
         unit: line.soldByPiece ? 'u.' : 'kg',
@@ -418,9 +423,13 @@ function buildPlanilla(allLines: SalesLine[], filters: SalesFilters): SalesPlani
     (customersMeta.get(a) || '').localeCompare(customersMeta.get(b) || '', 'es')
   )
   const customers = customerKeys.map((k) => customersMeta.get(k)!)
-  const productIds = [...productsMeta.keys()].sort((a, b) =>
-    (productsMeta.get(a)?.name || '').localeCompare(productsMeta.get(b)?.name || '', 'es')
-  )
+  const productIds = [...productsMeta.keys()].sort((a, b) => {
+    const pa = productsMeta.get(a)!
+    const pb = productsMeta.get(b)!
+    const byName = pa.name.localeCompare(pb.name, 'es')
+    if (byName !== 0) return byName
+    return (pa.brand || '').localeCompare(pb.brand || '', 'es')
+  })
 
   const blocks = periodKeys
     .filter((period) => cells.has(period))
@@ -440,6 +449,7 @@ function buildPlanilla(allLines: SalesLine[], filters: SalesFilters): SalesPlani
         return {
           id_product: pid,
           name: meta.name,
+          brand: meta.brand,
           unit: meta.unit,
           sold_by_piece: meta.sold_by_piece,
           qtys,
@@ -466,6 +476,7 @@ function buildPlanilla(allLines: SalesLine[], filters: SalesFilters): SalesPlani
     return {
       id_product: pid,
       name: meta.name,
+      brand: meta.brand,
       unit: meta.unit,
       sold_by_piece: meta.sold_by_piece,
       values,

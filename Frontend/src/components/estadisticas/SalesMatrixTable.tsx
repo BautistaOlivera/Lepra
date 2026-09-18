@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Card, Table } from 'react-bootstrap'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
+import { productDisplayName } from '@/lib/productBrand'
 import type { SalesProductByCustomer } from '@/types/salesStats'
 
 type Props = {
@@ -58,7 +59,9 @@ export function SalesMatrixTable({ rows }: Props) {
                 const byLabel = new Map(row.customers.map((c) => [c.label, c.total_kg]))
                 return (
                   <tr key={row.id_product}>
-                    <td className="estadisticas-matrix-sticky-col text-nowrap">{row.name}</td>
+                    <td className="estadisticas-matrix-sticky-col text-nowrap">
+                      {productDisplayName(row.name, row.brand)}
+                    </td>
                     {customerLabels.map((label) => (
                       <td key={label} className="text-end">
                         {byLabel.get(label) ?? ''}
@@ -97,6 +100,7 @@ type ProductTableProps = {
   rows: {
     id_product: number
     name: string
+    brand?: string | null
     category: string | null
     total_kg: number
     revenue: number
@@ -120,20 +124,25 @@ export function SalesProductTable({ rows }: ProductTableProps) {
             <thead>
               <tr>
                 <th>Producto</th>
-                <th>Categoría</th>
+                <th className="d-none d-sm-table-cell">Categoría</th>
                 <th className="text-end">Kg</th>
                 <th className="text-end">Facturación</th>
-                <th className="text-end">Pedidos</th>
+                <th className="text-end d-none d-sm-table-cell">Pedidos</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.id_product}>
-                  <td>{row.name}</td>
-                  <td>{row.category || '-'}</td>
+                  <td>
+                    <span className="d-block">{row.name}</span>
+                    {row.brand ? (
+                      <span className="text-muted small d-block">{row.brand}</span>
+                    ) : null}
+                  </td>
+                  <td className="d-none d-sm-table-cell">{row.category || '-'}</td>
                   <td className="text-end">{row.total_kg}</td>
                   <td className="text-end">{formatMoneyWithSymbol(row.revenue)}</td>
-                  <td className="text-end">{row.orders}</td>
+                  <td className="text-end d-none d-sm-table-cell">{row.orders}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,21 +1,27 @@
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { isCanceledStatus, normalizeOrderStatus } from '@/lib/orderStatus'
 import { lineTotal } from '@/lib/pricing'
-import type { Order, Product } from '@/types'
+import type { Order, OrderPayment, Product } from '@/types'
 import type {
   DashboardDailyPoint,
   DashboardPeriodKey,
   DashboardPeriodStats,
   DashboardStats,
+  DashboardTodayCash,
   DashboardTopProduct,
 } from '@/types/dashboard'
 
-const SERIES_DAYS = 30
+const AR_TZ = 'America/Argentina/Buenos_Aires'
+const CASH_METHODS = ['efectivo', 'transferencia', 'cheque', 'otro'] as const
 
 type OrderRow = { at: Date; total: number; status: string }
 
 function startOfDay(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+}
+
+function endOfMonth(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0))
 }
 
 function periodWindows(now: Date) {
@@ -68,41 +74,52 @@ function toRows(orders: Order[]): OrderRow[] {
     .filter((r) => r.at.getTime() > 0)
 }
 
-function buildPeriods(rows: OrderRow[], now: Date): Record<DashboardPeriodKey, DashboardPeriodStats> {
-  const windows = periodWindows(now)
-  const out = {} as Record<DashboardPeriodKey, DashboardPeriodStats>
-  for (const key of ['day', 'week', 'month'] as const) {
-    const w = windows[key]
-    const cur = countRevenue(rows, w.start, w.end)
-    const prev = countRevenue(rows, w.previous_start, w.previous_end)
-    out[key] = {
-      orders: cur.orders,
-      revenue: Math.round(cur.revenue * 100) / 100,
-      previous_orders: prev.orders,
-      previous_revenue: Math.round(prev.revenue * 100) / 100,
-    }
-  }
-  return out
-}
-
-function buildStatus(orders: Order[]): Record<string, number> {
+function buildStatus(orders: Order[], start: Date, end: Date): Record<string, number> {
   const counts: Record<string, number> = { PENDING: 0, FULFILLED: 0, CANCELED: 0 }
   for (const o of orders) {
     if (!o.active || o.id <= 0) continue
+    const at = parseUtcFromApi(o.created_at)
+    if (!at || !inRange(at, start, end)) continue
     counts[normalizeOrderStatus(o.status)] += 1
   }
   return counts
 }
 
-function buildDailySeries(rows: OrderRow[], now: Date): DashboardDailyPoint[] {
-  const today = startOfDay(now)
-  const start = new Date(today)
-  start.setUTCDate(start.getUTCDate() - (SERIES_DAYS - 1))
+function hourKey(isoDay: string, hour: number): string {
+  return `${isoDay}T${String(hour).padStart(2, '0')}`
+}
 
+function buildHourlySeries(rows: OrderRow[], now: Date): DashboardDailyPoint[] {
+  const day = startOfDay(now)
+  const iso = day.toISOString().slice(0, 10)
+  const buckets: DashboardDailyPoint[] = Array.from({ length: 24 }, (_, h) => ({
+    date: hourKey(iso, h),
+    orders: 0,
+    revenue: 0,
+  }))
+
+  for (const r of rows) {
+    if (isCanceledStatus(r.status)) continue
+    if (startOfDay(r.at).getTime() !== day.getTime()) continue
+    const h = r.at.getUTCHours()
+    const b = buckets[h]
+    b.orders += 1
+    b.revenue = Math.round((b.revenue + r.total) * 100) / 100
+  }
+
+  return buckets
+}
+
+function buildDailySeries(rows: OrderRow[], start: Date, end: Date): DashboardDailyPoint[] {
+  const seriesStart = startOfDay(start)
+  const seriesEnd = startOfDay(end)
   const buckets = new Map<string, DashboardDailyPoint>()
-  for (let i = 0; i < SERIES_DAYS; i++) {
-    const d = new Date(start)
+  const nDays = Math.max(1, Math.round((seriesEnd.getTime() - seriesStart.getTime()) / 86400000) + 1)
+
+  for (let i = 0; i < nDays; i++) {
+    const d = new Date(seriesStart)
     d.setUTCDate(d.getUTCDate() + i)
+    if (d > seriesEnd) break
     const key = d.toISOString().slice(0, 10)
     buckets.set(key, { date: key, orders: 0, revenue: 0 })
   }
@@ -119,18 +136,20 @@ function buildDailySeries(rows: OrderRow[], now: Date): DashboardDailyPoint[] {
   return [...buckets.values()]
 }
 
-function buildTopProducts(orders: Order[], products: Product[]): DashboardTopProduct[] {
+function buildTopProducts(
+  orders: Order[],
+  products: Product[],
+  start: Date,
+  end: Date
+): DashboardTopProduct[] {
   const byIdMap = new Map(products.map((p) => [p.id, p]))
   const names = new Map(products.map((p) => [p.id, p.name]))
   const byId = new Map<number, DashboardTopProduct>()
 
-  const seriesStart = startOfDay(new Date())
-  seriesStart.setUTCDate(seriesStart.getUTCDate() - (SERIES_DAYS - 1))
-
   for (const o of orders) {
     if (!o.active || o.id <= 0 || isCanceledStatus(o.status) || !o.lines?.length) continue
     const at = parseUtcFromApi(o.created_at)
-    if (!at || at < seriesStart) continue
+    if (!at || !inRange(at, start, end)) continue
     for (const line of o.lines) {
       const pid = line.id_product
       const prod = byIdMap.get(pid)
@@ -155,14 +174,125 @@ function buildTopProducts(orders: Order[], products: Product[]): DashboardTopPro
     .slice(0, 5)
 }
 
+function calendarDateInAr(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: AR_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d)
+}
+
+function paymentPaidAtIso(p: OrderPayment): string | null {
+  const raw = (p.paid_at || '').trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10)
+  const created = parseUtcFromApi(p.created_at)
+  return created ? calendarDateInAr(created) : null
+}
+
+function cashMethod(method: string | null | undefined): (typeof CASH_METHODS)[number] {
+  const key = (method || '').trim().toLowerCase()
+  if (key === 'efectivo' || key === 'transferencia' || key === 'cheque' || key === 'otro') {
+    return key
+  }
+  return 'otro'
+}
+
+export function emptyTodayCash(date: string): DashboardTodayCash {
+  return {
+    date,
+    efectivo: 0,
+    transferencia: 0,
+    cheque: 0,
+    otro: 0,
+    collected: 0,
+    owed: 0,
+  }
+}
+
+export function aggregateTodayCash(orders: Order[], now: Date): DashboardTodayCash {
+  const day = calendarDateInAr(now)
+  const methods = { efectivo: 0, transferencia: 0, cheque: 0, otro: 0 }
+  const paidByOrder = new Map<number, number>()
+
+  for (const o of orders) {
+    if (!o.active || o.id <= 0) continue
+    const status = normalizeOrderStatus(o.status)
+    if (isCanceledStatus(status)) continue
+    for (const p of o.payments || []) {
+      const amount = Number(p.amount) || 0
+      paidByOrder.set(o.id, Math.round(((paidByOrder.get(o.id) || 0) + amount) * 100) / 100)
+      if (paymentPaidAtIso(p) !== day) continue
+      const method = cashMethod(p.method)
+      methods[method] = Math.round((methods[method] + amount) * 100) / 100
+    }
+  }
+
+  let owed = 0
+  for (const o of orders) {
+    if (!o.active || o.id <= 0) continue
+    const status = normalizeOrderStatus(o.status)
+    if (isCanceledStatus(status) || status === 'FULFILLED') continue
+    const at = parseUtcFromApi(o.created_at)
+    if (!at || calendarDateInAr(at) !== day) continue
+    const paid = paidByOrder.get(o.id) || 0
+    owed += Math.max(0, (Number(o.total) || 0) - paid)
+  }
+
+  const collected = Math.round((methods.efectivo + methods.transferencia + methods.cheque + methods.otro) * 100) / 100
+  return {
+    date: day,
+    efectivo: methods.efectivo,
+    transferencia: methods.transferencia,
+    cheque: methods.cheque,
+    otro: methods.otro,
+    collected,
+    owed: Math.round(owed * 100) / 100,
+  }
+}
+
+function buildPeriods(
+  rows: OrderRow[],
+  orders: Order[],
+  products: Product[],
+  now: Date
+): Record<DashboardPeriodKey, DashboardPeriodStats> {
+  const windows = periodWindows(now)
+  const out = {} as Record<DashboardPeriodKey, DashboardPeriodStats>
+  for (const key of ['day', 'week', 'month'] as const) {
+    const w = windows[key]
+    const cur = countRevenue(rows, w.start, w.end)
+    const prev = countRevenue(rows, w.previous_start, w.previous_end)
+    out[key] = {
+      orders: cur.orders,
+      revenue: Math.round(cur.revenue * 100) / 100,
+      previous_orders: prev.orders,
+      previous_revenue: Math.round(prev.revenue * 100) / 100,
+      status_breakdown: buildStatus(orders, w.start, w.end),
+      daily_series:
+        key === 'day'
+          ? buildHourlySeries(rows, now)
+          : buildDailySeries(
+              rows,
+              w.start,
+              key === 'month' ? endOfMonth(now) : startOfDay(now)
+            ),
+      top_products: buildTopProducts(orders, products, w.start, w.end),
+    }
+  }
+  return out
+}
+
 export function aggregateDashboardFromLocal(
   orders: Order[],
   products: Product[],
-  users: { active: boolean }[]
+  users: { active: boolean }[],
+  now: Date = new Date()
 ): DashboardStats {
-  const now = new Date()
   const rows = toRows(orders)
   const activeOrders = orders.filter((o) => o.active && o.id > 0)
+  const periods = buildPeriods(rows, activeOrders, products, now)
+  const today = periods.day
 
   return {
     source: 'local',
@@ -172,9 +302,10 @@ export function aggregateDashboardFromLocal(
       users_active: users.filter((u) => u.active).length,
       orders_pending: activeOrders.filter((o) => o.status === 'PENDING').length,
     },
-    periods: buildPeriods(rows, now),
-    status_breakdown: buildStatus(activeOrders),
-    daily_series: buildDailySeries(rows, now),
-    top_products: buildTopProducts(activeOrders, products),
+    periods,
+    status_breakdown: today.status_breakdown,
+    daily_series: today.daily_series,
+    top_products: today.top_products,
+    today_cash: aggregateTodayCash(orders, now),
   }
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button, ButtonGroup, Card, Table } from 'react-bootstrap'
 import type { Product } from '@/types'
 import type { SalesGranularity, SalesPlanilla, SalesStats } from '@/types/salesStats'
+import { productDisplayName } from '@/lib/productBrand'
 
 type PlanillaMode = 'customer' | 'period'
 
@@ -87,16 +88,17 @@ function mergeCatalogProducts(planilla: SalesPlanilla, products: Product[]): Sal
     .map((p) => ({
       id_product: p.id,
       name: p.name,
+      brand: p.brand ?? null,
       category: p.category ?? null,
       sold_by_piece: !!p.fixed_weight,
       unit: p.fixed_weight ? 'u.' : 'kg',
     }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    .sort((a, b) => productDisplayName(a.name, a.brand).localeCompare(productDisplayName(b.name, b.brand), 'es'))
 
   if (extras.length === 0) return planilla
 
   const allProducts = [...planilla.products, ...extras].sort((a, b) =>
-    a.name.localeCompare(b.name, 'es')
+    productDisplayName(a.name, a.brand).localeCompare(productDisplayName(b.name, b.brand), 'es')
   )
   const nCust = planilla.customers.length
   const nPeriods = planilla.period_keys.length
@@ -115,6 +117,7 @@ function mergeCatalogProducts(planilla: SalesPlanilla, products: Product[]): Sal
             byId.get(p.id_product) ?? {
               id_product: p.id_product,
               name: p.name,
+              brand: p.brand,
               unit: p.unit,
               sold_by_piece: p.sold_by_piece,
               qtys: zeroCust.slice(),
@@ -129,6 +132,7 @@ function mergeCatalogProducts(planilla: SalesPlanilla, products: Product[]): Sal
         existing ?? {
           id_product: p.id_product,
           name: p.name,
+          brand: p.brand,
           unit: p.unit,
           sold_by_piece: p.sold_by_piece,
           values: zeroPeriods.slice(),
@@ -166,22 +170,32 @@ export function SalesPlanillaTable({ stats, products }: Props) {
     })
   }
 
-  // En "Por período" arrancar con el scroll a la derecha: el último dato primero.
-  const periodScrollRef = useRef<HTMLDivElement | null>(null)
+  // Arrancar con el scroll a la derecha para ver la columna Total (y, en período, el último dato).
+  const tablesScrollRootRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    const el = periodScrollRef.current
-    if (mode === 'period' && el) {
-      el.scrollLeft = el.scrollWidth
+    const root = tablesScrollRootRef.current
+    if (!root) return
+    const pinRight = () => {
+      const scrollers = root.querySelectorAll<HTMLElement>('.estadisticas-matrix-scroll')
+      if (scrollers.length > 0) {
+        scrollers.forEach((el) => {
+          el.scrollLeft = el.scrollWidth
+        })
+        return
+      }
+      root.scrollLeft = root.scrollWidth
     }
+    const id = window.requestAnimationFrame(pinRight)
+    return () => window.cancelAnimationFrame(id)
   }, [mode, planilla])
 
   return (
     <Card className="card-lepra border-0 shadow-sm">
       <Card.Body className="p-0">
-        <div className="p-3 pb-2">
-          <div className="d-flex align-items-center justify-content-between gap-2 mb-1">
-            <Card.Title className="h6 mb-0">Planilla de caudal</Card.Title>
-            <ButtonGroup size="sm" className="flex-shrink-0">
+        <div className="p-3 pb-2 estadisticas-planilla-head">
+          <div className="estadisticas-planilla-toolbar mb-0">
+            <Card.Title className="h6 mb-0">Planilla</Card.Title>
+            <ButtonGroup size="sm" className="estadisticas-planilla-modes">
               <Button
                 variant={mode === 'customer' ? 'dark' : 'outline-dark'}
                 onClick={() => setMode('customer')}
@@ -196,17 +210,12 @@ export function SalesPlanillaTable({ stats, products }: Props) {
               </Button>
             </ButtonGroup>
           </div>
-          <Card.Text className="text-muted small mb-0">
-            Cantidades por producto (kg o u.). En productos por kg con peso cargado se muestra
-            también una estimación en unidades (kg ÷ peso). Usá el agrupamiento de arriba para
-            ver por día, semana, mes o año.
-          </Card.Text>
         </div>
 
         {!hasData ? (
           <p className="text-muted small px-3 pb-3 mb-0">Sin datos en el período seleccionado</p>
         ) : mode === 'customer' ? (
-          <div className="px-0 pb-3">
+          <div ref={tablesScrollRootRef} className="px-0 pb-3">
             {planilla.blocks.map((block) => (
               <div key={block.period} className="mb-3">
                 <div className="px-3 py-1 small fw-semibold bg-light border-top border-bottom">
@@ -232,9 +241,14 @@ export function SalesPlanillaTable({ stats, products }: Props) {
                     <tbody>
                       {block.rows.map((row) => (
                         <tr key={row.id_product}>
-                          <td className="estadisticas-matrix-sticky-col text-nowrap">
-                            {row.name}{' '}
-                            <span className="text-muted small">({row.unit})</span>
+                          <td className="estadisticas-matrix-sticky-col">
+                            <span className="d-block text-truncate">
+                              {row.name}{' '}
+                              <span className="text-muted small d-none d-md-inline">({row.unit})</span>
+                            </span>
+                            {row.brand ? (
+                              <span className="text-muted small d-block text-truncate">{row.brand}</span>
+                            ) : null}
                           </td>
                           {row.qtys.map((q, i) => (
                             <td key={i} className="text-end text-nowrap">
@@ -264,7 +278,7 @@ export function SalesPlanillaTable({ stats, products }: Props) {
             ))}
           </div>
         ) : (
-          <div ref={periodScrollRef} className="table-responsive estadisticas-matrix-scroll mb-3">
+          <div ref={tablesScrollRootRef} className="table-responsive estadisticas-matrix-scroll mb-3">
             <Table
               bordered
               size="sm"
@@ -284,8 +298,14 @@ export function SalesPlanillaTable({ stats, products }: Props) {
               <tbody>
                 {planilla.by_period.map((row) => (
                   <tr key={row.id_product}>
-                    <td className="estadisticas-matrix-sticky-col text-nowrap">
-                      {row.name} <span className="text-muted small">({row.unit})</span>
+                    <td className="estadisticas-matrix-sticky-col">
+                      <span className="d-block text-truncate">
+                        {row.name}{' '}
+                        <span className="text-muted small d-none d-md-inline">({row.unit})</span>
+                      </span>
+                      {row.brand ? (
+                        <span className="text-muted small d-block text-truncate">{row.brand}</span>
+                      ) : null}
                     </td>
                     {row.values.map((v, i) => (
                       <td key={i} className="text-end text-nowrap">

@@ -20,3 +20,9 @@ export function canonicalizeBrand(raw: string, knownBrands: string[]): string {
 export function brandKeysEqual(a: string, b: string): boolean {
   return brandKey(a) === brandKey(b)
 }
+
+/** Nombre para listados: "Mozzarella (La Paulina)" si hay marca. */
+export function productDisplayName(name: string, brand?: string | null): string {
+  const b = (brand || '').trim()
+  return b ? `${name} (${b})` : name
+}
