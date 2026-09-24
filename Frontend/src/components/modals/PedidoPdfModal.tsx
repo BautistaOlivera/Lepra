@@ -5,9 +5,8 @@ import { ModalBusyFrame } from '@/components/LoadingOverlay'
 import { Printer, Share2, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { Order } from '@/types'
-import { buildPedidoPdfBlob, pedidoPdfFilename, type PedidoPdfProductById } from '@/lib/pedidoPdf'
+import { buildPedidoPdfBlob, pedidoPdfFilename, pedidoPdfShareData, type PedidoPdfProductById } from '@/lib/pedidoPdf'
 import { lepraDb } from '@/offline/db'
-import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 
 interface PedidoPdfModalProps {
   show: boolean
@@ -123,12 +122,8 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
     const name = pedidoPdfFilename(order)
     const file = new File([pdfBlob], name, { type: 'application/pdf' })
     try {
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: `Pedido #${order.id}`,
-          text: `Pedido #${order.id} — Total ${formatMoneyWithSymbol(order.total)}`,
-        })
+      if (navigator.canShare?.(pedidoPdfShareData(file))) {
+        await navigator.share(pedidoPdfShareData(file))
         return
       }
     } catch (e) {
