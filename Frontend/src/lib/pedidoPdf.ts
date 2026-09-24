@@ -39,6 +39,67 @@ export function pedidoPdfShareData(file: File): ShareData {
   return { files: [file] }
 }
 
+const JPEG_SOF = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf])
+
+/**
+ * El JPEG del canvas (Chrome/Android) pone la tabla Huffman (DHT) antes del SOF.
+ * jsPDF toma el tamaño de ese marcador y embebe una imagen corrupta: Android no
+ * genera la preview de WhatsApp. El SOF tiene que ir antes del primer DHT.
+ */
+export function jpegWithSofBeforeDht(bytes: Uint8Array): Uint8Array {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return bytes
+  const segs: Uint8Array[] = []
+  let i = 2
+  while (i + 1 < bytes.length) {
+    if (bytes[i] !== 0xff) return bytes
+    const marker = bytes[i + 1]
+    if (marker === 0xda || marker === 0xd9) {
+      segs.push(bytes.slice(i))
+      break
+    }
+    if ((marker >= 0xd0 && marker <= 0xd8) || marker === 0x01) {
+      segs.push(bytes.slice(i, i + 2))
+      i += 2
+      continue
+    }
+    if (i + 3 >= bytes.length) return bytes
+    const len = (bytes[i + 2] << 8) | bytes[i + 3]
+    if (len < 2 || i + 2 + len > bytes.length) return bytes
+    segs.push(bytes.slice(i, i + 2 + len))
+    i += 2 + len
+  }
+  const sofIdx = segs.findIndex((s) => JPEG_SOF.has(s[1]))
+  const dhtIdx = segs.findIndex((s) => s[1] === 0xc4)
+  if (sofIdx < 0 || dhtIdx < 0 || dhtIdx > sofIdx) return bytes
+  const next = segs.slice()
+  const [sof] = next.splice(sofIdx, 1)
+  next.splice(next.findIndex((s) => s[1] === 0xc4), 0, sof)
+  const out = new Uint8Array(2 + next.reduce((n, s) => n + s.length, 0))
+  out[0] = 0xff
+  out[1] = 0xd8
+  let offset = 2
+  for (const seg of next) {
+    out.set(seg, offset)
+    offset += seg.length
+  }
+  return out
+}
+
+function jpegDataUrlWithSofBeforeDht(dataUrl: string): string {
+  const comma = dataUrl.indexOf(',')
+  if (comma < 0) return dataUrl
+  const raw = atob(dataUrl.slice(comma + 1))
+  const bytes = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+  const fixed = jpegWithSofBeforeDht(bytes)
+  let binary = ''
+  const chunk = 0x8000
+  for (let i = 0; i < fixed.length; i += chunk) {
+    binary += String.fromCharCode(...fixed.subarray(i, i + chunk))
+  }
+  return `data:image/jpeg;base64,${btoa(binary)}`
+}
+
 /** 1 unidad de usuario PDF (pt) → mm (72 pt = 1 in). */
 const PDF_PT_TO_MM = 25.4 / 72
 
@@ -146,7 +207,7 @@ function canvasToFadedWatermark(
   fctx.drawImage(src, 0, 0, width, height)
   fctx.globalAlpha = 1
   return {
-    dataUrl: faded.toDataURL('image/jpeg', LOGO_WATERMARK_JPEG_QUALITY),
+    dataUrl: jpegDataUrlWithSofBeforeDht(faded.toDataURL('image/jpeg', LOGO_WATERMARK_JPEG_QUALITY)),
     widthMm,
     heightMm,
   }
