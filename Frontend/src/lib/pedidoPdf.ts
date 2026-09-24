@@ -20,10 +20,10 @@ const STATUS_ES: Record<string, string> = {
 /** Opacidad del logo como marca de agua (0 = invisible, 1 = opaco). */
 const LOGO_WATERMARK_ALPHA = 0.50
 
-/** Lado largo máximo del JPEG embebido. Un PNG enorme sin comprimir rompe la preview de WhatsApp en Android. */
-const LOGO_WATERMARK_MAX_PX = 600
+/** Tope del lado largo. El logo actual entra entero; el JPEG (no el recorte) es lo que mantiene el PDF liviano. */
+const LOGO_WATERMARK_MAX_PX = 2552
 
-const LOGO_WATERMARK_JPEG_QUALITY = 0.82
+const LOGO_WATERMARK_JPEG_QUALITY = 0.9
 
 export function watermarkPixelSize(srcW: number, srcH: number, maxPx = LOGO_WATERMARK_MAX_PX): { width: number; height: number } {
   const longSide = Math.max(srcW, srcH)

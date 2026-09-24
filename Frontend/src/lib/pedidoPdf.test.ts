@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { pedidoPdfShareData, watermarkPixelSize } from './pedidoPdf'
 
 describe('watermarkPixelSize', () => {
-  it('baja el logo real al lado largo de 600 px', () => {
-    expect(watermarkPixelSize(1758, 2552)).toEqual({ width: 413, height: 600 })
+  it('mantiene la resolución del logo real', () => {
+    expect(watermarkPixelSize(1758, 2552)).toEqual({ width: 1758, height: 2552 })
+  })
+
+  it('acota un logo más grande que el tope', () => {
+    expect(watermarkPixelSize(3516, 5104)).toEqual({ width: 1758, height: 2552 })
   })
 
   it('no agranda un logo que ya entra', () => {
