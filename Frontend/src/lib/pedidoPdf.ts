@@ -20,6 +20,25 @@ const STATUS_ES: Record<string, string> = {
 /** Opacidad del logo como marca de agua (0 = invisible, 1 = opaco). */
 const LOGO_WATERMARK_ALPHA = 0.50
 
+/** Tope del lado largo. El logo actual entra entero; el JPEG (no el recorte) es lo que mantiene el PDF liviano. */
+const LOGO_WATERMARK_MAX_PX = 2552
+
+const LOGO_WATERMARK_JPEG_QUALITY = 0.9
+
+export function watermarkPixelSize(srcW: number, srcH: number, maxPx = LOGO_WATERMARK_MAX_PX): { width: number; height: number } {
+  const longSide = Math.max(srcW, srcH)
+  const scale = longSide > maxPx ? maxPx / longSide : 1
+  return {
+    width: Math.max(1, Math.round(srcW * scale)),
+    height: Math.max(1, Math.round(srcH * scale)),
+  }
+}
+
+/** Solo el archivo: en Android, title/text hacen que WhatsApp no arme la miniatura del PDF. */
+export function pedidoPdfShareData(file: File): ShareData {
+  return { files: [file] }
+}
+
 /** 1 unidad de usuario PDF (pt) → mm (72 pt = 1 in). */
 const PDF_PT_TO_MM = 25.4 / 72
 
@@ -115,17 +134,19 @@ function canvasToFadedWatermark(
   widthMm: number,
   heightMm: number,
 ): LogoWatermark | null {
+  const { width, height } = watermarkPixelSize(src.width, src.height)
   const faded = document.createElement('canvas')
-  faded.width = src.width
-  faded.height = src.height
-  const fctx = faded.getContext('2d', { alpha: true })
+  faded.width = width
+  faded.height = height
+  const fctx = faded.getContext('2d', { alpha: false })
   if (!fctx) return null
-  fctx.clearRect(0, 0, faded.width, faded.height)
+  fctx.fillStyle = '#ffffff'
+  fctx.fillRect(0, 0, width, height)
   fctx.globalAlpha = LOGO_WATERMARK_ALPHA
-  fctx.drawImage(src, 0, 0)
+  fctx.drawImage(src, 0, 0, width, height)
   fctx.globalAlpha = 1
   return {
-    dataUrl: faded.toDataURL('image/png'),
+    dataUrl: faded.toDataURL('image/jpeg', LOGO_WATERMARK_JPEG_QUALITY),
     widthMm,
     heightMm,
   }
@@ -161,7 +182,7 @@ function loadLogoWatermarkFromImage(url: string): Promise<LogoWatermark | null> 
   })
 }
 
-/** Marca de agua PNG (sin pdf.js: evita fallos del worker .mjs en producción). */
+/** Marca de agua JPEG, achicada y sin alfa (sin pdf.js: evita fallos del worker .mjs en producción). */
 async function loadCompanyLogoWatermark(): Promise<LogoWatermark | null> {
   if (typeof window === 'undefined') return null
   for (const url of resolveLogoImageSources()) {
@@ -193,7 +214,7 @@ function drawWatermarkBehind(
   }
   const x = (pageW - drawW) / 2
   const y = (pageH - drawH) / 2
-  doc.addImage(wm.dataUrl, 'PNG', x, y, drawW, drawH)
+  doc.addImage(wm.dataUrl, 'JPEG', x, y, drawW, drawH)
 }
 
 /** PDF del comprobante (una sola fuente de verdad para vista previa, imprimir y compartir). */
