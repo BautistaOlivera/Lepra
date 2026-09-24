@@ -282,7 +282,15 @@ function drawWatermarkBehind(
 export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfProductById): Promise<Blob> {
   const wm = await loadCompanyLogoWatermark()
 
-  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' })
+  // putOnlyUsedFonts evita un objeto PDF duplicado (jsPDF escribe las 14 fuentes
+  // estándar y reutiliza el id 2). Android no repara eso y WhatsApp no arma la miniatura.
+  const doc = new jsPDF({
+    unit: 'mm',
+    format: 'a4',
+    orientation: 'portrait',
+    putOnlyUsedFonts: true,
+    compress: true,
+  })
   const pageW = doc.internal.pageSize.getWidth()
   const pageH = doc.internal.pageSize.getHeight()
   const margin = 14

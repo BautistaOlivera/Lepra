@@ -77,12 +77,14 @@ describe('jpegWithSofBeforeDht', () => {
     }
     const fixed = jpegWithSofBeforeDht(broken)
     const dataUrl = `data:image/jpeg;base64,${Buffer.from(fixed).toString('base64')}`
-    const doc = new jsPDF()
+    const doc = new jsPDF({ putOnlyUsedFonts: true, compress: true })
     doc.addImage(dataUrl, 'JPEG', 0, 0, 10, 10)
+    doc.text('El Lepra', 10, 10)
     const pdf = Buffer.from(doc.output('arraybuffer')).toString('latin1')
     expect(pdf).toContain('/Width 1758')
     expect(pdf).toContain('/Height 2552')
     expect(pdf).not.toContain('/Height 1\n')
+    expect(pdf.split('2 0 obj').length - 1).toBe(1)
   })
 })
 
