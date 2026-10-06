@@ -20,6 +20,28 @@ const STATUS_ES: Record<string, string> = {
 /** Opacidad del logo como marca de agua (0 = invisible, 1 = opaco). */
 const LOGO_WATERMARK_ALPHA = 0.50
 
+/**
+ * Lado largo del PNG embebido. El logo real es 1758×2552; sin comprimir pesa ~18 MB.
+ * 800 px alcanza para la marca de agua y deja el PDF en cerca de 1,3 MB.
+ */
+const LOGO_WATERMARK_MAX_PX = 800
+
+/**
+ * jsPDF, si el documento va comprimido, aplica predictor PNG (Paeth) y, con alfa, una máscara.
+ * El visor de Android (miniatura de WhatsApp y la vista de Chrome) no dibuja esa imagen.
+ * iOS sí. NONE + PNG opaco es el formato que Android rasteriza.
+ */
+const WATERMARK_IMAGE_COMPRESSION = 'NONE'
+
+export function watermarkPixelSize(srcW: number, srcH: number, maxPx = LOGO_WATERMARK_MAX_PX): { width: number; height: number } {
+  const longSide = Math.max(srcW, srcH)
+  const scale = longSide > maxPx ? maxPx / longSide : 1
+  return {
+    width: Math.max(1, Math.round(srcW * scale)),
+    height: Math.max(1, Math.round(srcH * scale)),
+  }
+}
+
 /** Solo el archivo: en Android, title/text hacen que WhatsApp no arme la miniatura del PDF. */
 export function pedidoPdfShareData(file: File): ShareData {
   return { files: [file] }
@@ -120,14 +142,16 @@ function canvasToFadedWatermark(
   widthMm: number,
   heightMm: number,
 ): LogoWatermark | null {
+  const { width, height } = watermarkPixelSize(src.width, src.height)
   const faded = document.createElement('canvas')
-  faded.width = src.width
-  faded.height = src.height
-  const fctx = faded.getContext('2d', { alpha: true })
+  faded.width = width
+  faded.height = height
+  const fctx = faded.getContext('2d', { alpha: false })
   if (!fctx) return null
-  fctx.clearRect(0, 0, faded.width, faded.height)
+  fctx.fillStyle = '#ffffff'
+  fctx.fillRect(0, 0, width, height)
   fctx.globalAlpha = LOGO_WATERMARK_ALPHA
-  fctx.drawImage(src, 0, 0)
+  fctx.drawImage(src, 0, 0, width, height)
   fctx.globalAlpha = 1
   return {
     dataUrl: faded.toDataURL('image/png'),
@@ -198,7 +222,7 @@ function drawWatermarkBehind(
   }
   const x = (pageW - drawW) / 2
   const y = (pageH - drawH) / 2
-  doc.addImage(wm.dataUrl, 'PNG', x, y, drawW, drawH)
+  doc.addImage(wm.dataUrl, 'PNG', x, y, drawW, drawH, undefined, WATERMARK_IMAGE_COMPRESSION)
 }
 
 /** PDF del comprobante (una sola fuente de verdad para vista previa, imprimir y compartir). */
@@ -207,7 +231,7 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
 
   // putOnlyUsedFonts evita un objeto PDF duplicado (jsPDF escribe las 14 fuentes
   // estándar y reutiliza el id 2). Android no repara eso y WhatsApp no arma la miniatura.
-  // compress es obligatorio: el PNG del logo a 1758×2552, sin Flate, pesa ~18 MB.
+  // compress achica el texto. La marca de agua va aparte, sin predictor: ver addImage.
   const doc = new jsPDF({
     unit: 'mm',
     format: 'a4',
