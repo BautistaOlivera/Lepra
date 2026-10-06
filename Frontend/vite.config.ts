@@ -1,9 +1,10 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
 import legacy from '@vitejs/plugin-legacy'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { createReadStream, existsSync, readdirSync, readFileSync, statSync } from 'fs'
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -27,6 +28,39 @@ function devHttpsEnabled(env: Record<string, string>): boolean {
   return v === '1' || v === 'true' || v === 'yes'
 }
 
+/** Fuentes estándar de pdf.js, para pintar el comprobante sin el visor del navegador. */
+function pdfjsStandardFonts(): Plugin {
+  const fontsDir = path.resolve(__dirname, 'node_modules/pdfjs-dist/standard_fonts')
+  return {
+    name: 'pdfjs-standard-fonts',
+    configureServer(server) {
+      server.middlewares.use('/pdfjs/standard_fonts', (req, res, next) => {
+        const rel = decodeURIComponent((req.url || '/').split('?')[0]).replace(/^\/+/, '')
+        const file = path.resolve(fontsDir, rel)
+        const fromRoot = path.relative(fontsDir, file)
+        if (fromRoot.startsWith('..') || path.isAbsolute(fromRoot) || !existsSync(file) || !statSync(file).isFile()) {
+          next()
+          return
+        }
+        res.setHeader('Content-Type', 'application/octet-stream')
+        createReadStream(file).pipe(res)
+      })
+    },
+    generateBundle() {
+      if (!existsSync(fontsDir)) return
+      for (const name of readdirSync(fontsDir)) {
+        const file = path.join(fontsDir, name)
+        if (!statSync(file).isFile()) continue
+        this.emitFile({
+          type: 'asset',
+          fileName: `pdfjs/standard_fonts/${name}`,
+          source: readFileSync(file),
+        })
+      }
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const uploads = uploadsUrlPattern(env.VITE_API_URL || 'http://localhost:8000')
@@ -43,6 +77,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
+      pdfjsStandardFonts(),
       ...(devHttps ? [basicSsl()] : []),
       VitePWA({
         // 'prompt': la app avisa cuando hay versión nueva (botón "Actualizar").
@@ -100,6 +135,7 @@ export default defineConfig(({ mode }) => {
             'pwa-icon-192.png',
             'pwa-icon-512.png',
             'pwa-maskable-512.png',
+            'pdfjs/standard_fonts/*',
           ],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
@@ -183,6 +219,7 @@ export default defineConfig(({ mode }) => {
             }
             if (id.includes('node_modules/lucide-react')) return 'icons'
             if (id.includes('node_modules/dexie')) return 'dexie'
+            if (id.includes('node_modules/pdfjs-dist')) return 'pdfjs'
             return 'vendor'
           },
         },

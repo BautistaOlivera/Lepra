@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { Order } from '@/types'
 import { buildPedidoPdfBlob, pedidoPdfFilename, pedidoPdfShareData, type PedidoPdfProductById } from '@/lib/pedidoPdf'
 import { lepraDb } from '@/offline/db'
+import { PdfCanvasPreview } from '@/components/modals/PdfCanvasPreview'
 
 interface PedidoPdfModalProps {
   show: boolean
@@ -19,13 +20,18 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
   const objectUrlRef = useRef<string | null>(null)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
+  const [pdfBytes, setPdfBytes] = useState<Uint8Array | null>(null)
   const [loading, setLoading] = useState(true)
+  const [rendering, setRendering] = useState(false)
+  const android = typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent)
 
   useEffect(() => {
     if (!show) {
       setLoading(true)
       setPdfUrl(null)
       setPdfBlob(null)
+      setPdfBytes(null)
+      setRendering(false)
       return
     }
 
@@ -37,6 +43,8 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
     }
     setPdfUrl(null)
     setPdfBlob(null)
+    setPdfBytes(null)
+    setRendering(false)
     setLoading(true)
 
     ;(async () => {
@@ -66,6 +74,7 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
         console.error(e)
         if (!cancelled) {
           setLoading(false)
+          setRendering(false)
           toast.error('No se pudo generar el PDF')
         }
         return
@@ -75,6 +84,8 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
       objectUrlRef.current = url
       setPdfUrl(url)
       setPdfBlob(blob)
+      setPdfBytes(new Uint8Array(await blob.arrayBuffer()))
+      setRendering(true)
       setLoading(false)
     })()
 
@@ -89,16 +100,21 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
 
   function handlePrint() {
     const win = iframeRef.current?.contentWindow
-    if (!win || loading || !pdfUrl) {
+    if (loading || rendering || !pdfUrl) {
       toast.error('Esperá a que termine de cargar el PDF')
       return
     }
-    try {
-      win.focus()
-      win.print()
-    } catch {
-      toast.error('No se pudo abrir el cuadro de impresión')
+    if (win) {
+      try {
+        win.focus()
+        win.print()
+        return
+      } catch {
+        /* el visor embebido no imprimió: se abre el archivo */
+      }
     }
+    const opened = window.open(pdfUrl, '_blank', 'noopener')
+    if (!opened) toast.error('No se pudo abrir el cuadro de impresión')
   }
 
   function handleDownload() {
@@ -153,21 +169,32 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
         </Modal.Title>
       </Modal.Header>
       <Modal.Body className="p-0 d-flex flex-column bg-body-secondary" style={{ minHeight: 'min(72vh, 600px)' }}>
-        <ModalBusyFrame busy={loading} message="Generando PDF…">
+        <ModalBusyFrame busy={loading || rendering} message="Generando PDF…">
           <div className="d-flex flex-column flex-grow-1" style={{ minHeight: 'min(72vh, 600px)' }}>
-            {pdfUrl ? (
-              <iframe
-                ref={iframeRef}
-                title={`Comprobante pedido ${order.id}`}
-                src={pdfUrl}
-                className="w-100 border-0 flex-grow-1 bg-white"
-                style={{ minHeight: 'min(62vh, 520px)', height: '62vh' }}
-              />
+            {pdfBytes ? (
+              <div className="flex-grow-1 overflow-auto p-2">
+                <PdfCanvasPreview
+                  data={pdfBytes}
+                  onReady={() => setRendering(false)}
+                  onError={() => setRendering(false)}
+                />
+              </div>
             ) : !loading ? (
               <div className="text-center text-muted py-5 flex-grow-1">No se pudo mostrar el PDF.</div>
             ) : (
               <div className="flex-grow-1" aria-hidden />
             )}
+            {pdfUrl && !android ? (
+              <iframe
+                ref={iframeRef}
+                title={`Comprobante pedido ${order.id}`}
+                src={pdfUrl}
+                className="border-0"
+                style={{ position: 'absolute', width: 0, height: 0, border: 0 }}
+                aria-hidden
+                tabIndex={-1}
+              />
+            ) : null}
 
             <div className="border-top bg-body p-3 d-flex flex-wrap gap-2 justify-content-end align-items-center">
               <ModalDismissButton disabled={loading}>Cerrar</ModalDismissButton>
@@ -177,7 +204,7 @@ export function PedidoPdfModal({ show, onClose, order }: PedidoPdfModalProps) {
               <Button variant="outline-dark" onClick={handleShare} disabled={loading || !pdfBlob}>
                 <Share2 size={18} className="me-1" /> Compartir
               </Button>
-              <Button className="btn-lepra" onClick={handlePrint} disabled={loading || !pdfUrl}>
+              <Button className="btn-lepra" onClick={handlePrint} disabled={loading || rendering || !pdfUrl}>
                 <Printer size={18} className="me-1" /> Imprimir
               </Button>
             </div>
