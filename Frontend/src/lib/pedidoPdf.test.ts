@@ -1,8 +1,43 @@
-import { readFileSync } from 'node:fs'
+import { deflateSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { jsPDF } from 'jspdf'
-import { PNG } from 'pngjs'
 import { pedidoPdfShareData, watermarkPixelSize } from './pedidoPdf'
+
+function crc32(buf: Buffer): number {
+  let c = ~0
+  for (let i = 0; i < buf.length; i++) {
+    c ^= buf[i]
+    for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (c & 1 ? 0xedb88320 : 0)
+  }
+  return ~c >>> 0
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const len = Buffer.alloc(4)
+  len.writeUInt32BE(data.length)
+  const body = Buffer.concat([Buffer.from(type), data])
+  const crc = Buffer.alloc(4)
+  crc.writeUInt32BE(crc32(body))
+  return Buffer.concat([len, body, crc])
+}
+
+/** PNG RGB de 8 bits, sin canal alfa. */
+function opaquePng(width: number, height: number): Buffer {
+  const stride = width * 3 + 1
+  const raw = Buffer.alloc(stride * height, 255)
+  for (let y = 0; y < height; y++) raw[y * stride] = 0
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(width, 0)
+  ihdr.writeUInt32BE(height, 4)
+  ihdr[8] = 8
+  ihdr[9] = 2
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ])
+}
 
 describe('watermarkPixelSize', () => {
   it('acota el logo real a 800 px del lado largo', () => {
@@ -16,26 +51,8 @@ describe('watermarkPixelSize', () => {
 
 describe('marca de agua en el PDF', () => {
   it('queda opaca, sin predictor, y lejos de los 18 MB', () => {
-    const src = PNG.sync.read(readFileSync('public/branding/lepra-logo-watermark.png'))
-    const { width, height } = watermarkPixelSize(src.width, src.height)
-    const out = new PNG({ width, height, colorType: 2 })
-    const scaleX = src.width / width
-    const scaleY = src.height / height
-    for (let y = 0; y < height; y++) {
-      const sy = Math.min(src.height - 1, Math.floor(y * scaleY))
-      for (let x = 0; x < width; x++) {
-        const sx = Math.min(src.width - 1, Math.floor(x * scaleX))
-        const si = (sy * src.width + sx) << 2
-        const di = (y * width + x) << 2
-        const a = src.data[si + 3] / 255
-        const blend = a * 0.5
-        out.data[di] = Math.round(255 * (1 - blend) + src.data[si] * blend)
-        out.data[di + 1] = Math.round(255 * (1 - blend) + src.data[si + 1] * blend)
-        out.data[di + 2] = Math.round(255 * (1 - blend) + src.data[si + 2] * blend)
-        out.data[di + 3] = 255
-      }
-    }
-    const png = PNG.sync.write(out, { colorType: 2 })
+    const { width, height } = watermarkPixelSize(1758, 2552)
+    const png = opaquePng(width, height)
     const dataUrl = `data:image/png;base64,${png.toString('base64')}`
     const doc = new jsPDF({ unit: 'mm', format: 'a4', putOnlyUsedFonts: true, compress: true })
     doc.addImage(dataUrl, 'PNG', 6, 6, 180, 250, undefined, 'NONE')
