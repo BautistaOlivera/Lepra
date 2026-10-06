@@ -20,84 +20,9 @@ const STATUS_ES: Record<string, string> = {
 /** Opacidad del logo como marca de agua (0 = invisible, 1 = opaco). */
 const LOGO_WATERMARK_ALPHA = 0.50
 
-/** Tope del lado largo. El logo actual entra entero; el JPEG (no el recorte) es lo que mantiene el PDF liviano. */
-const LOGO_WATERMARK_MAX_PX = 2552
-
-const LOGO_WATERMARK_JPEG_QUALITY = 0.9
-
-export function watermarkPixelSize(srcW: number, srcH: number, maxPx = LOGO_WATERMARK_MAX_PX): { width: number; height: number } {
-  const longSide = Math.max(srcW, srcH)
-  const scale = longSide > maxPx ? maxPx / longSide : 1
-  return {
-    width: Math.max(1, Math.round(srcW * scale)),
-    height: Math.max(1, Math.round(srcH * scale)),
-  }
-}
-
 /** Solo el archivo: en Android, title/text hacen que WhatsApp no arme la miniatura del PDF. */
 export function pedidoPdfShareData(file: File): ShareData {
   return { files: [file] }
-}
-
-const JPEG_SOF = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf])
-
-/**
- * El JPEG del canvas (Chrome/Android) pone la tabla Huffman (DHT) antes del SOF.
- * jsPDF toma el tamaño de ese marcador y embebe una imagen corrupta: Android no
- * genera la preview de WhatsApp. El SOF tiene que ir antes del primer DHT.
- */
-export function jpegWithSofBeforeDht(bytes: Uint8Array): Uint8Array {
-  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return bytes
-  const segs: Uint8Array[] = []
-  let i = 2
-  while (i + 1 < bytes.length) {
-    if (bytes[i] !== 0xff) return bytes
-    const marker = bytes[i + 1]
-    if (marker === 0xda || marker === 0xd9) {
-      segs.push(bytes.slice(i))
-      break
-    }
-    if ((marker >= 0xd0 && marker <= 0xd8) || marker === 0x01) {
-      segs.push(bytes.slice(i, i + 2))
-      i += 2
-      continue
-    }
-    if (i + 3 >= bytes.length) return bytes
-    const len = (bytes[i + 2] << 8) | bytes[i + 3]
-    if (len < 2 || i + 2 + len > bytes.length) return bytes
-    segs.push(bytes.slice(i, i + 2 + len))
-    i += 2 + len
-  }
-  const sofIdx = segs.findIndex((s) => JPEG_SOF.has(s[1]))
-  const dhtIdx = segs.findIndex((s) => s[1] === 0xc4)
-  if (sofIdx < 0 || dhtIdx < 0 || dhtIdx > sofIdx) return bytes
-  const next = segs.slice()
-  const [sof] = next.splice(sofIdx, 1)
-  next.splice(next.findIndex((s) => s[1] === 0xc4), 0, sof)
-  const out = new Uint8Array(2 + next.reduce((n, s) => n + s.length, 0))
-  out[0] = 0xff
-  out[1] = 0xd8
-  let offset = 2
-  for (const seg of next) {
-    out.set(seg, offset)
-    offset += seg.length
-  }
-  return out
-}
-
-function jpegDataUrlWithSofBeforeDht(dataUrl: string): string {
-  const comma = dataUrl.indexOf(',')
-  if (comma < 0) return dataUrl
-  const raw = atob(dataUrl.slice(comma + 1))
-  const bytes = new Uint8Array(raw.length)
-  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
-  const fixed = jpegWithSofBeforeDht(bytes)
-  let binary = ''
-  const chunk = 0x8000
-  for (let i = 0; i < fixed.length; i += chunk) {
-    binary += String.fromCharCode(...fixed.subarray(i, i + chunk))
-  }
-  return `data:image/jpeg;base64,${btoa(binary)}`
 }
 
 /** 1 unidad de usuario PDF (pt) → mm (72 pt = 1 in). */
@@ -195,19 +120,17 @@ function canvasToFadedWatermark(
   widthMm: number,
   heightMm: number,
 ): LogoWatermark | null {
-  const { width, height } = watermarkPixelSize(src.width, src.height)
   const faded = document.createElement('canvas')
-  faded.width = width
-  faded.height = height
-  const fctx = faded.getContext('2d', { alpha: false })
+  faded.width = src.width
+  faded.height = src.height
+  const fctx = faded.getContext('2d', { alpha: true })
   if (!fctx) return null
-  fctx.fillStyle = '#ffffff'
-  fctx.fillRect(0, 0, width, height)
+  fctx.clearRect(0, 0, faded.width, faded.height)
   fctx.globalAlpha = LOGO_WATERMARK_ALPHA
-  fctx.drawImage(src, 0, 0, width, height)
+  fctx.drawImage(src, 0, 0)
   fctx.globalAlpha = 1
   return {
-    dataUrl: jpegDataUrlWithSofBeforeDht(faded.toDataURL('image/jpeg', LOGO_WATERMARK_JPEG_QUALITY)),
+    dataUrl: faded.toDataURL('image/png'),
     widthMm,
     heightMm,
   }
@@ -243,7 +166,7 @@ function loadLogoWatermarkFromImage(url: string): Promise<LogoWatermark | null> 
   })
 }
 
-/** Marca de agua JPEG, achicada y sin alfa (sin pdf.js: evita fallos del worker .mjs en producción). */
+/** Marca de agua PNG (sin pdf.js: evita fallos del worker .mjs en producción). */
 async function loadCompanyLogoWatermark(): Promise<LogoWatermark | null> {
   if (typeof window === 'undefined') return null
   for (const url of resolveLogoImageSources()) {
@@ -275,7 +198,7 @@ function drawWatermarkBehind(
   }
   const x = (pageW - drawW) / 2
   const y = (pageH - drawH) / 2
-  doc.addImage(wm.dataUrl, 'JPEG', x, y, drawW, drawH)
+  doc.addImage(wm.dataUrl, 'PNG', x, y, drawW, drawH)
 }
 
 /** PDF del comprobante (una sola fuente de verdad para vista previa, imprimir y compartir). */
@@ -284,6 +207,7 @@ export async function buildPedidoPdfBlob(order: Order, productById: PedidoPdfPro
 
   // putOnlyUsedFonts evita un objeto PDF duplicado (jsPDF escribe las 14 fuentes
   // estándar y reutiliza el id 2). Android no repara eso y WhatsApp no arma la miniatura.
+  // compress es obligatorio: el PNG del logo a 1758×2552, sin Flate, pesa ~18 MB.
   const doc = new jsPDF({
     unit: 'mm',
     format: 'a4',
