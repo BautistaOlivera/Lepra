@@ -1,36 +1,22 @@
 """
-Agrega customer_name y permite id_user NULL en orders (pedidos sin cliente registrado).
+Agrega customer_name y permite id_user NULL en orders.
 
 Uso: python scripts/migrate_order_customer_name.py
+
+El mismo sync corre al arrancar la API.
 """
 
 import os
 import sys
 
-from sqlalchemy import text
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.db import engine
+from services.schema_migrate import ensure_schema_sync
 
 
 def main():
-    stmts = [
-        """
-        ALTER TABLE IF EXISTS orders
-        ADD COLUMN IF NOT EXISTS customer_name VARCHAR NULL;
-        """,
-        """
-        ALTER TABLE IF EXISTS orders
-        ALTER COLUMN id_user DROP NOT NULL;
-        """,
-    ]
-
-    with engine.begin() as conn:
-        for s in stmts:
-            conn.execute(text(s))
-
-    print("Migración OK: orders.customer_name e id_user nullable.")
+    ensure_schema_sync(engine)
 
 
 if __name__ == "__main__":

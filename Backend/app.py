@@ -4,10 +4,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
-from config.db import Base, engine
-from models import User, Product
-from models.order import Order, OrderProduct
-from models.product_price_tier import ProductPriceTier
+from config.db import engine
 
 from routes.auth import auth
 from routes.user import user_router
@@ -16,10 +13,11 @@ from routes.product_price_tier import tier_router
 from routes.order import order_router
 from routes.sync import sync_router
 from routes.stats import stats_router
+from services.schema_migrate import ensure_schema_sync
 
 lepra = FastAPI(title="El Lepra API", description="API para catálogo, pedidos y tickets")
 
-Base.metadata.create_all(bind=engine)
+ensure_schema_sync(engine)
 
 _default_cors = (
     "https://mg.ellepra.com.ar,"

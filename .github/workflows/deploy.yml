@@ -99,7 +99,11 @@ jobs:
           python3 scripts/sync_branding_logo.py
           chown -R ellepra-mg:ellepra-mg /home/ellepra-mg/lepra-api
           chown ellepra-mg:ellepra-mg "$BACKEND/uploads/lepra-logo-watermark.png" 2>/dev/null || true
-          systemctl restart lepra-api
+          if ! systemctl restart lepra-api; then
+            systemctl status lepra-api --no-pager -l || true
+            journalctl -u lepra-api -n 40 --no-pager || true
+            exit 1
+          fi
           systemctl is-active --quiet lepra-api
           echo "lepra-api is active"
           REMOTE
