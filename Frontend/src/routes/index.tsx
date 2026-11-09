@@ -12,6 +12,7 @@ import { Clientes } from '@/views/Clientes'
 import { Productos } from '@/views/Productos'
 import { Pedidos } from '@/views/Pedidos'
 import { Estadisticas } from '@/views/Estadisticas'
+import { Proveedores } from '@/views/Proveedores'
 
 export function AppRoutes() {
   return (
@@ -38,6 +39,7 @@ export function AppRoutes() {
           <Route path="clientes" element={<Clientes />} />
           <Route path="productos" element={<Productos />} />
           <Route path="pedidos" element={<Pedidos />} />
+          <Route path="proveedores" element={<Proveedores />} />
           <Route path="estadisticas" element={<Estadisticas />} />
         </Route>
 

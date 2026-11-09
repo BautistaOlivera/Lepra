@@ -9,7 +9,10 @@ from auth.roles import require_roles
 from models.user import User
 from models.product import Product
 from models.order import Order
+from models.supplier import Supplier
+from models.purchase import Purchase, PurchaseLine
 from utils.datetime_api import utc_naive_iso
+from services.purchase_present import purchase_dict, supplier_dict
 
 sync_router = APIRouter(prefix="/sync", tags=["Sync"])
 
@@ -191,6 +194,57 @@ async def sync_orders(req: Request, since: int | None = None):
                 }
                 for o in items
             ],
+        },
+    )
+
+
+@sync_router.get("/suppliers")
+async def sync_suppliers(req: Request, since: int | None = None):
+    payload = require_roles(req.headers, ["ADMIN"])
+    if isinstance(payload, JSONResponse):
+        return payload
+
+    since_dt = _since_ms_to_dt(since)
+    async with AsyncSessionLocal() as session:
+        stmt = select(Supplier).where(Supplier.updated_at > since_dt)
+        result = await session.execute(stmt)
+        items = result.scalars().all()
+
+    server_time = int(datetime.now(timezone.utc).timestamp() * 1000)
+    return JSONResponse(
+        status_code=200,
+        content={
+            "serverTime": server_time,
+            "items": [supplier_dict(row) for row in items],
+        },
+    )
+
+
+@sync_router.get("/purchases")
+async def sync_purchases(req: Request, since: int | None = None):
+    payload = require_roles(req.headers, ["ADMIN"])
+    if isinstance(payload, JSONResponse):
+        return payload
+
+    since_dt = _since_ms_to_dt(since)
+    async with AsyncSessionLocal() as session:
+        stmt = (
+            select(Purchase)
+            .where(Purchase.updated_at > since_dt)
+            .options(
+                selectinload(Purchase.supplier),
+                selectinload(Purchase.lines).selectinload(PurchaseLine.product),
+            )
+        )
+        result = await session.execute(stmt)
+        items = result.scalars().unique().all()
+
+    server_time = int(datetime.now(timezone.utc).timestamp() * 1000)
+    return JSONResponse(
+        status_code=200,
+        content={
+            "serverTime": server_time,
+            "items": [purchase_dict(row) for row in items],
         },
     )
 

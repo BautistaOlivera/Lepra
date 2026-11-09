@@ -194,6 +194,9 @@ def ensure_schema_sync(engine) -> None:
             _apply_additive(conn)
             _apply_kg_pricing(conn)
             _apply_product_status(conn)
+            from services.supplier_seed import seed_suppliers_if_empty
+
+            seed_suppliers_if_empty(conn)
     except Exception:
         logger.exception("Schema sync falló")
         raise

@@ -88,6 +88,38 @@ export interface Order {
   lines?: OrderProduct[]
 }
 
+export interface Supplier {
+  id: number
+  name: string
+  active: boolean
+  updated_at?: string | null
+}
+
+export interface PurchaseLine {
+  id?: number
+  id_product: number
+  product_name?: string | null
+  product_brand?: string | null
+  weight: number
+  /** Precio de compra por kg. No es el precio de venta del catálogo. */
+  price_per_kg: number
+  amount?: number
+}
+
+export interface Purchase {
+  id: number
+  id_supplier: number
+  supplier_name?: string | null
+  date?: string | null
+  unitemized_amount: number
+  total: number
+  note?: string | null
+  active: boolean
+  created_at?: string | null
+  updated_at?: string | null
+  lines?: PurchaseLine[]
+}
+
 export interface PaginatedFilters {
   search?: string
   category?: string
@@ -98,6 +130,7 @@ export interface PaginatedFilters {
   rol?: string
   date_from?: string
   date_to?: string
+  id_supplier?: number
 }
 
 export interface PaginatedRequest<T = PaginatedFilters> {

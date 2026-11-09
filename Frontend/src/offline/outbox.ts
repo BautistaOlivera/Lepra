@@ -7,6 +7,8 @@ import { applyTierDiffOnline } from '@/lib/productTiers'
 import { applyTierDiffToLocal } from '@/lib/productMerge'
 import type { PriceTier } from '@/types'
 import { createOrder, setOrderStatus, updateOrder, addOrderPayment, deleteOrderPayment } from '@/api/order'
+import { createSupplier, updateSupplier, deactivateSupplier } from '@/api/supplier'
+import { createPurchase, updatePurchase, deactivatePurchase } from '@/api/purchase'
 
 function uuid(): string {
   // Suficiente para cola local (no criptográfico)
@@ -149,6 +151,51 @@ export async function hasPendingOrderMutation(orderId: number): Promise<boolean>
   return false
 }
 
+function payloadId(payload: unknown): number {
+  const p = payload as { id?: number; tempId?: number } | null
+  const id = Number(p?.id ?? p?.tempId)
+  return Number.isFinite(id) ? id : NaN
+}
+
+async function idMatchesMapped(
+  entity: 'supplier' | 'purchase',
+  storedId: number,
+  targetId: number,
+): Promise<boolean> {
+  if (storedId === targetId) return true
+  if (storedId < 0) {
+    const mapped = await lepraDb.idmap.get([entity, storedId])
+    if (mapped?.realId === targetId) return true
+  }
+  return false
+}
+
+export async function hasPendingSupplierMutation(supplierId: number): Promise<boolean> {
+  const rows = await lepraDb.outbox.toArray()
+  for (const r of rows) {
+    if (r.status === 'done') continue
+    if (r.type !== 'SUPPLIER_CREATE' && r.type !== 'SUPPLIER_UPDATE' && r.type !== 'SUPPLIER_DEACTIVATE') {
+      continue
+    }
+    const id = payloadId(r.type === 'SUPPLIER_CREATE' ? { tempId: (r.payload as { tempId?: number })?.tempId } : r.payload)
+    if (await idMatchesMapped('supplier', id, supplierId)) return true
+  }
+  return false
+}
+
+export async function hasPendingPurchaseMutation(purchaseId: number): Promise<boolean> {
+  const rows = await lepraDb.outbox.toArray()
+  for (const r of rows) {
+    if (r.status === 'done') continue
+    if (r.type !== 'PURCHASE_CREATE' && r.type !== 'PURCHASE_UPDATE' && r.type !== 'PURCHASE_DEACTIVATE') {
+      continue
+    }
+    const id = payloadId(r.type === 'PURCHASE_CREATE' ? { tempId: (r.payload as { tempId?: number })?.tempId } : r.payload)
+    if (await idMatchesMapped('purchase', id, purchaseId)) return true
+  }
+  return false
+}
+
 export async function getPendingCount(): Promise<number> {
   return lepraDb.outbox.where('status').equals('pending').count()
 }
@@ -204,14 +251,27 @@ type ProcessResult = {
   failed: number
 }
 
-async function mapTempId(entity: 'user' | 'product' | 'order', tempId: number, realId: number) {
+async function mapTempId(
+  entity: 'user' | 'product' | 'order' | 'supplier' | 'purchase',
+  tempId: number,
+  realId: number,
+) {
   await lepraDb.idmap.put({ entity, tempId, realId, createdAt: Date.now() })
 }
 
-async function resolveId(entity: 'user' | 'product' | 'order', id: number): Promise<number> {
+async function resolveId(
+  entity: 'user' | 'product' | 'order' | 'supplier' | 'purchase',
+  id: number,
+): Promise<number> {
   if (id >= 0) return id
   const row = await lepraDb.idmap.get([entity, id])
-  const entityLabel = { user: 'cliente', product: 'producto', order: 'pedido' }[entity]
+  const entityLabel = {
+    user: 'cliente',
+    product: 'producto',
+    order: 'pedido',
+    supplier: 'proveedor',
+    purchase: 'abastecimiento',
+  }[entity]
   if (!row?.realId) throw new DependencyNotReadyError(`Esperando sincronización de ${entityLabel} (${id})`)
   return row.realId
 }
@@ -480,6 +540,101 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
           await lepraDb.orders.delete(localId).catch(() => {})
         }
       }
+      return { ok: true }
+    }
+    case 'SUPPLIER_CREATE': {
+      const payload = row.payload as any
+      const tempId = Number(payload?.tempId)
+      const res = await createSupplier({ name: String(payload?.data?.name || '') })
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      const server = res.data?.supplier
+      if (server?.id && Number.isFinite(tempId)) {
+        await replaceRowId(lepraDb.suppliers as any, tempId, server.id, server)
+        await mapTempId('supplier', tempId, server.id)
+      }
+      return { ok: true }
+    }
+    case 'SUPPLIER_UPDATE': {
+      const p = row.payload as any
+      const id = await resolveId('supplier', Number(p?.id))
+      const res = await updateSupplier({ id, name: p?.name })
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      if (res.data?.supplier) await lepraDb.suppliers.put(res.data.supplier)
+      return { ok: true }
+    }
+    case 'SUPPLIER_DEACTIVATE': {
+      const { id } = row.payload as any
+      const realId = await resolveId('supplier', Number(id))
+      const res = await deactivateSupplier(realId)
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      if (res.data?.supplier) await lepraDb.suppliers.put(res.data.supplier)
+      return { ok: true }
+    }
+    case 'PURCHASE_CREATE': {
+      const payload = row.payload as any
+      const tempId = Number(payload?.tempId)
+      const data = payload?.data
+      const resolved = {
+        ...data,
+        id_supplier: await resolveId('supplier', Number(data?.id_supplier)),
+        lines: Array.isArray(data?.lines)
+          ? await Promise.all(
+              data.lines.map(async (l: any) => ({
+                id_product: await resolveId('product', Number(l?.id_product)),
+                weight: Number(l?.weight),
+                price_per_kg: Number(l?.price_per_kg),
+              })),
+            )
+          : [],
+      }
+      const res = await createPurchase(resolved)
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      const server = res.data?.purchase
+      const newId = Number(server?.id ?? res.data?.id)
+      if (Number.isFinite(newId) && Number.isFinite(tempId)) {
+        await replaceRowId(lepraDb.purchases as any, tempId, newId, server ?? { id: newId })
+        await mapTempId('purchase', tempId, newId)
+      }
+      return { ok: true }
+    }
+    case 'PURCHASE_UPDATE': {
+      const payload = row.payload as any
+      const localId = Number(payload?.id)
+      const data = payload?.data ?? payload
+      const realId = await resolveId('purchase', localId)
+      const resolvedLines = Array.isArray(data?.lines)
+        ? await Promise.all(
+            data.lines.map(async (l: any) => ({
+              id_product: await resolveId('product', Number(l?.id_product)),
+              weight: Number(l?.weight),
+              price_per_kg: Number(l?.price_per_kg),
+            })),
+          )
+        : []
+      const resolved = {
+        id: realId,
+        id_supplier: await resolveId('supplier', Number(data?.id_supplier)),
+        date: data?.date,
+        unitemized_amount: data?.unitemized_amount,
+        note: data?.note,
+        lines: resolvedLines,
+      }
+      const res = await updatePurchase(resolved)
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      if (res.data?.purchase) {
+        await lepraDb.purchases.put(res.data.purchase)
+        if (localId !== realId && localId < 0) {
+          await lepraDb.purchases.delete(localId).catch(() => {})
+        }
+      }
+      return { ok: true }
+    }
+    case 'PURCHASE_DEACTIVATE': {
+      const { id } = row.payload as any
+      const realId = await resolveId('purchase', Number(id))
+      const res = await deactivatePurchase(realId)
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      if (res.data?.purchase) await lepraDb.purchases.put(res.data.purchase)
       return { ok: true }
     }
     default:

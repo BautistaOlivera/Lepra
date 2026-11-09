@@ -15,6 +15,12 @@ export const OUTBOX_TYPE_LABELS: Record<OutboxCommandType, string> = {
   ORDER_PAYMENT_UPDATE: 'Actualizar nota de pago',
   ORDER_PAYMENT_ADD: 'Registrar pago del pedido',
   ORDER_PAYMENT_DELETE: 'Eliminar pago del pedido',
+  SUPPLIER_CREATE: 'Crear proveedor',
+  SUPPLIER_UPDATE: 'Editar proveedor',
+  SUPPLIER_DEACTIVATE: 'Desactivar proveedor',
+  PURCHASE_CREATE: 'Crear abastecimiento',
+  PURCHASE_UPDATE: 'Editar abastecimiento',
+  PURCHASE_DEACTIVATE: 'Desactivar abastecimiento',
 }
 
 export function outboxTypeLabel(type: OutboxCommandType): string {
@@ -93,6 +99,27 @@ export function outboxPayloadSummary(r: OutboxRow): string {
       return p?.order_id != null ? `Pedido n.º ${p.order_id} (nuevo pago)` : ''
     case 'ORDER_PAYMENT_DELETE':
       return p?.order_id != null ? `Pedido n.º ${p.order_id} (borrar pago)` : ''
+    case 'SUPPLIER_CREATE':
+      return p?.data?.name ? `Proveedor: ${p.data.name}` : ''
+    case 'SUPPLIER_UPDATE':
+      return p?.name ? `Proveedor: ${p.name}` : p?.id != null ? `Proveedor n.º ${p.id}` : ''
+    case 'SUPPLIER_DEACTIVATE':
+      return p?.id != null ? `Proveedor n.º ${p.id}` : ''
+    case 'PURCHASE_CREATE': {
+      const lines = p?.data?.lines?.length ?? 0
+      return [p?.data?.date ? String(p.data.date) : '', lines ? `${lines} producto(s)` : 'solo importe']
+        .filter(Boolean)
+        .join(' · ')
+    }
+    case 'PURCHASE_UPDATE': {
+      const id = p?.id
+      const lines = p?.data?.lines?.length
+      return [id != null ? `Abastecimiento n.º ${id}` : '', lines ? `${lines} producto(s)` : '']
+        .filter(Boolean)
+        .join(' · ')
+    }
+    case 'PURCHASE_DEACTIVATE':
+      return p?.id != null ? `Abastecimiento n.º ${p.id}` : ''
     default:
       return ''
   }

@@ -6,6 +6,8 @@ type PendingSets = {
   users: Set<number>
   products: Set<number>
   orders: Set<number>
+  suppliers: Set<number>
+  purchases: Set<number>
 }
 
 function isPendingStatus(status: OutboxRow['status']): boolean {
@@ -16,6 +18,8 @@ function computeSets(rows: OutboxRow[]): PendingSets {
   const users = new Set<number>()
   const products = new Set<number>()
   const orders = new Set<number>()
+  const suppliers = new Set<number>()
+  const purchases = new Set<number>()
 
   for (const r of rows) {
     if (!isPendingStatus(r.status)) continue
@@ -51,12 +55,26 @@ function computeSets(rows: OutboxRow[]): PendingSets {
       case 'ORDER_PAYMENT_DELETE':
         if (Number.isFinite(Number(p?.order_id))) orders.add(Number(p.order_id))
         break
+      case 'SUPPLIER_CREATE':
+        if (Number.isFinite(Number(p?.tempId))) suppliers.add(Number(p.tempId))
+        break
+      case 'SUPPLIER_UPDATE':
+      case 'SUPPLIER_DEACTIVATE':
+        if (Number.isFinite(Number(p?.id))) suppliers.add(Number(p.id))
+        break
+      case 'PURCHASE_CREATE':
+        if (Number.isFinite(Number(p?.tempId))) purchases.add(Number(p.tempId))
+        break
+      case 'PURCHASE_UPDATE':
+      case 'PURCHASE_DEACTIVATE':
+        if (Number.isFinite(Number(p?.id))) purchases.add(Number(p.id))
+        break
       default:
         break
     }
   }
 
-  return { users, products, orders }
+  return { users, products, orders, suppliers, purchases }
 }
 
 export function useOutboxPending() {

@@ -1,8 +1,13 @@
 import Dexie, { type Table } from 'dexie'
-import type { Order, Product, User } from '@/types'
+import type { Order, Product, Purchase, Supplier, User } from '@/types'
 
 export type MetaRow = {
-  key: 'users_lastSync' | 'products_lastSync' | 'orders_lastSync'
+  key:
+    | 'users_lastSync'
+    | 'products_lastSync'
+    | 'orders_lastSync'
+    | 'suppliers_lastSync'
+    | 'purchases_lastSync'
   value: number
 }
 
@@ -20,6 +25,12 @@ export type OutboxCommandType =
   | 'ORDER_PAYMENT_UPDATE'
   | 'ORDER_PAYMENT_ADD'
   | 'ORDER_PAYMENT_DELETE'
+  | 'SUPPLIER_CREATE'
+  | 'SUPPLIER_UPDATE'
+  | 'SUPPLIER_DEACTIVATE'
+  | 'PURCHASE_CREATE'
+  | 'PURCHASE_UPDATE'
+  | 'PURCHASE_DEACTIVATE'
 
 export type OutboxRow = {
   id: string
@@ -33,7 +44,7 @@ export type OutboxRow = {
 }
 
 export type IdMapRow = {
-  entity: 'user' | 'product' | 'order'
+  entity: 'user' | 'product' | 'order' | 'supplier' | 'purchase'
   tempId: number
   realId: number
   createdAt: number
@@ -43,6 +54,8 @@ export class LepraDB extends Dexie {
   users!: Table<User, number>
   products!: Table<Product, number>
   orders!: Table<Order, number>
+  suppliers!: Table<Supplier, number>
+  purchases!: Table<Purchase, number>
   meta!: Table<MetaRow, string>
   outbox!: Table<OutboxRow, string>
   idmap!: Table<IdMapRow, [string, number]>
@@ -78,6 +91,17 @@ export class LepraDB extends Dexie {
       users: 'id, email, name, rol, active',
       products: 'id, name, brand, category, active, has_tiered_pricing',
       orders: 'id, id_user, user_name, status, active, created_at',
+      meta: 'key',
+      outbox: 'id, status, nextAttemptAt, createdAt, type',
+      idmap: '[entity+tempId], realId, createdAt',
+    })
+
+    this.version(5).stores({
+      users: 'id, email, name, rol, active',
+      products: 'id, name, brand, category, active, has_tiered_pricing',
+      orders: 'id, id_user, user_name, status, active, created_at',
+      suppliers: 'id, name, active',
+      purchases: 'id, id_supplier, date, active',
       meta: 'key',
       outbox: 'id, status, nextAttemptAt, createdAt, type',
       idmap: '[entity+tempId], realId, createdAt',

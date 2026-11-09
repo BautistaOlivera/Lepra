@@ -11,6 +11,8 @@ from routes.user import user_router
 from routes.product import product_router
 from routes.product_price_tier import tier_router
 from routes.order import order_router
+from routes.supplier import supplier_router
+from routes.purchase import purchase_router
 from routes.sync import sync_router
 from routes.stats import stats_router
 from services.schema_migrate import ensure_schema_sync
@@ -39,6 +41,8 @@ lepra.include_router(user_router)
 lepra.include_router(product_router)
 lepra.include_router(tier_router)
 lepra.include_router(order_router)
+lepra.include_router(supplier_router)
+lepra.include_router(purchase_router)
 lepra.include_router(sync_router)
 lepra.include_router(stats_router)
 

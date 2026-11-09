@@ -40,6 +40,8 @@ interface ProductoModalProps {
   show: boolean
   onClose: (refresh?: boolean) => void
   editingProduct: Product | null
+  /** Producto recién creado, para elegirlo en otra pantalla. El precio es de venta. */
+  onCreated?: (product: Product) => void
 }
 
 const CATEGORIAS = [
@@ -49,7 +51,7 @@ const CATEGORIAS = [
 
 const PRICE_DECIMALS_MSG = 'Solo 2 números después del punto'
 
-export function ProductoModal({ show, onClose, editingProduct }: ProductoModalProps) {
+export function ProductoModal({ show, onClose, editingProduct, onCreated }: ProductoModalProps) {
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   const [weight, setWeight] = useState('')
@@ -176,8 +178,9 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     })
   }
 
-  function finishClose(refresh = true) {
+  function finishClose(refresh = true, created?: Product) {
     rememberBrand(brand)
+    if (created) onCreated?.(created)
     onClose(refresh)
   }
 
@@ -418,6 +421,21 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
     setLoading(true)
     const brandValue = resolvedBrand()
 
+    const savedProduct = (id: number, tiers?: PriceTier[]): Product => ({
+      id,
+      name,
+      price: priceNum,
+      weight: weightNum,
+      fixed_weight: fixedWeight,
+      brand: brandValue ?? null,
+      category: category || null,
+      has_tiered_pricing: hasTieredPricing,
+      img: img || null,
+      active: true,
+      status: 'active',
+      price_tiers: tiers,
+    })
+
     if (isEditing) {
       if (!isOnlineNow()) {
         const patch = {
@@ -535,7 +553,13 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
         } as Product)
         toast.success('Producto creado (pendiente de sincronizar)')
         setLoading(false)
-        finishClose(true)
+        finishClose(
+          true,
+          savedProduct(
+            tempId,
+            hasTieredPricing && validatedTiers?.ok ? tiersFromPayload(validatedTiers.tiers) : undefined,
+          ),
+        )
         return
       }
 
@@ -556,19 +580,20 @@ export function ProductoModal({ show, onClose, editingProduct }: ProductoModalPr
       }
 
       const newId = data?.id
+      const created = Number.isFinite(newId) ? savedProduct(newId!) : undefined
       if (hasTieredPricing && validatedTiers?.ok && Number.isFinite(newId)) {
         const tierErr = await persistTiersForProduct(newId!, validatedTiers)
         if (tierErr) {
           toast.error(`Producto creado, pero falló un precio por volumen: ${tierErr}`)
           setLoading(false)
-          finishClose(true)
+          finishClose(true, created)
           return
         }
       }
 
       toast.success('Producto creado')
       setLoading(false)
-      finishClose(true)
+      finishClose(true, created)
       return
     }
     setLoading(false)
