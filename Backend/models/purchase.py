@@ -1,5 +1,8 @@
 from typing import Optional, List
 from datetime import datetime, timezone, date
+
+# Un campo llamado date no puede anotarse con date: Python resuelve ese nombre como None.
+DateValue = date
 from sqlalchemy import Column, Integer, Float, String, Boolean, ForeignKey, Date, DateTime
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
@@ -52,7 +55,7 @@ class PurchaseLineInput(BaseModel):
 
 class InputPurchase(BaseModel):
     id_supplier: int
-    date: Optional[date] = None
+    date: Optional[DateValue] = None
     unitemized_amount: float = 0
     note: Optional[str] = None
     lines: List[PurchaseLineInput] = []
@@ -61,7 +64,7 @@ class InputPurchase(BaseModel):
 class InputPurchaseUpdate(BaseModel):
     id: int
     id_supplier: Optional[int] = None
-    date: Optional[date] = None
+    date: Optional[DateValue] = None
     unitemized_amount: Optional[float] = None
     note: Optional[str] = None
     lines: Optional[List[PurchaseLineInput]] = None

@@ -1,5 +1,8 @@
 from typing import Optional, List
 from datetime import datetime, timezone, date
+
+# Un campo llamado date no puede anotarse con date: Python resuelve ese nombre como None.
+DateValue = date
 from sqlalchemy import Column, Integer, Float, String, Boolean, ForeignKey, Date, DateTime
 from sqlalchemy.orm import relationship
 from pydantic import BaseModel
@@ -91,7 +94,7 @@ class OrderLineAdminInput(BaseModel):
 
 
 class OrderCreateClient(BaseModel):
-    date: Optional[date] = None
+    date: Optional[DateValue] = None
     payment: Optional[str] = None
     lines: List[OrderLineClientInput]
 
@@ -99,7 +102,7 @@ class OrderCreateClient(BaseModel):
 class OrderCreateAdmin(BaseModel):
     id_user: Optional[int] = None
     customer_name: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[DateValue] = None
     payment: Optional[str] = None
     extra_amount: Optional[float] = None
     extra_note: Optional[str] = None
@@ -119,7 +122,7 @@ class OrderProductResponse(BaseModel):
 
 class OrderCreate(BaseModel):
     id_user: int
-    date: Optional[date] = None
+    date: Optional[DateValue] = None
     payment: Optional[str] = None
     lines: List[OrderProductCreate]
 
@@ -128,7 +131,7 @@ class OrderResponse(BaseModel):
     id: int
     id_user: int
     total: float
-    date: Optional[date] = None
+    date: Optional[DateValue] = None
     created_at: Optional[datetime] = None
     payment: Optional[str] = None
     extra_amount: float = 0.0
@@ -141,7 +144,7 @@ class OrderResponse(BaseModel):
 
 
 class OrderUpdate(BaseModel):
-    date: Optional[date] = None
+    date: Optional[DateValue] = None
     payment: Optional[str] = None
     status: Optional[str] = None
     active: Optional[bool] = None
@@ -149,7 +152,7 @@ class OrderUpdate(BaseModel):
 
 class InputOrder(BaseModel):
     id_user: int
-    date: Optional[date] = None
+    date: Optional[DateValue] = None
     payment: Optional[str] = None
     lines: List[OrderProductCreate]
 
@@ -158,7 +161,7 @@ class InputOrderUpdate(BaseModel):
     id: int
     id_user: Optional[int] = None
     customer_name: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[DateValue] = None
     payment: Optional[str] = None
     status: Optional[str] = None
     active: Optional[bool] = None

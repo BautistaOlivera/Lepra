@@ -383,7 +383,7 @@ export function AbastecimientoModal({ show, onClose, editing, suppliers }: Abast
               ) : (
                 lines.map((line, index) => (
                   <div key={index} className="border rounded p-2 mb-2">
-                    <div className="row g-2 align-items-end">
+                    <div className="row g-2 align-items-start">
                       <Form.Group className="col-md-4">
                         <Form.Label className="small">Producto</Form.Label>
                         <Select<number>
@@ -427,7 +427,11 @@ export function AbastecimientoModal({ show, onClose, editing, suppliers }: Abast
                           }
                         />
                       </Form.Group>
-                      <div className="col-6 col-md-2 d-flex gap-1">
+                      <div className="col-6 col-md-2">
+                        <Form.Label className="small invisible" aria-hidden="true">
+                          Acciones
+                        </Form.Label>
+                        <div className="d-flex gap-1">
                         <Button
                           type="button"
                           variant="outline-dark"
@@ -446,6 +450,7 @@ export function AbastecimientoModal({ show, onClose, editing, suppliers }: Abast
                         >
                           <Trash2 size={16} />
                         </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
