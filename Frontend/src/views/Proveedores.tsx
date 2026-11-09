@@ -9,6 +9,7 @@ import { AdminFilterResetButton } from '@/components/AdminFilterResetButton'
 import { AdminPageHero } from '@/components/AdminPageHero'
 import { ProveedorModal } from '@/components/modals/ProveedorModal'
 import { AbastecimientoModal } from '@/components/modals/AbastecimientoModal'
+import { AbastecimientoResumenModal } from '@/components/modals/AbastecimientoResumenModal'
 import { deactivateSupplier } from '@/api/supplier'
 import { deactivatePurchase } from '@/api/purchase'
 import { getSuppliersPaginatedOfflineFirst } from '@/repositories/suppliersRepo'
@@ -60,6 +61,7 @@ export function Proveedores() {
   const [purchasesLoading, setPurchasesLoading] = useState(true)
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false)
   const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null)
+  const [summaryPurchase, setSummaryPurchase] = useState<Purchase | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setSupplierSearchDebounced(supplierSearch), 300)
@@ -280,10 +282,24 @@ export function Proveedores() {
     }),
     purchaseColumns.display({
       id: 'products',
-      header: 'Productos',
+      header: () => <span className="d-block text-center">Productos</span>,
       cell: ({ row }) => {
         const count = row.original.lines?.length ?? 0
-        return count > 0 ? String(count) : '—'
+        return (
+          <div className="text-center">
+            {count === 0 ? (
+              '—'
+            ) : (
+              <Button
+                variant="outline-dark"
+                size="sm"
+                onClick={() => setSummaryPurchase(row.original)}
+              >
+                Resumen
+              </Button>
+            )}
+          </div>
+        )
       },
     }),
     purchaseColumns.accessor('note', {
@@ -557,10 +573,18 @@ export function Proveedores() {
                           <div className="fw-semibold">{purchase.supplier_name || 'Proveedor'}</div>
                           <div className="text-muted small">{formatDateFromApi(purchase.date)}</div>
                           <div className="mt-1">{formatMoneyWithSymbol(purchase.total)}</div>
-                          <div className="text-muted small">
-                            {(purchase.lines?.length ?? 0) > 0
-                              ? `${purchase.lines!.length} producto(s)`
-                              : 'Sin productos'}
+                          <div className="mt-1">
+                            {(purchase.lines?.length ?? 0) > 0 ? (
+                              <Button
+                                variant="outline-dark"
+                                size="sm"
+                                onClick={() => setSummaryPurchase(purchase)}
+                              >
+                                Resumen
+                              </Button>
+                            ) : (
+                              <span className="text-muted small">Sin productos</span>
+                            )}
                           </div>
                           {purchase.note && <div className="small mt-1">{purchase.note}</div>}
                           <div className="mt-2">
@@ -622,6 +646,14 @@ export function Proveedores() {
           suppliers={supplierOptions}
         />
       )}
+      <AbastecimientoResumenModal
+        show={summaryPurchase != null}
+        purchase={summaryPurchase}
+        onClose={() => {
+          setSummaryPurchase(null)
+          releaseBootstrapModalLock()
+        }}
+      />
     </div>
   )
 }
