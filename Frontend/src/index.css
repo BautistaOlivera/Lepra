@@ -1648,6 +1648,16 @@ body {
   min-height: 44px;
 }
 
+.admin-list-date {
+  flex: 0 0 160px;
+  width: 160px;
+  max-width: 160px;
+  height: 44px;
+  min-height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .admin-list-filters-row {
   display: flex;
   flex-wrap: nowrap;

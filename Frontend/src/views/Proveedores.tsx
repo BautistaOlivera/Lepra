@@ -495,17 +495,17 @@ export function Proveedores() {
             </div>
             <Form.Control
               type="date"
+              className="admin-list-date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
               aria-label="Desde"
-              style={{ maxWidth: 160 }}
             />
             <Form.Control
               type="date"
+              className="admin-list-date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
               aria-label="Hasta"
-              style={{ maxWidth: 160 }}
             />
             <div className="admin-list-filter">
               <Select<string>
