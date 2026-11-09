@@ -112,6 +112,22 @@ html.lepra-legacy-ui .modal .lucide {
   height: 1.15em;
 }
 
+/* El .modal .btn mete padding grande. Este botón es un cuadrado del alto del input;
+   con ese padding el ícono de la papelera queda recortado a un punto. */
+html.lepra-legacy-ui .modal .abastecimiento-line-remove {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 !important;
+  line-height: 1;
+}
+
+html.lepra-legacy-ui .modal .abastecimiento-line-remove svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+
 html.lepra-legacy-ui .modal .lepra-select__control {
   min-height: 44px !important;
   font-size: 1.05rem;
