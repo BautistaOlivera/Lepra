@@ -747,6 +747,15 @@ body {
   width: 100%;
   font-size: inherit;
 }
+
+.abastecimiento-line-remove {
+  width: calc(1.5em + 0.75rem + 2px);
+  height: calc(1.5em + 0.75rem + 2px);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .lepra-select__menu,
 .lepra-select__menu-portal {
   z-index: 1060;

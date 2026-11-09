@@ -72,7 +72,6 @@ export function AbastecimientoModal({ show, onClose, editing, suppliers }: Abast
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(false)
   const [productModalOpen, setProductModalOpen] = useState(false)
-  const [lineForNewProduct, setLineForNewProduct] = useState<number | null>(null)
 
   const isEditing = !!editing
 
@@ -86,7 +85,6 @@ export function AbastecimientoModal({ show, onClose, editing, suppliers }: Abast
     setNote(editing?.note || '')
     setLines(editing?.lines?.length ? editing.lines.map(lineToDraft) : [])
     setProductModalOpen(false)
-    setLineForNewProduct(null)
   }, [editing, show])
 
   useEffect(() => {
@@ -169,21 +167,13 @@ export function AbastecimientoModal({ show, onClose, editing, suppliers }: Abast
     )
   }
 
-  function openNewProduct(index: number | null) {
-    setLineForNewProduct(index)
+  function openNewProduct() {
     setProductModalOpen(true)
   }
 
   function handleProductCreated(product: Product) {
     setProducts((prev) => (prev.some((p) => p.id === product.id) ? prev : [...prev, product]))
-    setLines((prev) => {
-      if (lineForNewProduct == null || !prev[lineForNewProduct]) {
-        return [...prev, { ...emptyLine(), id_product: product.id }]
-      }
-      return prev.map((line, i) =>
-        i === lineForNewProduct ? { ...line, id_product: product.id, price: '', amount: '' } : line,
-      )
-    })
+    setLines((prev) => [...prev, { ...emptyLine(), id_product: product.id }])
   }
 
   function buildPayload(): PurchaseWrite | null {
@@ -361,7 +351,7 @@ export function AbastecimientoModal({ show, onClose, editing, suppliers }: Abast
               <div className="d-flex justify-content-between align-items-center mt-4 mb-2">
                 <h3 className="h6 mb-0">Productos (opcional)</h3>
                 <div className="d-flex gap-2">
-                  <Button type="button" variant="outline-dark" size="sm" onClick={() => openNewProduct(null)}>
+                  <Button type="button" variant="outline-dark" size="sm" onClick={openNewProduct}>
                     <Plus size={16} className="me-1" aria-hidden /> Nuevo producto
                   </Button>
                   <Button
@@ -427,30 +417,19 @@ export function AbastecimientoModal({ show, onClose, editing, suppliers }: Abast
                           }
                         />
                       </Form.Group>
-                      <div className="col-6 col-md-2">
+                      <div className="col-auto">
                         <Form.Label className="small invisible" aria-hidden="true">
-                          Acciones
+                          &nbsp;
                         </Form.Label>
-                        <div className="d-flex gap-1">
-                        <Button
-                          type="button"
-                          variant="outline-dark"
-                          size="sm"
-                          className="flex-grow-1"
-                          onClick={() => openNewProduct(index)}
-                        >
-                          Nuevo
-                        </Button>
                         <Button
                           type="button"
                           variant="outline-danger"
-                          size="sm"
+                          className="abastecimiento-line-remove"
                           onClick={() => setLines((prev) => prev.filter((_, i) => i !== index))}
                           aria-label="Quitar línea"
                         >
                           <Trash2 size={16} />
                         </Button>
-                        </div>
                       </div>
                     </div>
                   </div>
