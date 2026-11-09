@@ -27,6 +27,8 @@ import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 const supplierColumns = createColumnHelper<Supplier>()
 const purchaseColumns = createColumnHelper<Purchase>()
 
+type ProveedoresSection = 'purchases' | 'suppliers'
+
 function SyncBadge({ pending, id }: { pending: boolean; id: number }) {
   if (id < 0 || pending) return <Badge bg="warning">Pendiente</Badge>
   return <CheckCircle2 size={18} className="text-success" aria-label="Sincronizado" />
@@ -35,6 +37,7 @@ function SyncBadge({ pending, id }: { pending: boolean; id: number }) {
 export function Proveedores() {
   const confirm = useConfirm()
   const { suppliers: pendingSuppliers, purchases: pendingPurchases, refresh: refreshPending } = useOutboxPending()
+  const [section, setSection] = useState<ProveedoresSection>('purchases')
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [supplierOptions, setSupplierOptions] = useState<Supplier[]>([])
@@ -337,10 +340,31 @@ export function Proveedores() {
         </span>
       </AdminPageHero>
 
-      <section className="mb-5">
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <h2 className="h5 mb-0">Proveedores</h2>
-        </div>
+      <div className="btn-group mb-3" role="tablist" aria-label="Sección">
+        <Button
+          type="button"
+          role="tab"
+          aria-selected={section === 'purchases'}
+          variant={section === 'purchases' ? 'primary' : 'outline-dark'}
+          className={section === 'purchases' ? 'btn-lepra' : undefined}
+          onClick={() => setSection('purchases')}
+        >
+          Abastecimientos
+        </Button>
+        <Button
+          type="button"
+          role="tab"
+          aria-selected={section === 'suppliers'}
+          variant={section === 'suppliers' ? 'primary' : 'outline-dark'}
+          className={section === 'suppliers' ? 'btn-lepra' : undefined}
+          onClick={() => setSection('suppliers')}
+        >
+          Proveedores
+        </Button>
+      </div>
+
+      {section === 'suppliers' ? (
+      <section>
         <div className="admin-list-toolbar">
           <InputGroup className="admin-list-search">
             <InputGroup.Text>
@@ -446,9 +470,8 @@ export function Proveedores() {
           </div>
         )}
       </section>
-
+      ) : (
       <section>
-        <h2 className="h5 mb-2">Abastecimientos</h2>
         <div className="admin-list-toolbar">
           <InputGroup className="admin-list-search">
             <InputGroup.Text>
@@ -586,6 +609,7 @@ export function Proveedores() {
           </div>
         )}
       </section>
+      )}
 
       {supplierModalOpen && (
         <ProveedorModal show onClose={closeSupplierModal} editing={editingSupplier} />
