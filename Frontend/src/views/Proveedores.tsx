@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Badge, Button, Card, Form, InputGroup } from 'react-bootstrap'
-import { CheckCircle2, Pencil, Plus, Search, Trash2, Truck } from 'lucide-react'
+import { Calendar, CheckCircle2, Pencil, Plus, Search, Trash2, Truck } from 'lucide-react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { LoadingCenter } from '@/components/LoadingOverlay'
 import { DataTable } from '@/components/DataTable'
 import { Select } from '@/components/Select'
 import { AdminFilterResetButton } from '@/components/AdminFilterResetButton'
+import { DateInputAr } from '@/components/DateInputAr'
 import { AdminPageHero } from '@/components/AdminPageHero'
 import { ProveedorModal } from '@/components/modals/ProveedorModal'
 import { AbastecimientoModal } from '@/components/modals/AbastecimientoModal'
@@ -500,7 +501,30 @@ export function Proveedores() {
               aria-label="Buscar abastecimiento"
             />
           </InputGroup>
-          <div className="admin-list-filters-row">
+          <div className="admin-list-dates-row">
+            <InputGroup className="admin-list-date-field">
+              <InputGroup.Text>
+                <Calendar size={16} aria-hidden />
+              </InputGroup.Text>
+              <DateInputAr
+                value={dateFrom}
+                onChange={setDateFrom}
+                aria-label="Desde"
+              />
+            </InputGroup>
+            <span className="admin-list-dates-sep" aria-hidden>–</span>
+            <InputGroup className="admin-list-date-field">
+              <InputGroup.Text>
+                <Calendar size={16} aria-hidden />
+              </InputGroup.Text>
+              <DateInputAr
+                value={dateTo}
+                onChange={setDateTo}
+                aria-label="Hasta"
+              />
+            </InputGroup>
+          </div>
+          <div className="admin-list-filters-row admin-list-filters-row--stack">
             <div className="admin-list-filter">
               <Select<number>
                 options={[{ value: 0, label: 'Todos los proveedores' }, ...supplierOptions.map((s) => ({ value: s.id, label: s.name }))]}
@@ -509,20 +533,6 @@ export function Proveedores() {
                 placeholder="Proveedor"
               />
             </div>
-            <Form.Control
-              type="date"
-              className="admin-list-date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              aria-label="Desde"
-            />
-            <Form.Control
-              type="date"
-              className="admin-list-date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              aria-label="Hasta"
-            />
             <div className="admin-list-filter">
               <Select<string>
                 options={[
@@ -567,17 +577,23 @@ export function Proveedores() {
               ) : (
                 purchases.map((purchase) => (
                   <Card key={purchase.id} className="card-lepra admin-list-card mb-3">
-                    <Card.Body className="p-3">
-                      <div className="d-flex justify-content-between gap-2">
-                        <div>
-                          <div className="fw-semibold">{purchase.supplier_name || 'Proveedor'}</div>
+                    <Card.Body className="px-3 py-2">
+                      <div className="d-flex justify-content-between align-items-start gap-2">
+                        <div className="min-w-0">
+                          <div className="d-flex align-items-center gap-2">
+                            <div className="fw-semibold text-truncate">{purchase.supplier_name || 'Proveedor'}</div>
+                            <span className="flex-shrink-0">
+                              <SyncBadge id={purchase.id} pending={pendingPurchases.has(purchase.id)} />
+                            </span>
+                          </div>
                           <div className="text-muted small">{formatDateFromApi(purchase.date)}</div>
-                          <div className="mt-1">{formatMoneyWithSymbol(purchase.total)}</div>
-                          <div className="mt-1">
+                          <div className="d-flex align-items-center gap-2 mt-1">
+                            <span>{formatMoneyWithSymbol(purchase.total)}</span>
                             {(purchase.lines?.length ?? 0) > 0 ? (
                               <Button
                                 variant="outline-dark"
                                 size="sm"
+                                className="py-0"
                                 onClick={() => setSummaryPurchase(purchase)}
                               >
                                 Resumen
@@ -586,13 +602,10 @@ export function Proveedores() {
                               <span className="text-muted small">Sin productos</span>
                             )}
                           </div>
-                          {purchase.note && <div className="small mt-1">{purchase.note}</div>}
-                          <div className="mt-2">
-                            <SyncBadge id={purchase.id} pending={pendingPurchases.has(purchase.id)} />
-                          </div>
+                          {purchase.note && <div className="small mt-1 text-truncate">{purchase.note}</div>}
                         </div>
                         {purchase.active && (
-                          <div className="d-flex gap-1">
+                          <div className="d-flex align-items-start gap-1 flex-shrink-0">
                             <Button
                               variant="outline-dark"
                               size="sm"

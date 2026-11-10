@@ -2596,6 +2596,14 @@ body {
     gap: 0.5rem;
   }
 
+  .admin-list-filters-row--stack {
+    flex-wrap: wrap;
+  }
+
+  .admin-list-filters-row--stack > .admin-list-filter:first-child {
+    flex: 1 1 100%;
+  }
+
   .admin-list-filter {
     flex: 1 1 0;
     min-width: 0;
@@ -2630,6 +2638,18 @@ body {
 
   .admin-list-dates-sep {
     display: none;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .admin-list-date-field > .input-group-text {
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
+  }
+
+  .admin-list-date-field .form-control {
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
   }
 }
 
