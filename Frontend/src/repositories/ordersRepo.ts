@@ -3,7 +3,7 @@ import { getOrdersPaginated } from '@/api/order'
 import { lepraDb } from '@/offline/db'
 import { parseUtcFromApi } from '@/lib/dateApi'
 import { endOfIsoDayMs, startOfIsoDayMs } from '@/lib/formatDate'
-import { isAdminUser } from '@/offline/admin'
+import { getStoredUser, isEmployeeUser, isStaffUser } from '@/offline/admin'
 import { isOnlineNow } from '@/offline/network'
 import { hasPendingOrderMutation } from '@/offline/outbox'
 import { clampLimit, toOfflinePage } from './pagination'
@@ -30,6 +30,21 @@ function filterOrders(all: Order[], filters: Record<string, unknown> = {}): Orde
       const t = o.created_at ? (parseUtcFromApi(o.created_at)?.getTime() ?? 0) : 0
       return t >= from && t <= to
     })
+  }
+
+  if (isEmployeeUser()) {
+    const me = getStoredUser()?.id
+    items = items.filter((o) => o.created_by === me)
+  } else if (filters.created_by != null && String(filters.created_by).trim() !== '') {
+    const token = String(filters.created_by).trim().toLowerCase()
+    if (token === 'admin') {
+      items = items.filter(
+        (o) => o.created_by == null || (o.created_by_rol || '').toUpperCase() === 'ADMIN',
+      )
+    } else {
+      const id = Number(token)
+      if (Number.isFinite(id)) items = items.filter((o) => o.created_by === id)
+    }
   }
 
   return items
@@ -64,7 +79,7 @@ export async function getOrdersPaginatedOfflineFirst(
     return res
   }
 
-  if (!isAdminUser()) {
+  if (!isStaffUser()) {
     return { error: { status: 0, message: 'Sin conexión' } }
   }
 

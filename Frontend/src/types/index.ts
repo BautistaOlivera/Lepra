@@ -86,6 +86,10 @@ export interface Order {
   status: 'PENDING' | 'FULFILLED' | 'CANCELED'
   active: boolean
   lines?: OrderProduct[]
+  /** Usuario del panel que cargó el pedido. null = pedido viejo o de catálogo. */
+  created_by?: number | null
+  created_by_name?: string | null
+  created_by_rol?: string | null
 }
 
 export interface Supplier {
@@ -131,6 +135,8 @@ export interface PaginatedFilters {
   date_from?: string
   date_to?: string
   id_supplier?: number
+  /** Filtro de pedidos: "admin" o el id del empleado. */
+  created_by?: number | string
 }
 
 export interface PaginatedRequest<T = PaginatedFilters> {
@@ -142,6 +148,18 @@ export interface PaginatedRequest<T = PaginatedFilters> {
 export interface PaginatedResponse<T> {
   items: T[]
   next_cursor: number | null
+}
+
+export interface SalaryMonth {
+  id: number
+  id_user: number
+  year: number
+  month: number
+  paid: boolean
+  amount?: number | null
+  paid_at?: string | null
+  note?: string | null
+  updated_at?: string | null
 }
 
 export interface AuthUser {

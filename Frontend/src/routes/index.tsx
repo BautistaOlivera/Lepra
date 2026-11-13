@@ -13,6 +13,13 @@ import { Productos } from '@/views/Productos'
 import { Pedidos } from '@/views/Pedidos'
 import { Estadisticas } from '@/views/Estadisticas'
 import { Proveedores } from '@/views/Proveedores'
+import { Empleados } from '@/views/Empleados'
+import { isAdminUser } from '@/offline/admin'
+
+function AdminOnly({ children }: { children: React.ReactNode }) {
+  if (!isAdminUser()) return <Navigate to="/admin/pedidos" replace />
+  return <>{children}</>
+}
 
 export function AppRoutes() {
   return (
@@ -39,8 +46,30 @@ export function AppRoutes() {
           <Route path="clientes" element={<Clientes />} />
           <Route path="productos" element={<Productos />} />
           <Route path="pedidos" element={<Pedidos />} />
-          <Route path="proveedores" element={<Proveedores />} />
-          <Route path="estadisticas" element={<Estadisticas />} />
+          <Route
+            path="proveedores"
+            element={
+              <AdminOnly>
+                <Proveedores />
+              </AdminOnly>
+            }
+          />
+          <Route
+            path="estadisticas"
+            element={
+              <AdminOnly>
+                <Estadisticas />
+              </AdminOnly>
+            }
+          />
+          <Route
+            path="empleados"
+            element={
+              <AdminOnly>
+                <Empleados />
+              </AdminOnly>
+            }
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

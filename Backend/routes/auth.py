@@ -109,7 +109,7 @@ async def login(req: Request, credentials: LoginRequest):
 @auth.get("/me")
 async def get_me(req: Request):
     """Obtener el usuario autenticado."""
-    payload = require_roles(req.headers, ["CLIENT", "ADMIN"])
+    payload = require_roles(req.headers, ["CLIENT", "ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 

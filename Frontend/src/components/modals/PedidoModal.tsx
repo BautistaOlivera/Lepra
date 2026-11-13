@@ -17,6 +17,7 @@ import { nextTempId } from '@/offline/ids'
 import { formatMoneyWithSymbol } from '@/lib/formatMoney'
 import { formatWeight, hasWeight, parseWeightInput } from '@/lib/formatWeight'
 import { buildQuickClientEmail, buildQuickClientPassword, findUserByClientQuery } from '@/lib/quickClient'
+import { getStoredUser } from '@/offline/admin'
 import {
   isFixedWeightProduct,
   lineTotal,
@@ -533,6 +534,9 @@ export function PedidoModal({ show, onClose, onDraftChange, order = null }: Pedi
             id_user: idUser,
             customer_name: null,
             user_name: displayName,
+            created_by: getStoredUser()?.id ?? null,
+            created_by_name: getStoredUser()?.name || getStoredUser()?.email || 'Admin',
+            created_by_rol: getStoredUser()?.rol ?? null,
             total,
             extra_amount: extraPayloadAmount,
             extra_note: extraPayloadNote,

@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { Order, Product, Purchase, Supplier, User } from '@/types'
+import type { Order, Product, Purchase, SalaryMonth, Supplier, User } from '@/types'
 
 export type MetaRow = {
   key:
@@ -8,6 +8,7 @@ export type MetaRow = {
     | 'orders_lastSync'
     | 'suppliers_lastSync'
     | 'purchases_lastSync'
+    | 'salaries_lastSync'
   value: number
 }
 
@@ -31,6 +32,7 @@ export type OutboxCommandType =
   | 'PURCHASE_CREATE'
   | 'PURCHASE_UPDATE'
   | 'PURCHASE_DEACTIVATE'
+  | 'SALARY_UPSERT'
 
 export type OutboxRow = {
   id: string
@@ -56,6 +58,7 @@ export class LepraDB extends Dexie {
   orders!: Table<Order, number>
   suppliers!: Table<Supplier, number>
   purchases!: Table<Purchase, number>
+  salaryMonths!: Table<SalaryMonth, number>
   meta!: Table<MetaRow, string>
   outbox!: Table<OutboxRow, string>
   idmap!: Table<IdMapRow, [string, number]>
@@ -102,6 +105,18 @@ export class LepraDB extends Dexie {
       orders: 'id, id_user, user_name, status, active, created_at',
       suppliers: 'id, name, active',
       purchases: 'id, id_supplier, date, active',
+      meta: 'key',
+      outbox: 'id, status, nextAttemptAt, createdAt, type',
+      idmap: '[entity+tempId], realId, createdAt',
+    })
+
+    this.version(6).stores({
+      users: 'id, email, name, rol, active',
+      products: 'id, name, brand, category, active, has_tiered_pricing',
+      orders: 'id, id_user, user_name, status, active, created_at, created_by',
+      suppliers: 'id, name, active',
+      purchases: 'id, id_supplier, date, active',
+      salaryMonths: 'id, id_user, year, month, [id_user+year+month]',
       meta: 'key',
       outbox: 'id, status, nextAttemptAt, createdAt, type',
       idmap: '[entity+tempId], realId, createdAt',

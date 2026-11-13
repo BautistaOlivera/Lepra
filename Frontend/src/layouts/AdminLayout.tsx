@@ -39,7 +39,11 @@ export function AdminLayout() {
 
   useEffect(() => {
     getAdminLastSync()
-      .then((st) => setLastSync(Math.max(st.users, st.products, st.orders, st.suppliers, st.purchases)))
+      .then((st) =>
+        setLastSync(
+          Math.max(st.users, st.products, st.orders, st.suppliers, st.purchases, st.salaries),
+        ),
+      )
       .catch(() => {})
     refreshOutboxCounts()
   }, [online])
@@ -109,11 +113,12 @@ export function AdminLayout() {
           res.productsUpserted +
           res.ordersUpserted +
           res.suppliersUpserted +
-          res.purchasesUpserted
+          res.purchasesUpserted +
+          res.salariesUpserted
         toast.success(
           total === 0
             ? 'Sin cambios'
-            : `Sincronizado: ${total} cambios (U:${res.usersUpserted} P:${res.productsUpserted} O:${res.ordersUpserted} Prov:${res.suppliersUpserted} Ab:${res.purchasesUpserted})`
+            : `Sincronizado: ${total} cambios (U:${res.usersUpserted} P:${res.productsUpserted} O:${res.ordersUpserted} Prov:${res.suppliersUpserted} Ab:${res.purchasesUpserted} S:${res.salariesUpserted})`
         )
       } else if (out.processed === 0) {
         toast.success('Ya estás sincronizado')

@@ -21,6 +21,7 @@ export const OUTBOX_TYPE_LABELS: Record<OutboxCommandType, string> = {
   PURCHASE_CREATE: 'Crear abastecimiento',
   PURCHASE_UPDATE: 'Editar abastecimiento',
   PURCHASE_DEACTIVATE: 'Desactivar abastecimiento',
+  SALARY_UPSERT: 'Registrar sueldo',
 }
 
 export function outboxTypeLabel(type: OutboxCommandType): string {
@@ -120,6 +121,13 @@ export function outboxPayloadSummary(r: OutboxRow): string {
     }
     case 'PURCHASE_DEACTIVATE':
       return p?.id != null ? `Abastecimiento n.º ${p.id}` : ''
+    case 'SALARY_UPSERT': {
+      const data = p?.data
+      const month = data?.month
+      const year = data?.year
+      const paid = data?.paid ? 'pagado' : 'impago'
+      return [month && year ? `${month}/${year}` : '', paid].filter(Boolean).join(' · ')
+    }
     default:
       return ''
   }

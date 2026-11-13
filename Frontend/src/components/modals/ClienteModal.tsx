@@ -15,18 +15,28 @@ interface ClienteModalProps {
   show: boolean
   onClose: (refresh?: boolean) => void
   editingUser: User | null
+  /** Si viene, el rol no se puede cambiar (cliente o empleado). */
+  lockedRol?: 'CLIENT' | 'EMPLOYEE'
+  noun?: string
 }
 
-export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) {
+export function ClienteModal({
+  show,
+  onClose,
+  editingUser,
+  lockedRol,
+  noun = 'cliente',
+}: ClienteModalProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirm, setPasswordConfirm] = useState('')
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
-  const [rol, setRol] = useState<'CLIENT' | 'ADMIN'>('CLIENT')
+  const [rol, setRol] = useState<'CLIENT' | 'ADMIN' | 'EMPLOYEE'>(lockedRol ?? 'CLIENT')
   const [loading, setLoading] = useState(false)
 
   const isEditing = !!editingUser
+  const nounCap = noun.charAt(0).toUpperCase() + noun.slice(1)
 
   const passwordMismatchCreate =
     !isEditing && passwordConfirm.length > 0 && password !== passwordConfirm
@@ -44,16 +54,16 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
       setPasswordConfirm('')
       setName(editingUser.name || '')
       setLocation(editingUser.location || '')
-      setRol(editingUser.rol as 'CLIENT' | 'ADMIN')
+      setRol((lockedRol ?? editingUser.rol) as 'CLIENT' | 'ADMIN' | 'EMPLOYEE')
     } else {
       setEmail('')
       setPassword('')
       setPasswordConfirm('')
       setName('')
       setLocation('')
-      setRol('CLIENT')
+      setRol(lockedRol ?? 'CLIENT')
     }
-  }, [editingUser, show])
+  }, [editingUser, show, lockedRol])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -75,6 +85,7 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
     }
     setLoading(true)
     const emailTrimmed = email.trim()
+    const rolToSave = lockedRol ?? rol
     if (isEditing) {
       if (!isOnlineNow()) {
         const patch = {
@@ -83,14 +94,14 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
           password: password || undefined,
           name: name || undefined,
           location: location || undefined,
-          rol,
+          rol: rolToSave,
         }
         await enqueueCommand('USER_UPDATE', patch)
         await lepraDb.users.update(editingUser!.id, {
           email: emailTrimmed,
           name: name || null,
           location: location || null,
-          rol,
+          rol: rolToSave,
         })
         toast.success('Cambio guardado (pendiente de sincronizar)')
         setLoading(false)
@@ -103,11 +114,11 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
         password: password || undefined,
         name: name || undefined,
         location: location || undefined,
-        rol,
+        rol: rolToSave,
       })
       if (error) toast.error(error.message)
       else {
-        toast.success('Cliente actualizado')
+        toast.success(`${nounCap} actualizado`)
         setLoading(false)
         onClose(true)
         return
@@ -122,7 +133,7 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
           email,
           name: name || null,
           location: location || null,
-          rol,
+          rol: rolToSave,
           active: true,
         } as any)
         toast.success('Usuario creado (pendiente de sincronizar)')
@@ -133,7 +144,7 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
       const { error } = await createUser({ email, password, name: name || undefined, location: location || undefined, rol })
       if (error) toast.error(error.message)
       else {
-        toast.success('Cliente creado')
+        toast.success(`${nounCap} creado`)
         setLoading(false)
         onClose(true)
         return
@@ -145,7 +156,7 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
   return (
     <LepraModal show={show} onClose={() => onClose()} busy={loading}>
       <Modal.Header closeButton={!loading} className="border-dark">
-        <Modal.Title>{isEditing ? 'Editar cliente' : 'Agregar cliente'}</Modal.Title>
+        <Modal.Title>{isEditing ? `Editar ${noun}` : `Agregar ${noun}`}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <ModalBusyFrame busy={loading} message={isEditing ? 'Guardando cambios...' : 'Creando cliente...'}>
@@ -201,19 +212,22 @@ export function ClienteModal({ show, onClose, editingUser }: ClienteModalProps) 
             <Form.Label>Ubicación</Form.Label>
             <Form.Control value={location} onChange={(e) => setLocation(e.target.value)} />
           </Form.Group>
+          {lockedRol ? null : (
           <Form.Group className="mb-3">
             <Form.Label>Rol</Form.Label>
             <Select<string>
               options={[
                 { value: 'CLIENT', label: 'Cliente' },
+                { value: 'EMPLOYEE', label: 'Empleado' },
                 { value: 'ADMIN', label: 'Administrador' },
               ]}
               value={rol}
-              onChange={(v) => v != null && setRol(v as 'CLIENT' | 'ADMIN')}
+              onChange={(v) => v != null && setRol(v as 'CLIENT' | 'ADMIN' | 'EMPLOYEE')}
               placeholder="Seleccionar rol..."
               isSearchable={false}
             />
           </Form.Group>
+          )}
               <div className="d-flex justify-content-end gap-2">
                 <ModalDismissButton disabled={loading}>Cancelar</ModalDismissButton>
                 <Button type="submit" className="btn-lepra" disabled={loading || cannotSubmitPassword}>

@@ -7,6 +7,7 @@ import { login } from '@/api/auth'
 import toast from 'react-hot-toast'
 import { markOnlineAuth } from '@/offline/authGrace'
 import { retryFailed } from '@/offline/outbox'
+import { resetLocalSessionIfUserChanged } from '@/offline/session'
 
 const CHEESE_BG = 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=800&q=80'
 
@@ -27,12 +28,17 @@ export function Login() {
       return
     }
     if (data) {
+      const rol = (data.user.rol || '').toUpperCase()
+      const isStaff = rol === 'ADMIN' || rol === 'EMPLOYEE'
+      try {
+        await resetLocalSessionIfUserChanged(data.user.id)
+      } catch {
+        // Dexie no disponible — ignorar
+      }
       localStorage.setItem('lepra_token', data.access_token)
       localStorage.setItem('lepra_user', JSON.stringify(data.user))
       markOnlineAuth()
-      if (data.user.rol === 'ADMIN') {
-        // Destraba ítems de la cola que hayan quedado 'failed' (p. ej. por
-        // sesión expirada) para que el sync del AdminLayout los reenvíe.
+      if (isStaff) {
         try {
           await retryFailed()
         } catch {
@@ -41,8 +47,7 @@ export function Login() {
       }
       toast.success('¡Bienvenido!')
       const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
-      const isAdmin = data.user.rol === 'ADMIN'
-      const target = isAdmin
+      const target = isStaff
         ? '/admin'
         : from && from !== '/login'
           ? from

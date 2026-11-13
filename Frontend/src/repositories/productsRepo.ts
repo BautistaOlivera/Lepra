@@ -1,7 +1,7 @@
 import type { PaginatedRequest, PaginatedResponse, Product } from '@/types'
 import { getProductsPaginated } from '@/api/product'
 import { lepraDb } from '@/offline/db'
-import { isAdminUser } from '@/offline/admin'
+import { isStaffUser } from '@/offline/admin'
 import { isOnlineNow } from '@/offline/network'
 import { clampLimit, toOfflinePage } from './pagination'
 import { mergeProductForCache } from '@/lib/productMerge'
@@ -56,7 +56,7 @@ export async function getProductsPaginatedOfflineFirst(
     return res
   }
 
-  if (!isAdminUser()) {
+  if (!isStaffUser()) {
     return { error: { status: 0, message: 'Sin conexión' } }
   }
 

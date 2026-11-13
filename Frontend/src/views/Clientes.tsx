@@ -18,11 +18,15 @@ import { useOutboxPending } from '@/offline/useOutboxPending'
 import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 import { useConfirm } from '@/context/ConfirmContext'
 import { AdminPageHero } from '@/components/AdminPageHero'
+import { isEmployeeUser } from '@/offline/admin'
 
 const columnHelper = createColumnHelper<User>()
 
 function displayRolLabel(rol: string): string {
-  if (rol.toUpperCase() === 'CLIENT') return 'CLIENTE'
+  const value = rol.toUpperCase()
+  if (value === 'CLIENT') return 'CLIENTE'
+  if (value === 'EMPLOYEE') return 'EMPLEADO'
+  if (value === 'ADMIN') return 'ADMIN'
   return rol
 }
 
@@ -45,6 +49,7 @@ export function Clientes() {
   const [rolFilter, setRolFilter] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<boolean | null>(true)
   const { users: pendingUsers, refresh: refreshPending } = useOutboxPending()
+  const employee = isEmployeeUser()
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 300)
@@ -55,7 +60,8 @@ export function Clientes() {
     setLoading(true)
     const filters: Record<string, unknown> = {}
     if (searchDebounced.trim()) filters.search = searchDebounced.trim()
-    if (rolFilter) filters.rol = rolFilter
+    if (employee) filters.rol = 'CLIENT'
+    else if (rolFilter) filters.rol = rolFilter
     if (activeFilter !== null) filters.active = activeFilter
     const { data } = await getUsersPaginatedOfflineFirst({
       limit: 20,
@@ -67,7 +73,7 @@ export function Clientes() {
       setNextCursor(data.next_cursor)
     }
     setLoading(false)
-  }, [searchDebounced, rolFilter, activeFilter])
+  }, [searchDebounced, rolFilter, activeFilter, employee])
 
   useEffect(() => {
     loadUsers()
@@ -138,7 +144,9 @@ export function Clientes() {
         const rol = info.getValue()
         return (
           <div className="text-center">
-            <Badge bg={rol === 'ADMIN' ? 'dark' : 'secondary'}>{displayRolLabel(rol)}</Badge>
+            <Badge bg={rol === 'ADMIN' ? 'dark' : rol === 'EMPLOYEE' ? 'warning' : 'secondary'}>
+              {displayRolLabel(rol)}
+            </Badge>
           </div>
         )
       },
@@ -212,11 +220,13 @@ export function Clientes() {
         </InputGroup>
 
         <div className="admin-list-filters-row">
+          {employee ? null : (
           <div className="admin-list-filter">
             <Select<string>
               options={[
                 { value: '', label: 'Todos los roles' },
                 { value: 'CLIENT', label: 'Cliente' },
+                { value: 'EMPLOYEE', label: 'Empleado' },
                 { value: 'ADMIN', label: 'Administrador' },
               ]}
               value={rolFilter ?? ''}
@@ -225,6 +235,7 @@ export function Clientes() {
               isSearchable={false}
             />
           </div>
+          )}
           <div className="admin-list-filter">
             <Select<string>
               options={[
@@ -293,7 +304,9 @@ export function Clientes() {
                     )}
 
                     <div className="d-flex flex-wrap gap-2 align-items-center">
-                      <Badge bg={u.rol === 'ADMIN' ? 'dark' : 'secondary'}>{u.rol}</Badge>
+                      <Badge bg={u.rol === 'ADMIN' ? 'dark' : u.rol === 'EMPLOYEE' ? 'warning' : 'secondary'}>
+                        {displayRolLabel(u.rol)}
+                      </Badge>
                       {u.active ? (
                         <Badge bg="success">Activo</Badge>
                       ) : (
@@ -327,7 +340,12 @@ export function Clientes() {
       )}
 
       {modalOpen && (
-        <ClienteModal show onClose={onModalClose} editingUser={editingUser} />
+        <ClienteModal
+          show
+          onClose={onModalClose}
+          editingUser={editingUser}
+          lockedRol={employee ? 'CLIENT' : undefined}
+        />
       )}
     </div>
   )

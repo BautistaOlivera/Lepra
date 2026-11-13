@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, useMatch } from 'react-router-dom'
 import { Container, Navbar } from 'react-bootstrap'
-import { LayoutDashboard, Users, Package, ClipboardList, BarChart3, Truck } from 'lucide-react'
+import { LayoutDashboard, Users, Package, ClipboardList, BarChart3, Truck, Wallet } from 'lucide-react'
+import { isAdminUser } from '@/offline/admin'
 
 function AdminNavItem({
   to,
@@ -27,12 +28,13 @@ function AdminNavItem({
 }
 
 const ADMIN_QUICK_LINKS = [
-  { to: '/admin', end: true, icon: LayoutDashboard, label: 'Admin' },
-  { to: '/admin/clientes', end: false, icon: Users, label: 'Clientes' },
-  { to: '/admin/productos', end: false, icon: Package, label: 'Productos' },
-  { to: '/admin/pedidos', end: false, icon: ClipboardList, label: 'Pedidos' },
-  { to: '/admin/proveedores', end: false, icon: Truck, label: 'Proveedores' },
-  { to: '/admin/estadisticas', end: false, icon: BarChart3, label: 'Estadísticas' },
+  { to: '/admin', end: true, icon: LayoutDashboard, label: 'Admin', adminOnly: false },
+  { to: '/admin/clientes', end: false, icon: Users, label: 'Clientes', adminOnly: false },
+  { to: '/admin/productos', end: false, icon: Package, label: 'Productos', adminOnly: false },
+  { to: '/admin/pedidos', end: false, icon: ClipboardList, label: 'Pedidos', adminOnly: false },
+  { to: '/admin/proveedores', end: false, icon: Truck, label: 'Proveedores', adminOnly: true },
+  { to: '/admin/estadisticas', end: false, icon: BarChart3, label: 'Estadísticas', adminOnly: true },
+  { to: '/admin/empleados', end: false, icon: Wallet, label: 'Empleados', adminOnly: true },
 ] as const
 
 type LepraNavbarProps = {
@@ -51,6 +53,10 @@ export function LepraNavbar({
   const [expanded, setExpanded] = useState(false)
   const closeNav = () => setExpanded(false)
   const isCatalogHome = !!useMatch({ path: '/', end: true })
+  const admin = showAdminLink && isAdminUser()
+  const quickLinks = ADMIN_QUICK_LINKS.filter((link) => admin || !link.adminOnly).map((link) =>
+    link.to === '/admin' && !admin ? { ...link, label: 'Inicio' } : link,
+  )
 
   return (
     <Navbar
@@ -90,7 +96,7 @@ export function LepraNavbar({
             className="lepra-navbar-mobile-quick d-lg-none"
             aria-label="Acceso rápido admin"
           >
-            {ADMIN_QUICK_LINKS.map(({ to, end, icon: Icon, label }) => (
+            {quickLinks.map(({ to, end, icon: Icon, label }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -118,24 +124,11 @@ export function LepraNavbar({
         <Navbar.Collapse id={collapseId} className="lepra-navbar-collapse flex-lg-grow-1">
           {showAdminLink && (
             <div className="navbar-nav lepra-navbar-primary me-auto flex-wrap">
-              <AdminNavItem to="/admin" end onNavigate={closeNav}>
-                <LayoutDashboard size={18} className="me-1" aria-hidden /> Admin
-              </AdminNavItem>
-              <AdminNavItem to="/admin/clientes" onNavigate={closeNav}>
-                <Users size={18} className="me-1" aria-hidden /> Clientes
-              </AdminNavItem>
-              <AdminNavItem to="/admin/productos" onNavigate={closeNav}>
-                <Package size={18} className="me-1" aria-hidden /> Productos
-              </AdminNavItem>
-              <AdminNavItem to="/admin/pedidos" onNavigate={closeNav}>
-                <ClipboardList size={18} className="me-1" aria-hidden /> Pedidos
-              </AdminNavItem>
-              <AdminNavItem to="/admin/proveedores" onNavigate={closeNav}>
-                <Truck size={18} className="me-1" aria-hidden /> Proveedores
-              </AdminNavItem>
-              <AdminNavItem to="/admin/estadisticas" onNavigate={closeNav}>
-                <BarChart3 size={18} className="me-1" aria-hidden /> Estadísticas
-              </AdminNavItem>
+              {quickLinks.map(({ to, end, icon: Icon, label }) => (
+                <AdminNavItem key={to} to={to} end={end} onNavigate={closeNav}>
+                  <Icon size={18} className="me-1" aria-hidden /> {label}
+                </AdminNavItem>
+              ))}
             </div>
           )}
           <div className="navbar-nav lepra-navbar-nav ms-lg-auto align-items-lg-center gap-lg-2">

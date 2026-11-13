@@ -46,4 +46,5 @@ from models.order import (
     InputOrderPaymentCreate,
     PAYMENT_METHODS,
 )
+from models.salary import EmployeeSalaryMonth, InputSalaryMonth
 from models.pagination import InputPaginatedRequestFilter

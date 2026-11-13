@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { Order, Product, Purchase, Supplier, User } from '@/types'
+import type { Order, Product, Purchase, SalaryMonth, Supplier, User } from '@/types'
 
 export type SyncResponse<T> = {
   serverTime: number
@@ -24,5 +24,9 @@ export async function syncSuppliers(since: number) {
 
 export async function syncPurchases(since: number) {
   return api<SyncResponse<Purchase>>(`/sync/purchases?since=${encodeURIComponent(String(since || 0))}`)
+}
+
+export async function syncSalaries(since: number) {
+  return api<SyncResponse<SalaryMonth>>(`/sync/salaries?since=${encodeURIComponent(String(since || 0))}`)
 }
 

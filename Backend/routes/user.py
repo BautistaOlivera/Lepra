@@ -10,11 +10,17 @@ from auth.security import hash_password
 
 user_router = APIRouter(prefix="/user", tags=["User"])
 
+STAFF_ROLES = ["ADMIN", "EMPLOYEE"]
+
+
+def _role(payload: dict) -> str:
+    return str(payload.get("role", "")).upper()
+
 
 @user_router.post("/paginated")
 async def get_users_paginated(req: Request, body: InputPaginatedRequestFilter):
-    """Lista paginada de usuarios. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    """Lista paginada. ADMIN: todos. EMPLOYEE: solo clientes."""
+    payload = require_roles(req.headers, STAFF_ROLES)
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -24,6 +30,7 @@ async def get_users_paginated(req: Request, body: InputPaginatedRequestFilter):
     search = (filters.get("search") or "").strip()
     role_filter = filters.get("rol") or filters.get("role")
     active_filter = filters.get("active")
+    actor = _role(payload)
 
     async with AsyncSessionLocal() as session:
         stmt = select(User)
@@ -31,7 +38,9 @@ async def get_users_paginated(req: Request, body: InputPaginatedRequestFilter):
             stmt = stmt.where(
                 User.email.ilike(f"%{search}%") | User.name.ilike(f"%{search}%")
             )
-        if role_filter:
+        if actor == "EMPLOYEE":
+            stmt = stmt.where(User.rol == "CLIENT")
+        elif role_filter:
             stmt = stmt.where(User.rol == str(role_filter).upper())
         if active_filter is True:
             stmt = stmt.where(User.active.is_(True))
@@ -67,13 +76,13 @@ async def get_users_paginated(req: Request, body: InputPaginatedRequestFilter):
 
 @user_router.get("/{user_id}")
 async def get_user(req: Request, user_id: int):
-    """Obtener usuario por id. ADMIN: cualquiera. CLIENT: solo el propio."""
-    payload = require_roles(req.headers, ["CLIENT", "ADMIN"])
+    """Obtener usuario por id. ADMIN: cualquiera. EMPLOYEE: solo clientes. CLIENT: el propio."""
+    payload = require_roles(req.headers, ["CLIENT", "ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
     current_id = int(payload["sub"])
-    role = payload.get("role", "").upper()
+    role = _role(payload)
     if role == "CLIENT" and current_id != user_id:
         return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
 
@@ -83,6 +92,8 @@ async def get_user(req: Request, user_id: int):
         u = result.scalar_one_or_none()
         if not u:
             return JSONResponse(status_code=404, content={"message": "Usuario no encontrado"})
+        if role == "EMPLOYEE" and (u.rol or "").upper() != "CLIENT":
+            return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
 
         return JSONResponse(
             status_code=200,
@@ -99,10 +110,14 @@ async def get_user(req: Request, user_id: int):
 
 @user_router.post("/create")
 async def create_user(req: Request, body: InputUser):
-    """Crear usuario. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    """Crear usuario. ADMIN: cualquier rol. EMPLOYEE: solo clientes."""
+    payload = require_roles(req.headers, STAFF_ROLES)
     if isinstance(payload, JSONResponse):
         return payload
+
+    requested_rol = (body.rol or "").upper()
+    if _role(payload) == "EMPLOYEE" and requested_rol != "CLIENT":
+        return JSONResponse(status_code=403, content={"message": "Solo podés crear clientes"})
 
     try:
         async with AsyncSessionLocal() as session:
@@ -140,10 +155,12 @@ async def create_user(req: Request, body: InputUser):
 
 @user_router.put("/update")
 async def update_user(req: Request, body: InputUserUpdate):
-    """Actualizar usuario. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    """Actualizar usuario. ADMIN: cualquiera. EMPLOYEE: solo clientes, sin cambiar el rol."""
+    payload = require_roles(req.headers, STAFF_ROLES)
     if isinstance(payload, JSONResponse):
         return payload
+
+    actor = _role(payload)
 
     try:
         async with AsyncSessionLocal() as session:
@@ -152,6 +169,11 @@ async def update_user(req: Request, body: InputUserUpdate):
             u = result.scalar_one_or_none()
             if not u:
                 return JSONResponse(status_code=404, content={"message": "Usuario no encontrado"})
+            if actor == "EMPLOYEE":
+                if (u.rol or "").upper() != "CLIENT":
+                    return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
+                if body.rol is not None and body.rol.upper() != "CLIENT":
+                    return JSONResponse(status_code=403, content={"message": "No podés cambiar el rol"})
 
             if body.email is not None:
                 new_email = body.email.strip()
@@ -182,8 +204,8 @@ async def update_user(req: Request, body: InputUserUpdate):
 
 @user_router.put("/{user_id}/deactivate")
 async def deactivate_user(req: Request, user_id: int):
-    """Baja lógica de usuario. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    """Baja lógica de usuario. ADMIN: cualquiera. EMPLOYEE: solo clientes."""
+    payload = require_roles(req.headers, STAFF_ROLES)
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -193,6 +215,8 @@ async def deactivate_user(req: Request, user_id: int):
         u = result.scalar_one_or_none()
         if not u:
             return JSONResponse(status_code=404, content={"message": "Usuario no encontrado"})
+        if _role(payload) == "EMPLOYEE" and (u.rol or "").upper() != "CLIENT":
+            return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
         u.active = False
         await session.commit()
         return JSONResponse(status_code=200, content={"message": "Usuario desactivado"})

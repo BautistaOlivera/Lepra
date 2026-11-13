@@ -11,6 +11,7 @@ from models.product import Product
 from models.order import Order
 from models.supplier import Supplier
 from models.purchase import Purchase, PurchaseLine
+from models.salary import EmployeeSalaryMonth
 from utils.datetime_api import utc_naive_iso
 from services.purchase_present import purchase_dict, supplier_dict
 
@@ -29,13 +30,16 @@ def _since_ms_to_dt(since_ms: int | None) -> datetime:
 
 @sync_router.get("/users")
 async def sync_users(req: Request, since: int | None = None):
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
+    role = str(payload.get("role", "")).upper()
     since_dt = _since_ms_to_dt(since)
     async with AsyncSessionLocal() as session:
         stmt = select(User).where(User.updated_at > since_dt)
+        if role == "EMPLOYEE":
+            stmt = stmt.where(User.rol == "CLIENT")
         result = await session.execute(stmt)
         items = result.scalars().all()
 
@@ -62,7 +66,7 @@ async def sync_users(req: Request, since: int | None = None):
 
 @sync_router.get("/products")
 async def sync_products(req: Request, since: int | None = None):
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -112,10 +116,12 @@ async def sync_products(req: Request, since: int | None = None):
 
 @sync_router.get("/orders")
 async def sync_orders(req: Request, since: int | None = None):
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
+    role = str(payload.get("role", "")).upper()
+    user_id = int(payload["sub"])
     since_dt = _since_ms_to_dt(since)
     async with AsyncSessionLocal() as session:
         stmt = (
@@ -124,9 +130,12 @@ async def sync_orders(req: Request, since: int | None = None):
             .options(
                 selectinload(Order.order_products),
                 selectinload(Order.user),
+                selectinload(Order.creator),
                 selectinload(Order.payments),
             )
         )
+        if role == "EMPLOYEE":
+            stmt = stmt.where(Order.created_by == user_id)
         result = await session.execute(stmt)
         items = result.scalars().unique().all()
 
@@ -148,6 +157,13 @@ async def sync_orders(req: Request, since: int | None = None):
                             else None
                         )
                     ),
+                    "created_by": o.created_by,
+                    "created_by_name": (
+                        "Admin"
+                        if o.creator is None or o.created_by is None
+                        else ((o.creator.name or "").strip() or (o.creator.email or "").strip() or "Admin")
+                    ),
+                    "created_by_rol": o.creator.rol if o.creator is not None and o.created_by is not None else None,
                     "total": o.total,
                     "date": o.date.isoformat() if o.date else None,
                     "created_at": utc_naive_iso(o.created_at),
@@ -194,6 +210,42 @@ async def sync_orders(req: Request, since: int | None = None):
                 }
                 for o in items
             ],
+        },
+    )
+
+
+def _salary_dict(row: EmployeeSalaryMonth) -> dict:
+    return {
+        "id": row.id,
+        "id_user": row.id_user,
+        "year": row.year,
+        "month": row.month,
+        "paid": bool(row.paid),
+        "amount": float(row.amount) if row.amount is not None else None,
+        "paid_at": row.paid_at.isoformat() if row.paid_at else None,
+        "note": (row.note or "").strip() or None,
+        "updated_at": utc_naive_iso(row.updated_at),
+    }
+
+
+@sync_router.get("/salaries")
+async def sync_salaries(req: Request, since: int | None = None):
+    payload = require_roles(req.headers, ["ADMIN"])
+    if isinstance(payload, JSONResponse):
+        return payload
+
+    since_dt = _since_ms_to_dt(since)
+    async with AsyncSessionLocal() as session:
+        stmt = select(EmployeeSalaryMonth).where(EmployeeSalaryMonth.updated_at > since_dt)
+        result = await session.execute(stmt)
+        items = result.scalars().all()
+
+    server_time = int(datetime.now(timezone.utc).timestamp() * 1000)
+    return JSONResponse(
+        status_code=200,
+        content={
+            "serverTime": server_time,
+            "items": [_salary_dict(row) for row in items],
         },
     )
 

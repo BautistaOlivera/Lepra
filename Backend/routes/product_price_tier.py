@@ -17,7 +17,7 @@ tier_router = APIRouter(prefix="/product-price-tier", tags=["ProductPriceTier"])
 @tier_router.post("/create")
 async def create_tier(req: Request, body: InputProductPriceTier):
     """Crear precio por volumen. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -40,7 +40,7 @@ async def create_tier(req: Request, body: InputProductPriceTier):
 @tier_router.put("/update")
 async def update_tier(req: Request, body: InputProductPriceTierUpdate):
     """Actualizar precio por volumen. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -65,7 +65,7 @@ async def update_tier(req: Request, body: InputProductPriceTierUpdate):
 @tier_router.delete("/{tier_id}")
 async def delete_tier(req: Request, tier_id: int):
     """Eliminar precio por volumen (borrado físico). Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 

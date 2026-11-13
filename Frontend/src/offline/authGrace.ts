@@ -1,5 +1,5 @@
 import { isOnlineNow } from '@/offline/network'
-import { isAdminUser } from '@/offline/admin'
+import { isStaffUser } from '@/offline/admin'
 
 // Permite entrar offline al admin si hubo login online "reciente".
 // Ajustable según necesidad.
@@ -16,7 +16,7 @@ export function markOnlineAuth() {
 
 export function isOfflineAdminGraceAllowed(): boolean {
   if (isOnlineNow()) return false
-  if (!isAdminUser()) return false
+  if (!isStaffUser()) return false
   const token = localStorage.getItem('lepra_token')
   if (!token) return false
   const last = Number(localStorage.getItem('lepra_lastOnlineAuthAt') || '0')

@@ -27,6 +27,9 @@ import { releaseBootstrapModalLock } from '@/lib/bootstrapModal'
 import { AdminPageHero } from '@/components/AdminPageHero'
 import { useConfirm } from '@/context/ConfirmContext'
 import { hasPedidoDraft } from '@/lib/pedidoDraft'
+import { isAdminUser } from '@/offline/admin'
+import { getUsersPaginatedOfflineFirst } from '@/repositories/usersRepo'
+import type { User } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendiente',
@@ -67,6 +70,9 @@ export function Pedidos() {
   const [statusFilter, setStatusFilter] = useState<string | null>(
     statusParam && statusParam in STATUS_LABELS ? statusParam : null,
   )
+  const [creatorFilter, setCreatorFilter] = useState<string>('')
+  const [employees, setEmployees] = useState<User[]>([])
+  const admin = isAdminUser()
 
   function changeStatusFilter(v: string | null) {
     setStatusFilter(v)
@@ -87,6 +93,7 @@ export function Pedidos() {
     if (dateFrom) filters.date_from = dateFrom
     if (dateTo) filters.date_to = dateTo
     if (statusFilter) filters.status = statusFilter
+    if (admin && creatorFilter) filters.created_by = creatorFilter === 'admin' ? 'admin' : Number(creatorFilter)
     const { data } = await getOrdersPaginatedOfflineFirst({
       limit: 20,
       last_seen_id: lastId ?? null,
@@ -97,11 +104,20 @@ export function Pedidos() {
       setNextCursor(data.next_cursor)
     }
     setLoading(false)
-  }, [searchDebounced, dateFrom, dateTo, statusFilter])
+  }, [searchDebounced, dateFrom, dateTo, statusFilter, creatorFilter, admin])
 
   useEffect(() => {
     loadOrders()
   }, [loadOrders])
+
+  useEffect(() => {
+    if (!admin) return
+    getUsersPaginatedOfflineFirst({ limit: 100, filters: { rol: 'EMPLOYEE', active: true } })
+      .then((res) => {
+        if (res.data) setEmployees(res.data.items)
+      })
+      .catch(() => {})
+  }, [admin])
 
   async function handleStatusChange(orderId: number, newStatus: string) {
     if (orderId < 0) {
@@ -201,6 +217,7 @@ export function Pedidos() {
     setDateFrom('')
     setDateTo('')
     changeStatusFilter(null)
+    setCreatorFilter('')
   }
 
   const columns = [
@@ -229,6 +246,14 @@ export function Pedidos() {
       header: 'Fecha',
       cell: (info) => formatDateFromApi(info.row.original.created_at || info.row.original.date),
     }),
+    ...(admin
+      ? [
+          columnHelper.accessor('created_by_name', {
+            header: 'Creado por',
+            cell: (info) => info.getValue() || 'Admin',
+          }),
+        ]
+      : []),
     columnHelper.accessor('status', {
       header: 'Estado',
       cell: (info) => (
@@ -331,6 +356,27 @@ export function Pedidos() {
           <AdminFilterResetButton onClick={clearFilters} />
         </div>
 
+        {admin ? (
+          <div className="admin-list-filters-row">
+            <div className="admin-list-filter admin-list-filter-wide">
+              <Select<string>
+                options={[
+                  { value: '', label: 'Todos los creadores' },
+                  { value: 'admin', label: 'Admin' },
+                  ...employees.map((employee) => ({
+                    value: String(employee.id),
+                    label: employee.name || employee.email || `Empleado ${employee.id}`,
+                  })),
+                ]}
+                value={creatorFilter}
+                onChange={(v) => setCreatorFilter(v || '')}
+                placeholder="Creado por"
+                isSearchable={employees.length > 8}
+              />
+            </div>
+          </div>
+        ) : null}
+
         <Button className="btn-lepra admin-list-add-btn" onClick={() => setAddModalOpen(true)}>
           <Plus size={18} className="me-1" aria-hidden />{' '}
           {pedidoDraftActive ? 'Continuar pedido' : 'Nuevo pedido'}
@@ -371,6 +417,9 @@ export function Pedidos() {
                         <div className="admin-list-pedido-tile-customer">
                           {orderCustomerLabel(o)}
                         </div>
+                        {admin ? (
+                          <div className="small text-muted">Creado por {o.created_by_name || 'Admin'}</div>
+                        ) : null}
 
                         <div className="admin-list-pedido-tile-meta">
                           <span>{idLabel}</span>

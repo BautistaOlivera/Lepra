@@ -1,7 +1,7 @@
 import { lepraDb } from './db'
-import { isAdminUser } from './admin'
+import { isAdminUser, isStaffUser } from './admin'
 import { isOnlineNow } from './network'
-import { syncOrders, syncProducts, syncPurchases, syncSuppliers, syncUsers } from '@/api/sync'
+import { syncOrders, syncProducts, syncPurchases, syncSalaries, syncSuppliers, syncUsers } from '@/api/sync'
 import { mergeProductForCache } from '@/lib/productMerge'
 import type { Product } from '@/types'
 import { hasPendingOrderMutation, hasPendingPurchaseMutation, hasPendingSupplierMutation } from './outbox'
@@ -14,11 +14,18 @@ export type AdminSyncResult = {
   ordersUpserted: number
   suppliersUpserted: number
   purchasesUpserted: number
+  salariesUpserted: number
   serverTime: number
   ran: boolean
 }
 
-type SyncKey = 'users_lastSync' | 'products_lastSync' | 'orders_lastSync' | 'suppliers_lastSync' | 'purchases_lastSync'
+type SyncKey =
+  | 'users_lastSync'
+  | 'products_lastSync'
+  | 'orders_lastSync'
+  | 'suppliers_lastSync'
+  | 'purchases_lastSync'
+  | 'salaries_lastSync'
 
 async function getLastSync(key: SyncKey): Promise<number> {
   const row = await lepraDb.meta.get(key)
@@ -35,15 +42,17 @@ export async function getAdminLastSync(): Promise<{
   orders: number
   suppliers: number
   purchases: number
+  salaries: number
 }> {
-  const [users, products, orders, suppliers, purchases] = await Promise.all([
+  const [users, products, orders, suppliers, purchases, salaries] = await Promise.all([
     getLastSync('users_lastSync'),
     getLastSync('products_lastSync'),
     getLastSync('orders_lastSync'),
     getLastSync('suppliers_lastSync'),
     getLastSync('purchases_lastSync'),
+    getLastSync('salaries_lastSync'),
   ])
-  return { users, products, orders, suppliers, purchases }
+  return { users, products, orders, suppliers, purchases, salaries }
 }
 
 const EMPTY_SYNC: AdminSyncResult = {
@@ -52,37 +61,42 @@ const EMPTY_SYNC: AdminSyncResult = {
   ordersUpserted: 0,
   suppliersUpserted: 0,
   purchasesUpserted: 0,
+  salariesUpserted: 0,
   serverTime: 0,
   ran: false,
 }
 
 export async function runAdminIncrementalSync(opts?: { force?: boolean }): Promise<AdminSyncResult> {
-  if (!isAdminUser() || !isOnlineNow()) {
+  if (!isStaffUser() || !isOnlineNow()) {
     return { ...EMPTY_SYNC, serverTime: Date.now() }
   }
 
+  const admin = isAdminUser()
   const force = Boolean(opts?.force)
 
-  const [lu, lp, lo, ls, lpu] = await Promise.all([
+  const [lu, lp, lo, ls, lpu, lsal] = await Promise.all([
     getLastSync('users_lastSync'),
     getLastSync('products_lastSync'),
     getLastSync('orders_lastSync'),
     getLastSync('suppliers_lastSync'),
     getLastSync('purchases_lastSync'),
+    getLastSync('salaries_lastSync'),
   ])
 
   const now = Date.now()
-  const oldest = Math.min(lu || now, lp || now, lo || now, ls || now, lpu || now)
+  const stamps = admin ? [lu, lp, lo, ls, lpu, lsal] : [lu, lp, lo]
+  const oldest = Math.min(...stamps.map((v) => v || now))
   if (!force && now - oldest < TTL_MS) {
     return { ...EMPTY_SYNC, serverTime: now }
   }
 
-  const [usersRes, productsRes, ordersRes, suppliersRes, purchasesRes] = await Promise.all([
+  const [usersRes, productsRes, ordersRes, suppliersRes, purchasesRes, salariesRes] = await Promise.all([
     syncUsers(lu),
     syncProducts(lp),
     syncOrders(lo),
-    syncSuppliers(ls),
-    syncPurchases(lpu),
+    admin ? syncSuppliers(ls) : Promise.resolve({ data: undefined }),
+    admin ? syncPurchases(lpu) : Promise.resolve({ data: undefined }),
+    admin ? syncSalaries(lsal) : Promise.resolve({ data: undefined }),
   ])
 
   let usersUpserted = 0
@@ -90,6 +104,7 @@ export async function runAdminIncrementalSync(opts?: { force?: boolean }): Promi
   let ordersUpserted = 0
   let suppliersUpserted = 0
   let purchasesUpserted = 0
+  let salariesUpserted = 0
   let serverTime = Date.now()
 
   if (usersRes.data) {
@@ -154,6 +169,24 @@ export async function runAdminIncrementalSync(opts?: { force?: boolean }): Promi
     purchasesUpserted = putCount
     serverTime = Math.max(serverTime, purchasesRes.data.serverTime)
   }
+  if (salariesRes.data) {
+    const pendingRows = await lepraDb.outbox.toArray()
+    const pendingKeys = new Set<string>()
+    for (const row of pendingRows) {
+      if (row.status === 'done' || row.type !== 'SALARY_UPSERT') continue
+      const data = (row.payload as { data?: { id_user?: number; year?: number; month?: number } } | null)?.data
+      if (data?.id_user != null) pendingKeys.add(`${data.id_user}:${data.year}:${data.month}`)
+    }
+    let putCount = 0
+    for (const item of salariesRes.data.items) {
+      if (pendingKeys.has(`${item.id_user}:${item.year}:${item.month}`)) continue
+      await lepraDb.salaryMonths.put(item)
+      putCount++
+    }
+    await setLastSync('salaries_lastSync', salariesRes.data.serverTime)
+    salariesUpserted = putCount
+    serverTime = Math.max(serverTime, salariesRes.data.serverTime)
+  }
 
   return {
     usersUpserted,
@@ -161,6 +194,7 @@ export async function runAdminIncrementalSync(opts?: { force?: boolean }): Promi
     ordersUpserted,
     suppliersUpserted,
     purchasesUpserted,
+    salariesUpserted,
     serverTime,
     ran: true,
   }

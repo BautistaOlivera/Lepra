@@ -15,3 +15,14 @@ export function isAdminUser(): boolean {
   return (u?.rol || '').toUpperCase() === 'ADMIN'
 }
 
+export function isEmployeeUser(): boolean {
+  const u = getStoredUser()
+  return (u?.rol || '').toUpperCase() === 'EMPLOYEE'
+}
+
+/** Admin o empleado: entran al panel y sincronizan clientes, productos y pedidos. */
+export function isStaffUser(): boolean {
+  const rol = (getStoredUser()?.rol || '').toUpperCase()
+  return rol === 'ADMIN' || rol === 'EMPLOYEE'
+}
+

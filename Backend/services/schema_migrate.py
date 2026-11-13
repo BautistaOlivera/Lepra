@@ -173,6 +173,32 @@ def _apply_additive(conn) -> None:
         CREATE INDEX IF NOT EXISTS ix_order_payments_id_order
         ON order_payments (id_order)
         """,
+        """
+        ALTER TABLE IF EXISTS orders
+        ADD COLUMN IF NOT EXISTS created_by INTEGER NULL REFERENCES users(id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_orders_created_by
+        ON orders (created_by)
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS employee_salary_months (
+            id SERIAL PRIMARY KEY,
+            id_user INTEGER NOT NULL REFERENCES users(id),
+            year INTEGER NOT NULL,
+            month INTEGER NOT NULL,
+            paid BOOLEAN NOT NULL DEFAULT FALSE,
+            amount DOUBLE PRECISION NULL,
+            paid_at DATE NULL,
+            note VARCHAR NULL,
+            updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            CONSTRAINT uq_salary_user_month UNIQUE (id_user, year, month)
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_salary_user_year
+        ON employee_salary_months (id_user, year)
+        """,
     ]
     for stmt in stmts:
         conn.execute(text(stmt))

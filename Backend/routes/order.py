@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, or_
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import aliased, selectinload
 from models.user import User
 import traceback
 
@@ -104,12 +104,35 @@ def _payments_summary(order: Order) -> dict:
     }
 
 
+def _is_panel(role: str) -> bool:
+    return role in ("ADMIN", "EMPLOYEE")
+
+
+def _creator_fields(o: Order) -> dict:
+    creator = o.creator
+    if creator is None or o.created_by is None:
+        return {"created_by": o.created_by, "created_by_name": "Admin", "created_by_rol": None}
+    name = (creator.name or "").strip() or (creator.email or "").strip() or "Admin"
+    return {
+        "created_by": o.created_by,
+        "created_by_name": name,
+        "created_by_rol": creator.rol,
+    }
+
+
+def _employee_denied(order: Order, role: str, user_id: int):
+    if role == "EMPLOYEE" and order.created_by != user_id:
+        return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
+    return None
+
+
 def _order_payload(o: Order) -> dict:
     return {
         "id": o.id,
         "id_user": o.id_user,
         "customer_name": o.customer_name,
         "user_name": _order_display_name(o),
+        **_creator_fields(o),
         "total": o.total,
         "date": o.date.isoformat() if o.date else None,
         "created_at": utc_naive_iso(o.created_at),
@@ -188,8 +211,8 @@ def _build_admin_line(
 
 @order_router.post("/paginated")
 async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
-    """Lista paginada de pedidos. CLIENT: solo los propios. ADMIN: todos."""
-    payload = require_roles(req.headers, ["CLIENT", "ADMIN"])
+    """Lista paginada de pedidos. CLIENT: los suyos como cliente. EMPLOYEE: los que creó. ADMIN: todos."""
+    payload = require_roles(req.headers, ["CLIENT", "ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -208,10 +231,28 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
         stmt = select(Order).options(
             selectinload(Order.order_products).selectinload(OrderProduct.product),
             selectinload(Order.user),
+            selectinload(Order.creator),
             selectinload(Order.payments),
         )
         if role == "CLIENT":
             stmt = stmt.where(Order.id_user == user_id)
+        elif role == "EMPLOYEE":
+            stmt = stmt.where(Order.created_by == user_id)
+        else:
+            created_by = filters.get("created_by")
+            if created_by is not None and str(created_by).strip() != "":
+                token = str(created_by).strip().lower()
+                if token == "admin":
+                    creator_alias = aliased(User)
+                    stmt = stmt.outerjoin(creator_alias, Order.created_by == creator_alias.id)
+                    stmt = stmt.where(
+                        or_(Order.created_by.is_(None), creator_alias.rol == "ADMIN")
+                    )
+                else:
+                    try:
+                        stmt = stmt.where(Order.created_by == int(token))
+                    except (TypeError, ValueError):
+                        pass
         if search:
             stmt = stmt.outerjoin(Order.user)
             stmt = stmt.where(
@@ -262,8 +303,8 @@ async def get_orders_paginated(req: Request, body: InputPaginatedRequestFilter):
 
 @order_router.get("/{order_id}")
 async def get_order(req: Request, order_id: int):
-    """Obtener pedido por id. CLIENT: solo el propio. ADMIN: cualquiera."""
-    payload = require_roles(req.headers, ["CLIENT", "ADMIN"])
+    """Obtener pedido por id. CLIENT: el suyo. EMPLOYEE: si lo creó. ADMIN: cualquiera."""
+    payload = require_roles(req.headers, ["CLIENT", "ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -274,6 +315,7 @@ async def get_order(req: Request, order_id: int):
         stmt = select(Order).where(Order.id == order_id).options(
             selectinload(Order.order_products).selectinload(OrderProduct.product),
             selectinload(Order.user),
+            selectinload(Order.creator),
             selectinload(Order.payments),
         )
         result = await session.execute(stmt)
@@ -282,6 +324,9 @@ async def get_order(req: Request, order_id: int):
             return JSONResponse(status_code=404, content={"message": "Pedido no encontrado"})
         if role == "CLIENT" and o.id_user != user_id:
             return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
+        denied = _employee_denied(o, role, user_id)
+        if denied:
+            return denied
 
         return JSONResponse(status_code=200, content=_order_payload(o))
 
@@ -356,8 +401,8 @@ async def create_order_client(req: Request, body: OrderCreateClient):
 
 @order_router.post("/create-admin")
 async def create_order_admin(req: Request, body: OrderCreateAdmin):
-    """Crear pedido como ADMIN. Solo ADMIN. unit_price opcional por línea (si no viene, se calcula)."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    """Crear pedido desde el panel. ADMIN o EMPLOYEE. El creador sale del token."""
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -403,6 +448,7 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
             order = Order(
                 id_user=id_user,
                 customer_name=guest_name,
+                created_by=int(payload["sub"]),
                 date=order_date,
                 payment=body.payment,
                 extra_amount=extra_amount,
@@ -449,8 +495,9 @@ async def create_order_admin(req: Request, body: OrderCreateAdmin):
 @order_router.put("/update")
 async def update_order(req: Request, body: InputOrderUpdate):
     """Actualizar pedido (datos y/o líneas). Si hay lines, se reemplazan y se recalcula total.
-    Edición de líneas / cliente / extras: solo ADMIN. CLIENT puede actualizar payment de los propios."""
-    payload = require_roles(req.headers, ["CLIENT", "ADMIN"])
+    Edición de líneas / cliente / extras: ADMIN o EMPLOYEE (este, solo los que creó).
+    CLIENT puede actualizar payment de los propios."""
+    payload = require_roles(req.headers, ["CLIENT", "ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -467,7 +514,7 @@ async def update_order(req: Request, body: InputOrderUpdate):
         or body.active is not None
         or body.date is not None
     )
-    if touches_admin_fields and role != "ADMIN":
+    if touches_admin_fields and not _is_panel(role):
         # CLIENT solo puede tocar payment de su pedido
         if body.lines is not None or body.id_user is not None or body.customer_name is not None:
             return JSONResponse(status_code=403, content={"message": "Solo el administrador puede editar líneas del pedido"})
@@ -488,8 +535,11 @@ async def update_order(req: Request, body: InputOrderUpdate):
                 return JSONResponse(status_code=404, content={"message": "Pedido no encontrado"})
             if role == "CLIENT" and order.id_user != user_id:
                 return JSONResponse(status_code=403, content={"message": "Acceso denegado"})
+            denied = _employee_denied(order, role, user_id)
+            if denied:
+                return denied
 
-            if role == "ADMIN":
+            if _is_panel(role):
                 changing_client = body.id_user is not None or body.customer_name is not None
                 if changing_client:
                     new_id_user = body.id_user if body.id_user is not None else order.id_user
@@ -543,7 +593,7 @@ async def update_order(req: Request, body: InputOrderUpdate):
                 order.payment = body.payment
 
             if body.lines is not None:
-                if role != "ADMIN":
+                if not _is_panel(role):
                     return JSONResponse(
                         status_code=403,
                         content={"message": "Solo el administrador puede editar líneas del pedido"},
@@ -578,7 +628,7 @@ async def update_order(req: Request, body: InputOrderUpdate):
                     session.add(op)
                     total += contribution
                 order.total = round(total + float(order.extra_amount or 0), 2)
-            elif role == "ADMIN" and (body.extra_amount is not None or body.extra_note is not None):
+            elif _is_panel(role) and (body.extra_amount is not None or body.extra_note is not None):
                 # Recalcular total si solo cambió el extra (sin tocar líneas)
                 lines_total = 0.0
                 product_ids = [op.id_product for op in order.order_products]
@@ -615,8 +665,8 @@ async def update_order(req: Request, body: InputOrderUpdate):
 
 @order_router.post("/{order_id}/payments")
 async def add_order_payment(req: Request, order_id: int, body: InputOrderPaymentCreate):
-    """Registrar un pago parcial. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    """Registrar un pago parcial. ADMIN, o EMPLOYEE si creó el pedido."""
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -651,6 +701,9 @@ async def add_order_payment(req: Request, order_id: int, body: InputOrderPayment
         order = result.scalar_one_or_none()
         if not order:
             return JSONResponse(status_code=404, content={"message": "Pedido no encontrado"})
+        denied = _employee_denied(order, payload.get("role", "").upper(), int(payload["sub"]))
+        if denied:
+            return denied
         if not order.active:
             return JSONResponse(status_code=400, content={"message": "El pedido está desactivado"})
 
@@ -709,8 +762,8 @@ async def add_order_payment(req: Request, order_id: int, body: InputOrderPayment
 
 @order_router.delete("/{order_id}/payments/{payment_id}")
 async def delete_order_payment(req: Request, order_id: int, payment_id: int):
-    """Eliminar un pago del historial. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    """Eliminar un pago del historial. ADMIN, o EMPLOYEE si creó el pedido."""
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -728,6 +781,9 @@ async def delete_order_payment(req: Request, order_id: int, payment_id: int):
         order = result.scalar_one_or_none()
         if not order:
             return JSONResponse(status_code=404, content={"message": "Pedido no encontrado"})
+        denied = _employee_denied(order, payload.get("role", "").upper(), int(payload["sub"]))
+        if denied:
+            return denied
 
         payment = next((p for p in order.payments if p.id == payment_id), None)
         if not payment:
@@ -765,8 +821,8 @@ async def delete_order_payment(req: Request, order_id: int, payment_id: int):
 
 @order_router.put("/{order_id}/deactivate")
 async def deactivate_order(req: Request, order_id: int):
-    """Baja lógica de pedido (active=False). Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    """Baja lógica de pedido (active=False). ADMIN, o EMPLOYEE si lo creó."""
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -776,6 +832,9 @@ async def deactivate_order(req: Request, order_id: int):
         order = result.scalar_one_or_none()
         if not order:
             return JSONResponse(status_code=404, content={"message": "Pedido no encontrado"})
+        denied = _employee_denied(order, payload.get("role", "").upper(), int(payload["sub"]))
+        if denied:
+            return denied
         order.active = False
         await session.commit()
         return JSONResponse(status_code=200, content={"message": "Pedido desactivado"})
@@ -783,8 +842,8 @@ async def deactivate_order(req: Request, order_id: int):
 
 @order_router.put("/{order_id}/status")
 async def set_order_status(req: Request, order_id: int, status: str = ""):
-    """Cambiar estado del pedido (PENDING, FULFILLED, CANCELED). Query: ?status=FULFILLED. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    """Cambiar estado del pedido. ADMIN, o EMPLOYEE si lo creó. Query: ?status=FULFILLED."""
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -798,6 +857,9 @@ async def set_order_status(req: Request, order_id: int, status: str = ""):
         order = result.scalar_one_or_none()
         if not order:
             return JSONResponse(status_code=404, content={"message": "Pedido no encontrado"})
+        denied = _employee_denied(order, payload.get("role", "").upper(), int(payload["sub"]))
+        if denied:
+            return denied
         order.status = status
         await session.commit()
         return JSONResponse(status_code=200, content={"message": f"Estado actualizado a {status}"})

@@ -14,6 +14,7 @@ from routes.order import order_router
 from routes.supplier import supplier_router
 from routes.purchase import purchase_router
 from routes.sync import sync_router
+from routes.salary import salary_router
 from routes.stats import stats_router
 from services.schema_migrate import ensure_schema_sync
 
@@ -44,6 +45,7 @@ lepra.include_router(order_router)
 lepra.include_router(supplier_router)
 lepra.include_router(purchase_router)
 lepra.include_router(sync_router)
+lepra.include_router(salary_router)
 lepra.include_router(stats_router)
 
 

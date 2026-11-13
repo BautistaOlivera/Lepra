@@ -1,7 +1,7 @@
 import type { PaginatedRequest, PaginatedResponse, User } from '@/types'
 import { getUsersPaginated } from '@/api/user'
 import { lepraDb } from '@/offline/db'
-import { isAdminUser } from '@/offline/admin'
+import { isEmployeeUser, isStaffUser } from '@/offline/admin'
 import { isOnlineNow } from '@/offline/network'
 import { clampLimit, toOfflinePage } from './pagination'
 
@@ -26,17 +26,18 @@ export async function getUsersPaginatedOfflineFirst(
   params: PaginatedRequest
 ): Promise<{ data?: PaginatedResponse<User>; error?: { status: number; message: string } }> {
   const limit = clampLimit(params.limit, 20)
-  const filters = (params.filters ?? {}) as Record<string, unknown>
+  const filters = { ...((params.filters ?? {}) as Record<string, unknown>) }
+  if (isEmployeeUser()) filters.rol = 'CLIENT'
 
   if (isOnlineNow()) {
-    const res = await getUsersPaginated({ ...params, limit })
+    const res = await getUsersPaginated({ ...params, limit, filters })
     if (res.data?.items?.length) {
       await lepraDb.users.bulkPut(res.data.items)
     }
     return res
   }
 
-  if (!isAdminUser()) {
+  if (!isStaffUser()) {
     return { error: { status: 0, message: 'Sin conexión' } }
   }
 

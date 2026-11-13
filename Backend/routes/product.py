@@ -100,7 +100,7 @@ async def upload_image(
     brand: str = Form(""),
 ):
     """Subir imagen de producto con logo, nombre y marca. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -226,7 +226,7 @@ async def get_product(req: Request, product_id: int):
 @product_router.post("/create")
 async def create_product(req: Request, body: InputProduct):
     """Crear producto. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -260,7 +260,7 @@ async def create_product(req: Request, body: InputProduct):
 @product_router.put("/update")
 async def update_product(req: Request, body: InputProductUpdate):
     """Actualizar producto. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -305,7 +305,7 @@ async def update_product(req: Request, body: InputProductUpdate):
 @product_router.put("/{product_id}/deactivate")
 async def deactivate_product(req: Request, product_id: int):
     """Baja lógica de producto. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 
@@ -324,7 +324,7 @@ async def deactivate_product(req: Request, product_id: int):
 @product_router.put("/{product_id}/visibility")
 async def set_product_visibility(req: Request, product_id: int, body: InputProductVisibility):
     """Alterna visibilidad en catálogo: active ↔ sin_stock. Solo ADMIN."""
-    payload = require_roles(req.headers, ["ADMIN"])
+    payload = require_roles(req.headers, ["ADMIN", "EMPLOYEE"])
     if isinstance(payload, JSONResponse):
         return payload
 

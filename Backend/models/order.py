@@ -27,7 +27,10 @@ class Order(Base):
     status = Column(String, default="PENDING")
     active = Column(Boolean, default=True)
 
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
     user = relationship("User", back_populates="orders", foreign_keys=[id_user])
+    creator = relationship("User", foreign_keys=[created_by])
     order_products = relationship(
         "OrderProduct",
         back_populates="order",

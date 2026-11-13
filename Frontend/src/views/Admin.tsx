@@ -9,11 +9,13 @@ import { getDashboardStatsHybrid } from '@/repositories/dashboardRepo'
 import { useOnlineStatus } from '@/offline/network'
 import type { DashboardStats } from '@/types/dashboard'
 import { LEPRA_ADMIN_HERO_IMG } from '@/lib/brandingAssets'
+import { isAdminUser } from '@/offline/admin'
 
 export function Admin() {
   const online = useOnlineStatus()
+  const admin = isAdminUser()
   const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(admin)
   const [error, setError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -29,8 +31,33 @@ export function Admin() {
   }, [])
 
   useEffect(() => {
-    load()
-  }, [load, online])
+    if (admin) load()
+  }, [load, online, admin])
+
+  if (!admin) {
+    return (
+      <div
+        className="admin-welcome-banner rounded-3 mb-4 text-white"
+        style={{ backgroundImage: `url(${LEPRA_ADMIN_HERO_IMG})` }}
+      >
+        <div className="admin-welcome-banner-overlay p-3 p-md-4">
+          <h4 className="mb-1">Bienvenido a El Lepra</h4>
+          <p className="mb-0 text-white-50">Tus clientes, productos y pedidos</p>
+          <div className="d-flex flex-column flex-sm-row flex-wrap gap-2 mt-3">
+            <Link to="/admin/clientes" className="btn btn-lepra admin-quick-btn">
+              <Users size={18} className="me-1" aria-hidden /> Clientes
+            </Link>
+            <Link to="/admin/productos" className="btn btn-lepra admin-quick-btn">
+              <Package size={18} className="me-1" aria-hidden /> Productos
+            </Link>
+            <Link to="/admin/pedidos" className="btn btn-lepra admin-quick-btn">
+              <ClipboardList size={18} className="me-1" aria-hidden /> Pedidos
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return <LoadingCenter message="Cargando panel..." />

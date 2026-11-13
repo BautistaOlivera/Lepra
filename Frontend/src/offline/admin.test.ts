@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { getStoredUser, isAdminUser } from './admin'
+import { getStoredUser, isAdminUser, isEmployeeUser, isStaffUser } from './admin'
 
 describe('offline admin helpers', () => {
   beforeEach(() => {
@@ -56,5 +56,22 @@ describe('offline admin helpers', () => {
       })
     )
     expect(isAdminUser()).toBe(false)
+    expect(isStaffUser()).toBe(false)
+    expect(isEmployeeUser()).toBe(false)
+  })
+
+  it('isStaffUser is true for employee', () => {
+    localStorage.setItem(
+      'lepra_user',
+      JSON.stringify({
+        id: 2,
+        email: 'e@b.c',
+        rol: 'EMPLOYEE',
+        active: true,
+      })
+    )
+    expect(isAdminUser()).toBe(false)
+    expect(isEmployeeUser()).toBe(true)
+    expect(isStaffUser()).toBe(true)
   })
 })

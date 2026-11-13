@@ -1,5 +1,5 @@
 import { lepraDb, type OutboxCommandType, type OutboxRow } from './db'
-import { isAdminUser } from './admin'
+import { isStaffUser } from './admin'
 import { isOnlineNow } from './network'
 import { createUser, updateUser, deactivateUser } from '@/api/user'
 import { createProduct, updateProduct, deactivateProduct } from '@/api/product'
@@ -9,6 +9,7 @@ import type { PriceTier } from '@/types'
 import { createOrder, setOrderStatus, updateOrder, addOrderPayment, deleteOrderPayment } from '@/api/order'
 import { createSupplier, updateSupplier, deactivateSupplier } from '@/api/supplier'
 import { createPurchase, updatePurchase, deactivatePurchase } from '@/api/purchase'
+import { upsertSalaryMonth } from '@/api/salary'
 
 function uuid(): string {
   // Suficiente para cola local (no criptográfico)
@@ -637,13 +638,27 @@ async function runCommand(row: OutboxRow): Promise<CommandResult> {
       if (res.data?.purchase) await lepraDb.purchases.put(res.data.purchase)
       return { ok: true }
     }
+    case 'SALARY_UPSERT': {
+      const payload = row.payload as { localId?: number; data?: Record<string, unknown> }
+      const localId = Number(payload?.localId)
+      const res = await upsertSalaryMonth(payload.data as any)
+      if (res.error) return { ok: false, status: res.error.status, message: res.error.message }
+      const saved = res.data?.month
+      if (saved) {
+        if (Number.isFinite(localId) && localId !== saved.id) {
+          await lepraDb.salaryMonths.delete(localId).catch(() => {})
+        }
+        await lepraDb.salaryMonths.put(saved)
+      }
+      return { ok: true }
+    }
     default:
       return { ok: false, message: 'Unknown command' }
   }
 }
 
 export async function processOutbox(opts?: { max?: number }): Promise<ProcessResult> {
-  if (!isAdminUser() || !isOnlineNow()) {
+  if (!isStaffUser() || !isOnlineNow()) {
     return { processed: 0, succeeded: 0, failed: 0 }
   }
 
