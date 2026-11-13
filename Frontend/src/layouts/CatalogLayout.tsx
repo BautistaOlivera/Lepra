@@ -82,6 +82,7 @@ export function CatalogLayout() {
             <>
               <span
                 className={`text-white-50 small lepra-nav-welcome d-none d-lg-inline${isAdmin ? ' lepra-nav-welcome-admin' : ''}`}
+                title={`Bienvenido, ${user.name || user.email}`}
               >
                 Bienvenido, {user.name || user.email}
               </span>

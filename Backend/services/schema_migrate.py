@@ -208,6 +208,72 @@ def _apply_additive(conn) -> None:
     if _column_exists(conn, "order_products", "weight"):
         conn.execute(text("ALTER TABLE order_products ALTER COLUMN weight DROP NOT NULL"))
 
+    _backfill_legacy_order_creator(conn)
+
+
+def _backfill_legacy_order_creator(conn) -> None:
+    """Pedidos anteriores a created_by quedan a nombre del admin.
+
+    Corre una sola vez. Si se repitiera, un pedido de catálogo (sin creador)
+    pasaría a ser del admin en el próximo arranque.
+    """
+    if not _column_exists(conn, "orders", "created_by"):
+        return
+    if not _column_exists(conn, "users", "id"):
+        return
+
+    conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS schema_flags (
+                key VARCHAR PRIMARY KEY
+            )
+            """
+        )
+    )
+    done = conn.execute(
+        text("SELECT 1 FROM schema_flags WHERE key = 'orders_created_by_admin_backfill'")
+    ).scalar()
+    if done:
+        return
+
+    admin_id = conn.execute(
+        text(
+            """
+            SELECT id
+            FROM users
+            WHERE UPPER(rol) = 'ADMIN'
+            ORDER BY id
+            LIMIT 1
+            """
+        )
+    ).scalar()
+    if admin_id is None:
+        return
+
+    conn.execute(
+        text(
+            """
+            UPDATE orders
+            SET created_by = :admin_id,
+                updated_at = :now
+            WHERE created_by IS NULL
+            """
+        ),
+        {"admin_id": admin_id, "now": _utcnow_naive()},
+    )
+    conn.execute(
+        text(
+            "INSERT INTO schema_flags (key) VALUES ('orders_created_by_admin_backfill')"
+        )
+    )
+
+
+def _utcnow_naive():
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
 
 def ensure_schema_sync(engine) -> None:
     """Crea tablas faltantes y aplica los ALTER pendientes. Idempotente."""

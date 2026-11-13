@@ -38,6 +38,46 @@ def test_product_status_backfill_runs_only_while_in_stock_exists():
     assert not any("DROP COLUMN in_stock" in stmt for stmt in done.sql)
 
 
+def test_legacy_order_creator_backfill_runs_once():
+    from services.schema_migrate import _backfill_legacy_order_creator
+
+    class _Scalar:
+        def __init__(self, value):
+            self._value = value
+
+        def scalar(self):
+            return self._value
+
+    class _Conn:
+        def __init__(self):
+            self.sql = []
+            self.flag = None
+            self.admin_id = 3
+
+        def execute(self, clause, params=None):
+            statement = str(clause)
+            self.sql.append(statement)
+            if "information_schema.columns" in statement:
+                return _Scalar(1)
+            if "SELECT 1 FROM schema_flags" in statement:
+                return _Scalar(self.flag)
+            if "SELECT id" in statement:
+                return _Scalar(self.admin_id)
+            if "INSERT INTO schema_flags" in statement:
+                self.flag = 1
+            return _Scalar(None)
+
+    conn = _Conn()
+    _backfill_legacy_order_creator(conn)
+    joined = "\n".join(conn.sql)
+    assert "UPDATE orders" in joined
+    assert "created_by = :admin_id" in joined
+
+    conn.sql.clear()
+    _backfill_legacy_order_creator(conn)
+    assert not any("UPDATE orders" in stmt for stmt in conn.sql)
+
+
 def test_kg_pricing_renames_old_columns_and_leaves_weight_nullable():
     conn = _Conn(
         {

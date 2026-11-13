@@ -65,7 +65,7 @@ export function LepraNavbar({
       onToggle={setExpanded}
       className="navbar-lepra sticky-top"
     >
-      <Container fluid="sm" className="px-3 px-sm-4 lepra-navbar-container">
+      <Container fluid className="px-3 px-lg-4 lepra-navbar-container">
         <NavLink
           to="/"
           end
@@ -123,7 +123,7 @@ export function LepraNavbar({
 
         <Navbar.Collapse id={collapseId} className="lepra-navbar-collapse flex-lg-grow-1">
           {showAdminLink && (
-            <div className="navbar-nav lepra-navbar-primary me-auto flex-wrap">
+            <div className="navbar-nav lepra-navbar-primary me-auto">
               {quickLinks.map(({ to, end, icon: Icon, label }) => (
                 <AdminNavItem key={to} to={to} end={end} onNavigate={closeNav}>
                   <Icon size={18} className="me-1" aria-hidden /> {label}

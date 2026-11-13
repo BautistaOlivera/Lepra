@@ -1101,22 +1101,48 @@ body {
   }
 
   .lepra-navbar-primary {
-    margin-inline-start: 1.5rem;
+    margin-inline-start: 0.75rem;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .lepra-navbar-primary .nav-link {
+    white-space: nowrap;
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
   }
 
   .lepra-navbar-collapse {
     order: 2;
+    min-width: 0;
+    flex-wrap: nowrap;
   }
 
   .lepra-navbar-actions {
     order: 3;
     margin-left: 0;
+    flex-shrink: 0;
   }
 
   .lepra-navbar-nav {
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
+    min-width: 0;
+  }
+
+  .lepra-nav-welcome {
+    display: inline-block;
+    max-width: 11rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+    min-width: 0;
+  }
+
+  .lepra-nav-welcome.lepra-nav-welcome-admin {
+    max-width: 9rem;
   }
 }
 
@@ -1134,12 +1160,13 @@ body {
     margin-right: 0 !important;
   }
 
-  /* El "Bienvenido, ..." del catálogo admin también empujaba la fila */
+  /* Con los accesos del admin, el saludo cede ancho antes de bajar la fila */
   .lepra-nav-welcome.lepra-nav-welcome-admin {
-    max-width: 10rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    max-width: 8rem;
+  }
+
+  .lepra-navbar-primary .nav-link svg {
+    display: none;
   }
 
   /* En el catálogo logueado como admin el contenedor queda en 960/1140px;

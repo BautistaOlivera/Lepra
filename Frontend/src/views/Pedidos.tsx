@@ -71,7 +71,7 @@ export function Pedidos() {
     statusParam && statusParam in STATUS_LABELS ? statusParam : null,
   )
   const [creatorFilter, setCreatorFilter] = useState<string>('')
-  const [employees, setEmployees] = useState<User[]>([])
+  const [creators, setCreators] = useState<User[]>([])
   const admin = isAdminUser()
 
   function changeStatusFilter(v: string | null) {
@@ -93,7 +93,7 @@ export function Pedidos() {
     if (dateFrom) filters.date_from = dateFrom
     if (dateTo) filters.date_to = dateTo
     if (statusFilter) filters.status = statusFilter
-    if (admin && creatorFilter) filters.created_by = creatorFilter === 'admin' ? 'admin' : Number(creatorFilter)
+    if (admin && creatorFilter) filters.created_by = Number(creatorFilter)
     const { data } = await getOrdersPaginatedOfflineFirst({
       limit: 20,
       last_seen_id: lastId ?? null,
@@ -112,9 +112,12 @@ export function Pedidos() {
 
   useEffect(() => {
     if (!admin) return
-    getUsersPaginatedOfflineFirst({ limit: 100, filters: { rol: 'EMPLOYEE', active: true } })
-      .then((res) => {
-        if (res.data) setEmployees(res.data.items)
+    Promise.all([
+      getUsersPaginatedOfflineFirst({ limit: 20, filters: { rol: 'ADMIN', active: true } }),
+      getUsersPaginatedOfflineFirst({ limit: 100, filters: { rol: 'EMPLOYEE', active: true } }),
+    ])
+      .then(([admins, employees]) => {
+        setCreators([...(admins.data?.items ?? []), ...(employees.data?.items ?? [])])
       })
       .catch(() => {})
   }, [admin])
@@ -362,16 +365,15 @@ export function Pedidos() {
               <Select<string>
                 options={[
                   { value: '', label: 'Todos los creadores' },
-                  { value: 'admin', label: 'Admin' },
-                  ...employees.map((employee) => ({
-                    value: String(employee.id),
-                    label: employee.name || employee.email || `Empleado ${employee.id}`,
+                  ...creators.map((creator) => ({
+                    value: String(creator.id),
+                    label: creator.name || creator.email || `Usuario ${creator.id}`,
                   })),
                 ]}
                 value={creatorFilter}
                 onChange={(v) => setCreatorFilter(v || '')}
                 placeholder="Creado por"
-                isSearchable={employees.length > 8}
+                isSearchable={creators.length > 8}
               />
             </div>
           </div>
